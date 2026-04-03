@@ -1,16 +1,28 @@
 {
-  "name": "npmguard",
+  "name": "npmguard-cli",
   "version": "0.1.0",
-  "description": "Check npm packages against NpmGuard audit results before installing",
+  "description": "Check npm packages against NpmGuard security audits on ENS before installing",
   "bin": {
-    "npmguard": "./dist/index.js"
+    "npmguard-cli": "./dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "dev": "tsx src/index.ts"
   },
+  "keywords": [
+    "npm",
+    "security",
+    "audit",
+    "ens",
+    "ipfs",
+    "supply-chain"
+  ],
+  "license": "MIT",
   "dependencies": {
-    "axios": "^1.14.0",
     "chalk": "^5.4.0",
     "cli-table3": "^0.6.5",
     "commander": "^13.1.0",
