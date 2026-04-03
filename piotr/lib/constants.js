@@ -10,7 +10,10 @@ export const ARTIFACTS_DIR = path.join(ROOT_DIR, 'artifacts');
 export const TARBALLS_DIR = path.join(ARTIFACTS_DIR, 'tarballs');
 export const REPORTS_DIR = path.join(ARTIFACTS_DIR, 'reports');
 export const MANIFEST_PATH = path.join(ARTIFACTS_DIR, 'demo-manifest.json');
-export const DEFAULT_GATEWAY_HOST = 'gateway.pinata.cloud';
+export const DEFAULT_GATEWAY_HOST =
+  process.env.PINATA_GATEWAY_HOST ??
+  process.env.SGINSTALL_GATEWAY_HOST ??
+  'gateway.pinata.cloud';
 export const TEXT_RECORD_PREFIX = 'npmguard';
 export const DEFAULT_ROOT_DOMAIN = process.env.NPMGUARD_BASE_DOMAIN ?? 'npmguard.eth';
 export const DEFAULT_ENS_DEPLOYMENTS = {

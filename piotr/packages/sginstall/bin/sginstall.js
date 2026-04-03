@@ -77,16 +77,29 @@ function gatewayTimeoutMs() {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 12000;
 }
 
+function gatewayHeaders() {
+  const token = process.env.PINATA_GATEWAY_TOKEN ?? process.env.SGINSTALL_GATEWAY_TOKEN;
+  if (!token) {
+    return {};
+  }
+
+  return {
+    'x-pinata-gateway-token': token
+  };
+}
+
 async function downloadFile(cid, filePath, gatewayHosts) {
   const errors = [];
   const timeoutMs = gatewayTimeoutMs();
+  const headers = gatewayHeaders();
 
   for (const gatewayHost of gatewayHosts) {
     const url = `https://${gatewayHost}/ipfs/${cid}`;
     console.error(`Trying gateway: ${url} (timeout ${timeoutMs}ms)`);
     try {
       const response = await fetch(url, {
-        signal: AbortSignal.timeout(timeoutMs)
+        signal: AbortSignal.timeout(timeoutMs),
+        headers
       });
       if (!response.ok) {
         console.error(`Gateway failed: ${response.status} ${response.statusText}`);
