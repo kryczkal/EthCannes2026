@@ -6,10 +6,11 @@ from temporalio import workflow
 # So we import our own modules safely here via temporal proxy wrappers if needed
 
 with workflow.unsafe.imports_passed_through():
-    from npmguard.models import AuditReport, CapabilityEnum, Proof, VerdictEnum
+    from npmguard.models import AuditReport, CapabilityEnum, Proof, ResolvedPackage, VerdictEnum
 
 # Import the activity signatures
 from npmguard.activities.fuzzing import fuzz_adversarial
+from npmguard.activities.resolve_package import cleanup_package, resolve_package
 from npmguard.activities.sandbox import analyze_sandbox
 from npmguard.activities.static_analysis import analyze_static
 
@@ -21,33 +22,51 @@ class NpmGuardOrchestrator:
         capabilities: set[CapabilityEnum] = set()
         proofs: list[Proof] = []
 
-        # Layer 1 & 2: Run in parallel since they don't depend on each other initially
-        static_future = workflow.execute_activity(
-            analyze_static,
+        # Step 0: Resolve package name → extracted directory path
+        resolved: ResolvedPackage = await workflow.execute_activity(
+            resolve_package,
             package_name,
-            schedule_to_close_timeout=timedelta(minutes=5),
+            schedule_to_close_timeout=timedelta(minutes=2),
         )
 
-        sandbox_future = workflow.execute_activity(
-            analyze_sandbox,
-            package_name,
-            schedule_to_close_timeout=timedelta(minutes=10),
-        )
+        try:
+            # Layer 1 & 2: Run in parallel
+            # Static analysis gets the resolved path; sandbox resolves names internally
+            static_future = workflow.execute_activity(
+                analyze_static,
+                resolved.path,
+                schedule_to_close_timeout=timedelta(minutes=5),
+            )
 
-        static_caps, static_proofs = await static_future
-        sandbox_caps, sandbox_proofs = await sandbox_future
+            sandbox_future = workflow.execute_activity(
+                analyze_sandbox,
+                package_name,
+                schedule_to_close_timeout=timedelta(minutes=10),
+            )
 
-        capabilities.update(static_caps)
-        capabilities.update(sandbox_caps)
-        proofs.extend(static_proofs)
-        proofs.extend(sandbox_proofs)
+            static_caps, static_proofs = await static_future
+            sandbox_caps, sandbox_proofs = await sandbox_future
 
-        fuzzing_proofs = await workflow.execute_activity(
-            fuzz_adversarial,
-            package_name,
-            schedule_to_close_timeout=timedelta(minutes=15),
-        )
-        proofs.extend(fuzzing_proofs)
+            capabilities.update(static_caps)
+            capabilities.update(sandbox_caps)
+            proofs.extend(static_proofs)
+            proofs.extend(sandbox_proofs)
+
+            # Layer 3: Adversarial fuzzing (sequential)
+            fuzzing_proofs = await workflow.execute_activity(
+                fuzz_adversarial,
+                package_name,
+                schedule_to_close_timeout=timedelta(minutes=15),
+            )
+            proofs.extend(fuzzing_proofs)
+        finally:
+            # Cleanup temp directory if we fetched a real npm package
+            if resolved.needs_cleanup and resolved.tmpdir:
+                await workflow.execute_activity(
+                    cleanup_package,
+                    resolved.tmpdir,
+                    schedule_to_close_timeout=timedelta(seconds=30),
+                )
 
         verdict = VerdictEnum.SAFE
         if len(proofs) > 0:

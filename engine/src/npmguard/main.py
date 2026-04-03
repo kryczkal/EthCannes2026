@@ -7,7 +7,13 @@ import structlog
 from temporalio.client import Client
 from temporalio.worker import Worker
 
-from npmguard.activities import analyze_sandbox, analyze_static, fuzz_adversarial
+from npmguard.activities import (
+    analyze_sandbox,
+    analyze_static,
+    cleanup_package,
+    fuzz_adversarial,
+    resolve_package,
+)
 from npmguard.config import Settings
 from npmguard.exceptions import TemporalConnectionError
 from npmguard._logging import configure_logging
@@ -39,7 +45,7 @@ async def main() -> None:
         client,
         task_queue=settings.task_queue,
         workflows=[NpmGuardOrchestrator],
-        activities=[analyze_static, analyze_sandbox, fuzz_adversarial],
+        activities=[resolve_package, analyze_static, analyze_sandbox, fuzz_adversarial, cleanup_package],
     )
 
     log.info("worker_started", task_queue=settings.task_queue)

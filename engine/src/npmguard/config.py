@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     # Worker
     task_queue: str = "npmguard-task-queue"
 
+    # LLM (static analysis layer)
+    llm_model: str = "claude-sonnet-4-6"
+    llm_base_url: str | None = None  # For 0G Compute or other OpenAI-compatible endpoint
+
     @property
     def temporal_address(self) -> str:
         return f"{self.temporal_host}:{self.temporal_port}"

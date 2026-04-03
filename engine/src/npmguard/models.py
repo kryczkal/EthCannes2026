@@ -8,6 +8,7 @@ __all__ = [
     "AuditReport",
     "CapabilityEnum",
     "Proof",
+    "ResolvedPackage",
     "VerdictEnum",
 ]
 
@@ -52,6 +53,14 @@ class Proof(BaseModel):
     file_line: str  # e.g., "src/index.js:42" or "package.json:scripts.preinstall"
     problem: str  # Contextual string detailing what was found
     proof_data: str  # Concrete evidence
+
+
+class ResolvedPackage(BaseModel):
+    """Result of resolving a package name to a local directory."""
+
+    path: str
+    needs_cleanup: bool = False
+    tmpdir: str | None = None
 
 
 class AuditReport(BaseModel):
