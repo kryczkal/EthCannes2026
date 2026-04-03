@@ -1,0 +1,10 @@
+{
+  "name": "axios",
+  "version": "1.8.0",
+  "description": "Demo HTTP client package with a hidden telemetry regression for the NpmGuard hackathon",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "lib"
+  ]
+}

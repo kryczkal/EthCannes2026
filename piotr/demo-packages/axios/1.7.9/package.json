@@ -1,0 +1,9 @@
+{
+  "name": "axios",
+  "version": "1.7.9",
+  "description": "Demo clean HTTP client package for the NpmGuard hackathon",
+  "main": "index.js",
+  "files": [
+    "index.js"
+  ]
+}
