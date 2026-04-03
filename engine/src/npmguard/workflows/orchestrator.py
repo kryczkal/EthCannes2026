@@ -1,7 +1,7 @@
 from datetime import timedelta
-from typing import List
 
 from temporalio import workflow
+
 # Non-deterministic imports like time, network etc are banned in workflows
 # So we import our own modules safely here via temporal proxy wrappers if needed
 
@@ -9,9 +9,9 @@ with workflow.unsafe.imports_passed_through():
     from npmguard.models import AuditReport, CapabilityEnum, Proof, VerdictEnum
 
 # Import the activity signatures
-from npmguard.activities.static_analysis import analyze_static
-from npmguard.activities.sandbox import analyze_sandbox
 from npmguard.activities.fuzzing import fuzz_adversarial
+from npmguard.activities.sandbox import analyze_sandbox
+from npmguard.activities.static_analysis import analyze_static
 
 
 @workflow.defn
@@ -19,10 +19,9 @@ class NpmGuardOrchestrator:
     @workflow.run
     async def run(self, package_name: str) -> AuditReport:
         capabilities: set[CapabilityEnum] = set()
-        proofs: List[Proof] = []
+        proofs: list[Proof] = []
 
         # Layer 1 & 2: Run in parallel since they don't depend on each other initially
-        # Though Sandbox takes longer, we can launch static analysis simultaneously.
         static_future = workflow.execute_activity(
             analyze_static,
             package_name,

@@ -1,35 +1,44 @@
-import uvicorn
-from contextlib import asynccontextmanager
-from typing import Optional
-import uuid
+"""NpmGuard API — FastAPI endpoint for triggering security scans."""
 
-from fastapi import FastAPI, HTTPException
+import uuid
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
+import structlog
+import uvicorn
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from temporalio.client import Client
 
+from npmguard.config import Settings
+from npmguard.exceptions import TemporalConnectionError
+from npmguard._logging import configure_logging
 from npmguard.models import AuditReport
 from npmguard.workflows.orchestrator import NpmGuardOrchestrator
 
-# Global Temporal client instance
-temporal_client: Optional[Client] = None
+log = structlog.get_logger()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Connect to Temporal on startup
-    global temporal_client
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Connect to Temporal on startup, cleanup on shutdown."""
+    settings = Settings()
+
     from temporalio.contrib.pydantic import pydantic_data_converter
 
     try:
-        temporal_client = await Client.connect(
-            "localhost:7233", data_converter=pydantic_data_converter
+        app.state.temporal_client = await Client.connect(
+            settings.temporal_address, data_converter=pydantic_data_converter
         )
-        print("Connected to Temporal Server.")
-    except Exception as e:
-        print(f"Failed to connect to Temporal: {e}")
+        log.info("connected_to_temporal", address=settings.temporal_address)
+    except Exception as exc:
+        raise TemporalConnectionError(
+            f"Failed to connect to Temporal at {settings.temporal_address}"
+        ) from exc
+
     yield
-    # Cleanup on shutdown
-    print("Shutting down API...")
+
+    log.info("shutting_down_api")
 
 
 app = FastAPI(
@@ -45,25 +54,31 @@ class AuditRequest(BaseModel):
 
 
 @app.post("/audit", response_model=AuditReport)
-async def trigger_audit(request: AuditRequest) -> AuditReport:
-    """
-    Triggers the NpmGuard security analysis pipeline for a given package name.
-    """
+async def trigger_audit(request: AuditRequest, http_request: Request) -> AuditReport:
+    """Trigger the NpmGuard security analysis pipeline for a given package name."""
+    temporal_client: Client | None = getattr(http_request.app.state, "temporal_client", None)
     if not temporal_client:
-        raise HTTPException(status_code=500, detail="Temporal client not connected")
+        raise HTTPException(status_code=503, detail="Temporal client not connected")
 
-    try:
-        # TODO: Return worker id?
-        result = await temporal_client.execute_workflow(
-            NpmGuardOrchestrator.run,
-            request.package_name,
-            id=f"npmguard-{request.package_name}-{uuid.uuid4().hex[:8]}",
-            task_queue="npmguard-task-queue",
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Workflow execution failed: {str(e)}")
+    settings = Settings()
+    workflow_id = f"npmguard-{request.package_name}-{uuid.uuid4().hex[:8]}"
+
+    log.info("triggering_audit", package=request.package_name, workflow_id=workflow_id)
+
+    return await temporal_client.execute_workflow(  # type: ignore[return-value]
+        NpmGuardOrchestrator.run,
+        request.package_name,
+        id=workflow_id,
+        task_queue=settings.task_queue,
+    )
 
 
 if __name__ == "__main__":
-    uvicorn.run("npmguard.api:app", host="0.0.0.0", port=8000, reload=True)
+    configure_logging()
+    settings = Settings()
+    uvicorn.run(
+        "npmguard.api:app",
+        host=settings.api_host,
+        port=settings.api_port,
+        reload=True,
+    )

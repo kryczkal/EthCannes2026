@@ -2,4 +2,11 @@
 NpmGuard Engine - Autonomous npm supply chain security auditor.
 """
 
-__all__ = []
+from npmguard.models import AuditReport, CapabilityEnum, Proof, VerdictEnum
+
+__all__ = [
+    "AuditReport",
+    "CapabilityEnum",
+    "Proof",
+    "VerdictEnum",
+]
