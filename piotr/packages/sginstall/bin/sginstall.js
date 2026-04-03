@@ -55,16 +55,6 @@ function buildGatewayCandidates(preferredGatewayHost) {
   return unique([preferredGatewayHost]);
 }
 
-function gatewayTimeoutMs() {
-  const raw = process.env.SGINSTALL_GATEWAY_TIMEOUT_MS;
-  if (!raw) {
-    return 12000;
-  }
-
-  const parsed = Number.parseInt(raw, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 12000;
-}
-
 function gatewayHeaders() {
   const token = process.env.PINATA_GATEWAY_TOKEN ?? process.env.SGINSTALL_GATEWAY_TOKEN;
   if (!token) {
@@ -92,15 +82,13 @@ function gatewayUrl(cid, gatewayHost) {
 
 async function downloadFile(cid, filePath, gatewayHosts) {
   const errors = [];
-  const timeoutMs = gatewayTimeoutMs();
   const headers = gatewayHeaders();
 
   for (const gatewayHost of gatewayHosts) {
     const url = gatewayUrl(cid, gatewayHost);
-    console.error(`Trying gateway: ${url} (timeout ${timeoutMs}ms)`);
+    console.error(`Trying gateway: ${url}`);
     try {
       const response = await fetch(url, {
-        signal: AbortSignal.timeout(timeoutMs),
         headers
       });
       if (!response.ok) {
