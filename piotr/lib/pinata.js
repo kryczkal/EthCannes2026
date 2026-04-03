@@ -49,53 +49,32 @@ function gatewayUrlWithToken(url) {
   return parsed.toString();
 }
 
-function pinataVerificationOptions() {
-  const attempts = Number.parseInt(process.env.PINATA_VERIFY_ATTEMPTS ?? '8', 10);
-  const delayMs = Number.parseInt(process.env.PINATA_VERIFY_DELAY_MS ?? '3000', 10);
+function pinataVerificationTimeoutMs() {
   const timeoutMs = Number.parseInt(process.env.PINATA_VERIFY_TIMEOUT_MS ?? '12000', 10);
-
-  return {
-    attempts: Number.isFinite(attempts) && attempts > 0 ? attempts : 8,
-    delayMs: Number.isFinite(delayMs) && delayMs > 0 ? delayMs : 3000,
-    timeoutMs: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 12000
-  };
-}
-
-async function sleep(ms) {
-  await new Promise((resolve) => setTimeout(resolve, ms));
+  return Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 12000;
 }
 
 export async function waitForGatewayAvailability(cid, gatewayHost = DEFAULT_GATEWAY_HOST) {
-  const { attempts, delayMs, timeoutMs } = pinataVerificationOptions();
+  const timeoutMs = pinataVerificationTimeoutMs();
   const headers = gatewayHeaders();
-  let lastError = 'not attempted';
+  const url = gatewayUrlWithToken(pinataGatewayUrl(cid, gatewayHost));
 
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    const url = gatewayUrlWithToken(pinataGatewayUrl(cid, gatewayHost));
-    try {
-      const response = await fetch(url, {
-        headers,
-        signal: AbortSignal.timeout(timeoutMs)
-      });
+  try {
+    const response = await fetch(url, {
+      headers,
+      signal: AbortSignal.timeout(timeoutMs)
+    });
 
-      if (response.ok) {
-        await response.arrayBuffer();
-        return url;
-      }
-
-      lastError = `${response.status} ${response.statusText}`;
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
+    if (!response.ok) {
+      throw new Error(`${response.status} ${response.statusText}`);
     }
 
-    if (attempt < attempts) {
-      await sleep(delayMs);
-    }
+    await response.arrayBuffer();
+    return url;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Uploaded CID ${cid} was not available on ${gatewayHost}. Last error: ${message}`);
   }
-
-  throw new Error(
-    `Uploaded CID ${cid} did not become available on ${gatewayHost} after ${attempts} attempts. Last error: ${lastError}`
-  );
 }
 
 export async function uploadFileToPinata({ filePath, jwt, name = path.basename(filePath) }) {
