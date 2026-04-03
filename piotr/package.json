@@ -11,7 +11,8 @@
     "demo:upload": "node ./scripts/build-demo-manifest.js --upload",
     "ens:publish": "node ./scripts/publish-demo-to-ens.js",
     "demo:publish": "node ./scripts/build-demo-manifest.js --upload && node ./scripts/publish-demo-to-ens.js",
-    "sginstall": "node ./packages/sginstall/bin/sginstall.js"
+    "sginstall": "node ./packages/sginstall/bin/sginstall.js",
+    "pinata:test": "node ./scripts/test-pinata-files.js"
   },
   "dependencies": {
     "@ensdomains/content-hash": "^3.0.0",
