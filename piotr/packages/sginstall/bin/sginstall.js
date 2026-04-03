@@ -47,15 +47,46 @@ function readFlag(name) {
   return process.argv[index + 1] ?? null;
 }
 
-async function downloadFile(url, filePath) {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to download ${url}: ${response.status} ${response.statusText}`);
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function buildGatewayCandidates(preferredGatewayHost) {
+  const configuredGateways = (process.env.SGINSTALL_GATEWAYS ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return unique([
+    preferredGatewayHost,
+    ...configuredGateways,
+    'gateway.pinata.cloud',
+    'ipfs.io',
+    'cloudflare-ipfs.com',
+    'dweb.link'
+  ]);
+}
+
+async function downloadFile(cid, filePath, gatewayHosts) {
+  const errors = [];
+
+  for (const gatewayHost of gatewayHosts) {
+    const url = `https://${gatewayHost}/ipfs/${cid}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      errors.push(`${url}: ${response.status} ${response.statusText}`);
+      continue;
+    }
+
+    const bytes = Buffer.from(await response.arrayBuffer());
+    await fs.writeFile(filePath, bytes);
+    return {
+      bytes,
+      url
+    };
   }
 
-  const bytes = Buffer.from(await response.arrayBuffer());
-  await fs.writeFile(filePath, bytes);
-  return bytes;
+  throw new Error(`Failed to download CID ${cid} from available gateways:\n${errors.join('\n')}`);
 }
 
 async function main() {
@@ -72,8 +103,8 @@ async function main() {
   const installRoot =
     outputDir ?? path.join(process.cwd(), 'audited-installs', `${packageName.replace(/[\/@]/g, '-')}-${version}`);
   const tempTarballPath = path.join(os.tmpdir(), `${packageName.replace(/[\/@]/g, '-')}-${version}.tgz`);
-  const downloadUrl = `https://${gatewayHost}/ipfs/${record.sourceCid}`;
-  const tarballBytes = await downloadFile(downloadUrl, tempTarballPath);
+  const gatewayHosts = buildGatewayCandidates(gatewayHost);
+  const { bytes: tarballBytes, url: downloadUrl } = await downloadFile(record.sourceCid, tempTarballPath, gatewayHosts);
   const computedCid = await Hash.of(tarballBytes);
   const expectedCidNormalized = CID.parse(record.sourceCid).toV1().toString();
   const computedCidNormalized = CID.parse(computedCid).toV1().toString();
@@ -93,6 +124,7 @@ async function main() {
   console.log(`Verdict: ${record.verdict.toUpperCase()} (score ${record.score})`);
   console.log(`Capabilities: ${record.capabilities.join(', ') || 'none'}`);
   console.log(`Audit report: ${record.reportUri || `https://${gatewayHost}/ipfs/${record.reportCid}`}`);
+  console.log(`Source URL: ${downloadUrl}`);
   console.log(`Downloaded audited source to ${installRoot}`);
 }
 
