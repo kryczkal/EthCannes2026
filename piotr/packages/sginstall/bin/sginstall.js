@@ -52,19 +52,7 @@ function unique(values) {
 }
 
 function buildGatewayCandidates(preferredGatewayHost) {
-  const configuredGateways = (process.env.SGINSTALL_GATEWAYS ?? '')
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean);
-
-  return unique([
-    preferredGatewayHost,
-    ...configuredGateways,
-    'gateway.pinata.cloud',
-    'ipfs.io',
-    'cloudflare-ipfs.com',
-    'dweb.link'
-  ]);
+  return unique([preferredGatewayHost]);
 }
 
 function gatewayTimeoutMs() {
@@ -88,13 +76,27 @@ function gatewayHeaders() {
   };
 }
 
+function gatewayToken() {
+  return process.env.PINATA_GATEWAY_TOKEN ?? process.env.SGINSTALL_GATEWAY_TOKEN ?? '';
+}
+
+function gatewayUrl(cid, gatewayHost) {
+  const url = new URL(`https://${gatewayHost}/ipfs/${cid}`);
+  const token = gatewayToken();
+  if (token) {
+    url.searchParams.set('pinataGatewayToken', token);
+  }
+
+  return url.toString();
+}
+
 async function downloadFile(cid, filePath, gatewayHosts) {
   const errors = [];
   const timeoutMs = gatewayTimeoutMs();
   const headers = gatewayHeaders();
 
   for (const gatewayHost of gatewayHosts) {
-    const url = `https://${gatewayHost}/ipfs/${cid}`;
+    const url = gatewayUrl(cid, gatewayHost);
     console.error(`Trying gateway: ${url} (timeout ${timeoutMs}ms)`);
     try {
       const response = await fetch(url, {

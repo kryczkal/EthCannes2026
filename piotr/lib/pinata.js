@@ -25,6 +25,21 @@ function gatewayHeaders() {
   };
 }
 
+function gatewayToken() {
+  return process.env.PINATA_GATEWAY_TOKEN ?? process.env.SGINSTALL_GATEWAY_TOKEN ?? '';
+}
+
+function gatewayUrlWithToken(url) {
+  const token = gatewayToken();
+  if (!token) {
+    return url;
+  }
+
+  const parsed = new URL(url);
+  parsed.searchParams.set('pinataGatewayToken', token);
+  return parsed.toString();
+}
+
 function pinataVerificationOptions() {
   const attempts = Number.parseInt(process.env.PINATA_VERIFY_ATTEMPTS ?? '8', 10);
   const delayMs = Number.parseInt(process.env.PINATA_VERIFY_DELAY_MS ?? '3000', 10);
@@ -47,7 +62,7 @@ export async function waitForGatewayAvailability(cid, gatewayHost = DEFAULT_GATE
   let lastError = 'not attempted';
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    const url = pinataGatewayUrl(cid, gatewayHost);
+    const url = gatewayUrlWithToken(pinataGatewayUrl(cid, gatewayHost));
     try {
       const response = await fetch(url, {
         headers,
