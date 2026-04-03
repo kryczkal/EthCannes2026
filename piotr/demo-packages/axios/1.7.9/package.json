@@ -2,7 +2,18 @@
   "name": "axios",
   "version": "1.7.9",
   "description": "Demo clean HTTP client package for the NpmGuard hackathon",
+  "type": "commonjs",
   "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "license": "MIT",
+  "keywords": [
+    "demo",
+    "http",
+    "npmguard",
+    "security"
+  ],
   "files": [
     "index.js"
   ]

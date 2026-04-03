@@ -2,7 +2,18 @@
   "name": "code-formatter",
   "version": "1.0.0",
   "description": "Demo clean formatter package for the NpmGuard hackathon",
+  "type": "commonjs",
   "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "license": "MIT",
+  "keywords": [
+    "demo",
+    "formatter",
+    "npmguard",
+    "security"
+  ],
   "files": [
     "index.js"
   ]

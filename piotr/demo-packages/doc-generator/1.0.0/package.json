@@ -2,7 +2,18 @@
   "name": "doc-generator",
   "version": "1.0.0",
   "description": "Demo clean documentation generator package for the NpmGuard hackathon",
+  "type": "commonjs",
   "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "license": "MIT",
+  "keywords": [
+    "demo",
+    "docs",
+    "npmguard",
+    "security"
+  ],
   "files": [
     "index.js",
     "templates"
