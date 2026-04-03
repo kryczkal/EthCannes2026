@@ -14,11 +14,72 @@ function inferMimeType(filePath) {
   return 'application/octet-stream';
 }
 
+function gatewayHeaders() {
+  const token = process.env.PINATA_GATEWAY_TOKEN ?? process.env.SGINSTALL_GATEWAY_TOKEN;
+  if (!token) {
+    return {};
+  }
+
+  return {
+    'x-pinata-gateway-token': token
+  };
+}
+
+function pinataVerificationOptions() {
+  const attempts = Number.parseInt(process.env.PINATA_VERIFY_ATTEMPTS ?? '8', 10);
+  const delayMs = Number.parseInt(process.env.PINATA_VERIFY_DELAY_MS ?? '3000', 10);
+  const timeoutMs = Number.parseInt(process.env.PINATA_VERIFY_TIMEOUT_MS ?? '12000', 10);
+
+  return {
+    attempts: Number.isFinite(attempts) && attempts > 0 ? attempts : 8,
+    delayMs: Number.isFinite(delayMs) && delayMs > 0 ? delayMs : 3000,
+    timeoutMs: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 12000
+  };
+}
+
+async function sleep(ms) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function waitForGatewayAvailability(cid, gatewayHost = DEFAULT_GATEWAY_HOST) {
+  const { attempts, delayMs, timeoutMs } = pinataVerificationOptions();
+  const headers = gatewayHeaders();
+  let lastError = 'not attempted';
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const url = pinataGatewayUrl(cid, gatewayHost);
+    try {
+      const response = await fetch(url, {
+        headers,
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+
+      if (response.ok) {
+        await response.arrayBuffer();
+        return url;
+      }
+
+      lastError = `${response.status} ${response.statusText}`;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+
+    if (attempt < attempts) {
+      await sleep(delayMs);
+    }
+  }
+
+  throw new Error(
+    `Uploaded CID ${cid} did not become available on ${gatewayHost} after ${attempts} attempts. Last error: ${lastError}`
+  );
+}
+
 export async function uploadFileToPinata({ filePath, jwt, name = path.basename(filePath) }) {
   const form = new FormData();
   const buffer = await fs.readFile(filePath);
   const file = new File([buffer], name, { type: inferMimeType(filePath) });
 
+  form.append('network', 'public');
   form.append('file', file);
 
   const response = await fetch('https://uploads.pinata.cloud/v3/files', {

@@ -71,11 +71,13 @@ async function main() {
         jwt,
         name: packed.filename
       });
+      await waitForGatewayAvailability(sourceUpload.cid);
       reportUpload = await uploadFileToPinata({
         filePath: reportPath,
         jwt,
         name: path.basename(reportPath)
       });
+      await waitForGatewayAvailability(reportUpload.cid);
     }
 
     entries.push({
