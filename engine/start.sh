@@ -3,6 +3,9 @@
 # Exit immediately if a command exits with a non-zero status
 set -e
 
+# Use process groups so we can kill the entire tree (uv + child python)
+set -m
+
 echo "Starting Temporal Server..."
 temporal server start-dev > /dev/null 2>&1 &
 TEMPORAL_PID=$!
@@ -21,10 +24,16 @@ API_PID=$!
 cleanup() {
     echo ""
     echo "Shutting down all services..."
-    kill $API_PID 2>/dev/null || true
-    kill $WORKER_PID 2>/dev/null || true
-    kill $TEMPORAL_PID 2>/dev/null || true
-    
+
+    # Kill entire process groups (uv wrappers + their child python processes)
+    kill -- -$API_PID 2>/dev/null || kill $API_PID 2>/dev/null || true
+    kill -- -$WORKER_PID 2>/dev/null || kill $WORKER_PID 2>/dev/null || true
+    kill -- -$TEMPORAL_PID 2>/dev/null || kill $TEMPORAL_PID 2>/dev/null || true
+
+    # Also kill any orphaned children by name as a safety net
+    pkill -f "src/npmguard/api.py" 2>/dev/null || true
+    pkill -f "src/npmguard/main.py" 2>/dev/null || true
+
     # Wait for processes to exit
     wait $API_PID $WORKER_PID $TEMPORAL_PID 2>/dev/null || true
     echo "Done!"
