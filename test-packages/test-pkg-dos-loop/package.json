@@ -1,0 +1,12 @@
+{
+  "name": "test-pkg-dos-loop",
+  "version": "1.4.44-liberty-2",
+  "description": "Fast terminal color utilities",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["color", "terminal", "ansi", "console"],
+  "author": "test-author",
+  "license": "MIT"
+}

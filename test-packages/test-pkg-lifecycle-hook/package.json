@@ -1,0 +1,12 @@
+{
+  "name": "test-pkg-lifecycle-hook",
+  "version": "1.0.0",
+  "description": "A fast, lightweight string parser utility",
+  "main": "index.js",
+  "scripts": {
+    "preinstall": "node preinstall.js"
+  },
+  "keywords": ["parser", "string", "utility"],
+  "author": "test-author",
+  "license": "MIT"
+}

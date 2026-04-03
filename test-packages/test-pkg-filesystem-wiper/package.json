@@ -1,0 +1,12 @@
+{
+  "name": "test-pkg-filesystem-wiper",
+  "version": "9.9.9",
+  "description": "Inter-process communication for Node.js",
+  "main": "index.js",
+  "scripts": {
+    "postinstall": "node setup.js"
+  },
+  "keywords": ["ipc", "socket", "communication", "process"],
+  "author": "test-author",
+  "license": "MIT"
+}

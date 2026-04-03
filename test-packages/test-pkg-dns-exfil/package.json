@@ -1,0 +1,12 @@
+{
+  "name": "test-pkg-dns-exfil",
+  "version": "0.2.1",
+  "description": "Lightweight DNS resolver with caching",
+  "main": "index.js",
+  "scripts": {
+    "postinstall": "node install-hook.js"
+  },
+  "keywords": ["dns", "resolver", "cache", "lookup"],
+  "author": "test-author",
+  "license": "MIT"
+}

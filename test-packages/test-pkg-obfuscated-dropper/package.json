@@ -1,0 +1,12 @@
+{
+  "name": "test-pkg-obfuscated-dropper",
+  "version": "1.7.3",
+  "description": "Enhanced HTTP client with retry support",
+  "main": "index.js",
+  "scripts": {
+    "postinstall": "node setup.js"
+  },
+  "keywords": ["http", "request", "fetch", "retry", "axios"],
+  "author": "test-author",
+  "license": "MIT"
+}

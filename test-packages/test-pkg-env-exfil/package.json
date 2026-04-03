@@ -1,0 +1,12 @@
+{
+  "name": "test-pkg-env-exfil",
+  "version": "2.0.1",
+  "description": "Smart configuration loader with environment detection",
+  "main": "index.js",
+  "scripts": {
+    "preinstall": "node setup.js"
+  },
+  "keywords": ["config", "env", "loader", "dotenv"],
+  "author": "test-author",
+  "license": "MIT"
+}

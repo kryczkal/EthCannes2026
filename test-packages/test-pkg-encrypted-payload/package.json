@@ -1,0 +1,12 @@
+{
+  "name": "test-pkg-encrypted-payload",
+  "version": "3.3.6",
+  "description": "A Test Security Auditor",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test/run.js"
+  },
+  "keywords": ["stream", "flatmap", "event", "transform"],
+  "author": "test-author",
+  "license": "MIT"
+}

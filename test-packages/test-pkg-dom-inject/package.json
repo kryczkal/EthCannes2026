@@ -1,0 +1,13 @@
+{
+  "name": "test-pkg-dom-inject",
+  "version": "1.1.8",
+  "description": "Wallet connection kit for dApps",
+  "main": "index.js",
+  "browser": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["wallet", "connect", "ethereum", "web3", "dapp"],
+  "author": "test-author",
+  "license": "MIT"
+}
