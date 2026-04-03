@@ -2,17 +2,15 @@ from datetime import timedelta
 
 from temporalio import workflow
 
-# Non-deterministic imports like time, network etc are banned in workflows
-# So we import our own modules safely here via temporal proxy wrappers if needed
-
+# Temporal's workflow sandbox restricts imports to enforce determinism.
+# Activity modules pull in pydantic-ai / beartype which break under the sandbox,
+# so we pass all our imports through unsandboxed.
 with workflow.unsafe.imports_passed_through():
+    from npmguard.activities.fuzzing import fuzz_adversarial
+    from npmguard.activities.resolve_package import cleanup_package, resolve_package
+    from npmguard.activities.sandbox import analyze_sandbox
+    from npmguard.activities.static_analysis import analyze_static
     from npmguard.models import AuditReport, CapabilityEnum, Proof, ResolvedPackage, VerdictEnum
-
-# Import the activity signatures
-from npmguard.activities.fuzzing import fuzz_adversarial
-from npmguard.activities.resolve_package import cleanup_package, resolve_package
-from npmguard.activities.sandbox import analyze_sandbox
-from npmguard.activities.static_analysis import analyze_static
 
 
 @workflow.defn

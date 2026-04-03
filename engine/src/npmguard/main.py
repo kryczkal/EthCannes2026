@@ -6,6 +6,7 @@ import sys
 import structlog
 from temporalio.client import Client
 from temporalio.worker import Worker
+from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner, SandboxRestrictions
 
 from npmguard._logging import configure_logging
 from npmguard.activities import (
@@ -41,11 +42,32 @@ async def main() -> None:
 
     log.info("connected_to_temporal", address=settings.temporal_address)
 
+    # pydantic-ai pulls in beartype/httpx/anthropic which break under the Temporal
+    # workflow sandbox (circular import in beartype.claw). These only run inside
+    # activities (outside the sandbox), so passing them through is safe.
+    sandbox_runner = SandboxedWorkflowRunner(
+        restrictions=SandboxRestrictions.default.with_passthrough_modules(
+            "beartype",
+            "pydantic_ai",
+            "anthropic",
+            "openai",
+            "httpx",
+            "httpcore",
+            "anyio",
+            "sniffio",
+            "certifi",
+            "h11",
+            "structlog",
+            "npmguard",
+        )
+    )
+
     worker = Worker(
         client,
         task_queue=settings.task_queue,
         workflows=[NpmGuardOrchestrator],
         activities=[resolve_package, analyze_static, analyze_sandbox, fuzz_adversarial, cleanup_package],
+        workflow_runner=sandbox_runner,
     )
 
     log.info("worker_started", task_queue=settings.task_queue)

@@ -51,7 +51,7 @@ async def resolve_package(package_name: str) -> ResolvedPackage:
     return ResolvedPackage(
         path=str(fetched.path),
         needs_cleanup=True,
-        tmpdir=fetched._tmpdir,
+        tmpdir=fetched.tmpdir,
     )
 
 

@@ -27,10 +27,10 @@ class FetchedPackage(NamedTuple):
     name: str
     version: str
     path: Path  # root of extracted package (the "package/" dir inside the tarball)
-    _tmpdir: str  # underlying tempdir — call cleanup() when done
+    tmpdir: str  # underlying tempdir — call cleanup() when done
 
     def cleanup(self) -> None:
-        shutil.rmtree(self._tmpdir, ignore_errors=True)
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
 
 
 async def fetch_package(package_name: str, version: str = "latest") -> FetchedPackage:
@@ -53,7 +53,7 @@ async def fetch_package(package_name: str, version: str = "latest") -> FetchedPa
             name=package_name,
             version=resolved_version,
             path=package_path,
-            _tmpdir=tmpdir,
+            tmpdir=tmpdir,
         )
     except Exception:
         shutil.rmtree(tmpdir, ignore_errors=True)
