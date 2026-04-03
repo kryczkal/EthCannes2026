@@ -82,34 +82,39 @@ function gatewayUrl(cid, gatewayHost) {
   return url.toString();
 }
 
+function maskUrl(urlString) {
+  const url = new URL(urlString);
+  if (url.searchParams.has('pinataGatewayToken')) {
+    url.searchParams.set('pinataGatewayToken', '***');
+  }
+
+  return url.toString();
+}
+
 async function downloadFile(cid, filePath, gatewayHosts) {
   const errors = [];
   const headers = gatewayHeaders();
 
   for (const gatewayHost of gatewayHosts) {
     const url = gatewayUrl(cid, gatewayHost);
-    console.error(`Trying gateway: ${url}`);
     try {
       const response = await fetch(url, {
         headers
       });
       if (!response.ok) {
-        console.error(`Gateway failed: ${response.status} ${response.statusText}`);
-        errors.push(`${url}: ${response.status} ${response.statusText}`);
+        errors.push(`${maskUrl(url)}: ${response.status} ${response.statusText}`);
         continue;
       }
 
       const bytes = Buffer.from(await response.arrayBuffer());
       await fs.writeFile(filePath, bytes);
-      console.error(`Gateway succeeded: ${url}`);
       return {
         bytes,
         url
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`Gateway error: ${message}`);
-      errors.push(`${url}: ${message}`);
+      errors.push(`${maskUrl(url)}: ${message}`);
       continue;
     }
   }
@@ -164,7 +169,8 @@ async function main() {
   console.log(`Verdict: ${record.verdict.toUpperCase()} (score ${record.score})`);
   console.log(`Capabilities: ${record.capabilities.join(', ') || 'none'}`);
   console.log(`Audit report: ${record.reportUri || `https://${gatewayHost}/ipfs/${record.reportCid}`}`);
-  console.log(`Source URL: ${downloadUrl}`);
+  console.log(`Source CID: ${record.sourceCid}`);
+  console.log(`Gateway host: ${gatewayHost}`);
   console.log(`Downloaded audited source to ${installRoot}`);
 }
 
