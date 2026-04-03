@@ -38,7 +38,7 @@ program
     const auditSource = opts.mock
       ? new MockAuditSource()
       : new ENSAuditSource();
-    await installCommand(pkg, auditSource);
+    await installCommand(pkg, auditSource, opts.force ?? false);
   });
 
 program.parse();
