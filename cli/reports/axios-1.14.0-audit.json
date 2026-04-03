@@ -1,0 +1,44 @@
+{
+  "package": "axios",
+  "version": "1.14.0",
+  "auditor": "NpmGuard",
+  "timestamp": "2026-04-03T22:30:00Z",
+  "verdict": "SAFE",
+  "score": 92,
+  "capabilities": {
+    "network": true,
+    "filesystem": false,
+    "process_spawn": false,
+    "binary_download": false,
+    "eval_usage": false,
+    "obfuscated_code": false
+  },
+  "analysis": {
+    "static": {
+      "status": "passed",
+      "findings": [
+        "HTTP client library — network access is expected and consistent with stated purpose"
+      ]
+    },
+    "dynamic": {
+      "status": "passed",
+      "findings": [
+        "No unexpected outbound connections",
+        "No filesystem access outside node_modules"
+      ]
+    },
+    "server_response_fuzzing": {
+      "status": "passed",
+      "findings": [
+        "No code execution triggered by malicious server responses"
+      ]
+    }
+  },
+  "intent_vs_capability": {
+    "stated_purpose": "Promise based HTTP client for the browser and node.js",
+    "match": true,
+    "notes": "All detected capabilities align with the package's stated purpose"
+  },
+  "source_cid": "bafybeif372guv6lwfzdx622uyqmtk3bkxuhsozd6j5bmzxgqohe4ste77q",
+  "registry_url": "https://registry.npmjs.org/axios/-/axios-1.14.0.tgz"
+}
