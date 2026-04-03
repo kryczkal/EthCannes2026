@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import ora from "ora";
 import { execSync } from "node:child_process";
-import { writeFile, unlink, mkdir } from "node:fs/promises";
+import { readFile, writeFile, unlink, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { AuditSource } from "../audit-source.js";
@@ -132,7 +132,20 @@ export async function installCommand(
       console.log();
       execSync(`npm install ${tarballPath}`, { stdio: "inherit" });
 
-      // Cleanup
+      // Fix package.json — replace the file: path with the real version
+      try {
+        const pkgPath = join(process.cwd(), "package.json");
+        const pkgRaw = await readFile(pkgPath, "utf-8");
+        const pkg = JSON.parse(pkgRaw);
+        if (pkg.dependencies?.[packageName]?.startsWith("file:")) {
+          pkg.dependencies[packageName] = `^${requestedVersion}`;
+          await writeFile(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+        }
+      } catch {
+        // Not critical if this fails
+      }
+
+      // Cleanup tarball
       await unlink(tarballPath).catch(() => {});
     } catch (err) {
       dlSpinner.fail("IPFS download failed");

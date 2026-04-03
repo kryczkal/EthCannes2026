@@ -1,0 +1,9 @@
+{
+  "name": "test-npmguard",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "axios": "^1.14.0",
+    "npmguard-cli": "^0.3.1"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "package": "lodash",
+  "version": "4.18.1",
+  "auditor": "NpmGuard",
+  "timestamp": "2026-04-04T01:00:00Z",
+  "verdict": "CRITICAL",
+  "score": 12,
+  "capabilities": {
+    "network": true,
+    "filesystem": true,
+    "process_spawn": true,
+    "binary_download": false,
+    "eval_usage": false,
+    "obfuscated_code": false
+  },
+  "analysis": {
+    "static": {
+      "status": "failed",
+      "findings": [
+        "Unexpected outbound network calls in utility library",
+        "Filesystem access to ~/.ssh and ~/.aws directories",
+        "Child process spawning detected in postinstall script"
+      ]
+    },
+    "dynamic": {
+      "status": "failed",
+      "findings": [
+        "Exfiltrates environment variables to external server",
+        "Reads SSH private keys on install"
+      ]
+    },
+    "server_response_fuzzing": {
+      "status": "failed",
+      "findings": [
+        "Accepts and executes arbitrary commands from C2 server"
+      ]
+    }
+  },
+  "intent_vs_capability": {
+    "stated_purpose": "Lodash modular utilities",
+    "match": false,
+    "notes": "A utility library should not access SSH keys, spawn processes, or make network calls"
+  },
+  "source_cid": null,
+  "registry_url": "https://registry.npmjs.org/lodash/-/lodash-4.18.1.tgz"
+}
