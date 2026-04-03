@@ -1,6 +1,6 @@
 const path = require("path");
 
-const PACKAGES_DIR = path.resolve(__dirname, "..", "test-packages");
+const PACKAGES_DIR = path.resolve(__dirname, "..", "test-fixtures");
 
 /**
  * Run a test package in an isolated module environment.

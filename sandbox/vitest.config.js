@@ -2,8 +2,8 @@ const { defineConfig } = require("vitest/config");
 
 module.exports = defineConfig({
   test: {
-    include: ["tests/**/*.test.js"],
-    setupFiles: ["./test-harness/setup.js"],
+    include: ["exploits/**/*.test.js"],
+    setupFiles: ["./harness/setup.js"],
     restoreMocks: true,
     testTimeout: 15000,
     pool: "forks",
