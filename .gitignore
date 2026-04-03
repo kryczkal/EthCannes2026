@@ -14,3 +14,9 @@ Thumbs.db
 
 # Test artifacts
 sandbox-test/
+
+# CRE build artifacts
+*.wasm
+bun.lock
+.cre/
+.cre_build_tmp.*

@@ -1,0 +1,19 @@
+{
+  "name": "npm-monitor-workflow",
+  "version": "0.1.0",
+  "description": "CRE workflow - monitors npm packages for new versions",
+  "scripts": {
+    "postinstall": "bunx cre-setup",
+    "test": "bun test",
+    "simulate": "cre workflow simulate npm-monitor"
+  },
+  "dependencies": {
+    "@chainlink/cre-sdk": "^1.5.0",
+    "viem": "2.34.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "@types/bun": "latest"
+  }
+}
