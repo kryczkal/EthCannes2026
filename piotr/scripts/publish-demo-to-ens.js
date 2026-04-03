@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { MANIFEST_PATH } from '../src/lib/constants.js';
-import { publishAuditRecord } from '../src/lib/ens.js';
-import { readJson } from '../src/lib/fs.js';
+import { MANIFEST_PATH } from '../lib/constants.js';
+import { publishAuditRecord } from '../lib/ens.js';
+import { readJson } from '../lib/fs.js';
 
 function readFlag(name) {
   const index = process.argv.indexOf(name);

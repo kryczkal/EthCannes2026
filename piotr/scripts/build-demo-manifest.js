@@ -3,12 +3,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { auditPackage } from '../src/lib/audit.js';
-import { listDemoPackageVersions } from '../src/lib/demo-packages.js';
-import { ensureDir, writeJson } from '../src/lib/fs.js';
-import { uploadFileToPinata } from '../src/lib/pinata.js';
-import { ARTIFACTS_DIR, MANIFEST_PATH, REPORTS_DIR, TARBALLS_DIR } from '../src/lib/constants.js';
-import { packageVersionToEnsName } from '../src/lib/ens.js';
+import { auditPackage } from '../lib/audit.js';
+import { listDemoPackageVersions } from '../lib/demo-packages.js';
+import { ensureDir, writeJson } from '../lib/fs.js';
+import { uploadFileToPinata } from '../lib/pinata.js';
+import { ARTIFACTS_DIR, MANIFEST_PATH, REPORTS_DIR, TARBALLS_DIR } from '../lib/constants.js';
+import { packageVersionToEnsName } from '../lib/ens.js';
 
 const LOCAL_NPM_CACHE = path.join(ARTIFACTS_DIR, 'npm-cache');
 
