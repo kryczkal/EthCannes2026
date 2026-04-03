@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export const ROOT_DIR = path.resolve(__dirname, '..', '..');
+export const ROOT_DIR = path.resolve(__dirname, '..');
 export const DEMO_PACKAGES_DIR = path.join(ROOT_DIR, 'demo-packages');
 export const ARTIFACTS_DIR = path.join(ROOT_DIR, 'artifacts');
 export const TARBALLS_DIR = path.join(ARTIFACTS_DIR, 'tarballs');
