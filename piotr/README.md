@@ -50,12 +50,12 @@ npm registry
 
 ## ENS Registry
 
-This repo is set up for direct package names on Sepolia such as `axios.eth`, `code-formatter.eth`, and `doc-generator.eth`:
+This repo is set up around a single parent name on Sepolia, `npmguard.eth`, with package subdomains beneath it:
 
 ```
-axios.eth                    ← latest verdict + score
-├── 1-7-9.axios.eth          ← v1.7.9 — SAFE
-└── 1-8-0.axios.eth          ← v1.8.0 — CRITICAL
+axios.npmguard.eth                 ← latest verdict + score
+├── 1-7-9.axios.npmguard.eth       ← v1.7.9 — SAFE
+└── 1-8-0.axios.npmguard.eth       ← v1.8.0 — CRITICAL
 ```
 
 Version subdomains store:
@@ -102,11 +102,10 @@ Current demo packages:
 
 ## Live Demo Runbook
 
-1. Get Sepolia ETH and register the parent names in the ENS manager:
-   - `axios.eth`
-   - `code-formatter.eth`
-   - `doc-generator.eth`
+1. Get Sepolia ETH and register the base name in the ENS manager:
+   - `npmguard.eth`
    - Use [sepolia.app.ens.domains](https://sepolia.app.ens.domains/).
+   - The publish script will create package parents like `axios.npmguard.eth` automatically.
 2. Copy `.env.example` to `.env` and fill in:
    - `PINATA_JWT`
    - `SEPOLIA_RPC_URL`

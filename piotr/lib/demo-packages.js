@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { DEMO_PACKAGES_DIR } from './constants.js';
+import { packageToParentEnsName } from './ens.js';
 
 export async function listDemoPackageVersions() {
   const packages = await fs.readdir(DEMO_PACKAGES_DIR, { withFileTypes: true });
@@ -29,7 +30,7 @@ export async function listDemoPackageVersions() {
         description: packageJson.description ?? '',
         directoryPath,
         packageJsonPath,
-        parentName: `${packageJson.name}.eth`
+        parentName: packageToParentEnsName(packageJson.name)
       });
     }
   }

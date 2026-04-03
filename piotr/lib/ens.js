@@ -37,6 +37,16 @@ function requiredEnv(name, fallback) {
   return value;
 }
 
+function splitName(name) {
+  const normalizedName = normalize(name);
+  const [label, ...rest] = normalizedName.split('.');
+  return {
+    normalizedName,
+    label,
+    parentName: rest.join('.')
+  };
+}
+
 export function versionToEnsLabel(version) {
   return version.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase();
 }
@@ -207,6 +217,38 @@ async function getNameStatus({ publicClient, addresses, name }) {
   };
 }
 
+async function createSubname({
+  publicClient,
+  walletClient,
+  account,
+  addresses,
+  parentStatus,
+  label,
+  resolverAddress
+}) {
+  const labelHash = keccak256(stringToHex(label));
+  const hash = await walletClient.writeContract({
+    account,
+    address: parentStatus.wrapped ? addresses.nameWrapper : addresses.registry,
+    abi: parentStatus.wrapped ? nameWrapperAbi : ensRegistryAbi,
+    functionName: 'setSubnodeRecord',
+    args: parentStatus.wrapped
+      ? [
+          parentStatus.node,
+          label,
+          account.address,
+          resolverAddress,
+          0,
+          0,
+          BigInt(parentStatus.expiry ?? Math.floor(Date.now() / 1000) + 31536000)
+        ]
+      : [parentStatus.node, labelHash, account.address, resolverAddress, 0]
+  });
+
+  await waitForReceipt(publicClient, hash);
+  return hash;
+}
+
 async function writeResolverRecords({ publicClient, walletClient, account, resolverAddress, node, textRecords, sourceCid }) {
   const calls = [];
 
@@ -249,9 +291,29 @@ export async function publishAuditRecord(entry) {
 
   const parentName = entry.parentName ?? packageToParentEnsName(entry.packageName);
   const versionName = versionLabelToEnsName(parentName, entry.version);
-  const parentStatus = await getNameStatus({ publicClient, addresses, name: parentName });
+  const { label: packageLabel, parentName: baseDomain } = splitName(parentName);
+  if (!baseDomain) {
+    throw new Error(`Invalid parent ENS name ${parentName}`);
+  }
+
+  const baseDomainStatus = await getNameStatus({ publicClient, addresses, name: baseDomain });
+  if (!baseDomainStatus.owner || baseDomainStatus.owner === zeroAddress) {
+    throw new Error(`Base ENS name ${baseDomain} is not registered.`);
+  }
+
+  let parentStatus = await getNameStatus({ publicClient, addresses, name: parentName });
+  let parentCreationHash = null;
   if (!parentStatus.owner || parentStatus.owner === zeroAddress) {
-    throw new Error(`Parent ENS name ${parentName} is not registered.`);
+    parentCreationHash = await createSubname({
+      publicClient,
+      walletClient,
+      account,
+      addresses,
+      parentStatus: baseDomainStatus,
+      label: packageLabel,
+      resolverAddress: addresses.publicResolver
+    });
+    parentStatus = await getNameStatus({ publicClient, addresses, name: parentName });
   }
 
   const parentResolver = await ensureResolver({
@@ -265,29 +327,16 @@ export async function publishAuditRecord(entry) {
     currentResolver: parentStatus.resolver
   });
 
-  const versionLabel = versionToEnsLabel(entry.version);
   const versionNode = namehash(versionName);
-  const labelHash = keccak256(stringToHex(versionLabel));
-
-  const creationHash = await walletClient.writeContract({
+  const creationHash = await createSubname({
+    publicClient,
+    walletClient,
     account,
-    address: parentStatus.wrapped ? addresses.nameWrapper : addresses.registry,
-    abi: parentStatus.wrapped ? nameWrapperAbi : ensRegistryAbi,
-    functionName: 'setSubnodeRecord',
-    args: parentStatus.wrapped
-      ? [
-          parentStatus.node,
-          versionLabel,
-          account.address,
-          parentResolver,
-          0,
-          0,
-          BigInt(parentStatus.expiry ?? Math.floor(Date.now() / 1000) + 31536000)
-        ]
-      : [parentStatus.node, labelHash, account.address, parentResolver, 0]
+    addresses,
+    parentStatus,
+    label: versionToEnsLabel(entry.version),
+    resolverAddress: parentResolver
   });
-
-  await waitForReceipt(publicClient, creationHash);
 
   await writeResolverRecords({
     publicClient,
@@ -313,6 +362,7 @@ export async function publishAuditRecord(entry) {
     parentName,
     versionName,
     txHashes: {
+      createParentSubname: parentCreationHash,
       createSubname: creationHash
     }
   };
