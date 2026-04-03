@@ -1,4 +1,5 @@
 {
   "packages": ["axios", "lodash", "express", "chalk"],
-  "auditApiUrl": "http://localhost:3000/api/audit"
+  "auditApiUrl": "http://localhost:3000/api/audit",
+  "schedule": "0 */5 * * * *"
 }

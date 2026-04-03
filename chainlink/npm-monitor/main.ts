@@ -1,18 +1,25 @@
 import {
+  CronCapability,
   HTTPCapability,
   handler,
   Runner,
 } from "@chainlink/cre-sdk";
-import { onHttpTrigger } from "./workflow";
+import { onHttpTrigger, onCronTrigger } from "./workflow";
 
 type Config = {
   packages: string[];
   auditApiUrl: string;
+  schedule: string;
 };
 
-const initWorkflow = (_config: Config) => {
+const initWorkflow = (config: Config) => {
   const http = new HTTPCapability();
-  return [handler(http.trigger({}), onHttpTrigger)];
+  const cron = new CronCapability();
+
+  return [
+    handler(http.trigger({}), onHttpTrigger),
+    handler(cron.trigger({ schedule: config.schedule }), onCronTrigger),
+  ];
 };
 
 export async function main() {

@@ -9,6 +9,7 @@ import {
 type Config = {
   packages: string[];
   auditApiUrl: string;
+  schedule: string;
 };
 
 interface NpmVersionInfo {
@@ -40,13 +41,13 @@ const fetchNpmLatest = (packageName: string) => {
   };
 };
 
+// Check a single package — used by HTTP trigger (manual/demo)
 export const onHttpTrigger = (
   runtime: Runtime<Config>,
   payload: HTTPPayload
 ): string => {
   const config = runtime.config;
 
-  // Parse input — accept optional package name from HTTP body
   let packageName = config.packages[0] ?? "axios";
   if (payload.input && payload.input.length > 0) {
     try {
@@ -59,9 +60,8 @@ export const onHttpTrigger = (
     }
   }
 
-  runtime.log(`Checking npm registry for package: ${packageName}`);
+  runtime.log(`[HTTP] Checking npm registry for: ${packageName}`);
 
-  // Fetch latest version with DON consensus
   const versionInfo = runtime
     .runInNodeMode(
       fetchNpmLatest(packageName),
@@ -69,15 +69,35 @@ export const onHttpTrigger = (
     )()
     .result();
 
-  runtime.log(
-    `Detected ${versionInfo.packageName}@${versionInfo.latestVersion}`
-  );
-
-  // TODO: Compare with ENS records to detect if this is a new version
-  // TODO: Trigger audit API if new version detected
+  runtime.log(`[HTTP] Detected ${versionInfo.packageName}@${versionInfo.latestVersion}`);
 
   return JSON.stringify({
     detected: versionInfo,
-    isNew: true, // placeholder — will compare with ENS state
+    isNew: true,
+  });
+};
+
+// Check all packages from config — used by cron trigger (production)
+export const onCronTrigger = (runtime: Runtime<Config>): string => {
+  const config = runtime.config;
+  const results: NpmVersionInfo[] = [];
+
+  for (const packageName of config.packages) {
+    runtime.log(`[CRON] Checking npm registry for: ${packageName}`);
+
+    const versionInfo = runtime
+      .runInNodeMode(
+        fetchNpmLatest(packageName),
+        consensusIdenticalAggregation<NpmVersionInfo>()
+      )()
+      .result();
+
+    runtime.log(`[CRON] Detected ${versionInfo.packageName}@${versionInfo.latestVersion}`);
+    results.push(versionInfo);
+  }
+
+  return JSON.stringify({
+    detected: results,
+    checkedAt: new Date().toISOString(),
   });
 };
