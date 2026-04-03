@@ -72,18 +72,27 @@ async function downloadFile(cid, filePath, gatewayHosts) {
 
   for (const gatewayHost of gatewayHosts) {
     const url = `https://${gatewayHost}/ipfs/${cid}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      errors.push(`${url}: ${response.status} ${response.statusText}`);
+    console.error(`Trying gateway: ${url}`);
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        console.error(`Gateway failed: ${response.status} ${response.statusText}`);
+        errors.push(`${url}: ${response.status} ${response.statusText}`);
+        continue;
+      }
+
+      const bytes = Buffer.from(await response.arrayBuffer());
+      await fs.writeFile(filePath, bytes);
+      console.error(`Gateway succeeded: ${url}`);
+      return {
+        bytes,
+        url
+      };
+    } catch (error) {
+      console.error(`Gateway error: ${error instanceof Error ? error.message : String(error)}`);
+      errors.push(`${url}: ${error instanceof Error ? error.message : String(error)}`);
       continue;
     }
-
-    const bytes = Buffer.from(await response.arrayBuffer());
-    await fs.writeFile(filePath, bytes);
-    return {
-      bytes,
-      url
-    };
   }
 
   throw new Error(`Failed to download CID ${cid} from available gateways:\n${errors.join('\n')}`);
