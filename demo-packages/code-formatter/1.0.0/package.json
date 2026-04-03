@@ -1,0 +1,9 @@
+{
+  "name": "code-formatter",
+  "version": "1.0.0",
+  "description": "Demo clean formatter package for the NpmGuard hackathon",
+  "main": "index.js",
+  "files": [
+    "index.js"
+  ]
+}

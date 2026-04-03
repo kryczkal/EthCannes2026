@@ -1,0 +1,10 @@
+{
+  "name": "doc-generator",
+  "version": "1.0.0",
+  "description": "Demo clean documentation generator package for the NpmGuard hackathon",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "templates"
+  ]
+}
