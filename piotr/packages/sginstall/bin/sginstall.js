@@ -6,6 +6,8 @@ import path from 'node:path';
 import * as tar from 'tar';
 import Hash from 'ipfs-only-hash';
 import { CID } from 'multiformats/cid';
+import { sha256 } from 'multiformats/hashes/sha2';
+import * as raw from 'multiformats/codecs/raw';
 import { DEFAULT_GATEWAY_HOST } from '../../../lib/constants.js';
 import { ensureDir } from '../../../lib/fs.js';
 import { resolveAuditRecord } from '../../../lib/ens.js';
@@ -115,6 +117,17 @@ async function downloadFile(cid, filePath, gatewayHosts) {
   throw new Error(`Failed to download CID ${cid} from available gateways:\n${errors.join('\n')}`);
 }
 
+async function computeCandidateCids(bytes) {
+  const dagPbCid = CID.parse(await Hash.of(bytes)).toV1().toString();
+  const digest = await sha256.digest(bytes);
+  const rawCid = CID.createV1(raw.code, digest).toString();
+
+  return {
+    dagPbCid,
+    rawCid
+  };
+}
+
 async function main() {
   const spec = process.argv[2];
   const gatewayHost = readFlag('--gateway') ?? process.env.SGINSTALL_GATEWAY_HOST ?? DEFAULT_GATEWAY_HOST;
@@ -131,12 +144,13 @@ async function main() {
   const tempTarballPath = path.join(os.tmpdir(), `${packageName.replace(/[\/@]/g, '-')}-${version}.tgz`);
   const gatewayHosts = buildGatewayCandidates(gatewayHost);
   const { bytes: tarballBytes, url: downloadUrl } = await downloadFile(record.sourceCid, tempTarballPath, gatewayHosts);
-  const computedCid = await Hash.of(tarballBytes);
   const expectedCidNormalized = CID.parse(record.sourceCid).toV1().toString();
-  const computedCidNormalized = CID.parse(computedCid).toV1().toString();
+  const candidateCids = await computeCandidateCids(tarballBytes);
 
-  if (computedCidNormalized !== expectedCidNormalized) {
-    throw new Error(`CID mismatch: expected ${record.sourceCid}, received ${computedCid}`);
+  if (!Object.values(candidateCids).includes(expectedCidNormalized)) {
+    throw new Error(
+      `CID mismatch: expected ${record.sourceCid}, computed raw=${candidateCids.rawCid}, dag-pb=${candidateCids.dagPbCid}`
+    );
   }
 
   await ensureDir(installRoot);
