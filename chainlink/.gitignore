@@ -1,0 +1,5 @@
+node_modules/
+*.wasm
+bun.lock
+.cre/
+.cre_build_tmp.*
