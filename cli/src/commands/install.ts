@@ -1,9 +1,21 @@
 import chalk from "chalk";
 import ora from "ora";
 import { execSync } from "node:child_process";
+import { writeFile, unlink, mkdir } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import type { AuditSource } from "../audit-source.js";
 
 const IPFS_GATEWAY = "https://gateway.pinata.cloud/ipfs";
+
+async function downloadFromIPFS(cid: string, dest: string): Promise<void> {
+  const resp = await fetch(`${IPFS_GATEWAY}/${cid}`);
+  if (!resp.ok) {
+    throw new Error(`IPFS download failed: ${resp.status}`);
+  }
+  const buffer = Buffer.from(await resp.arrayBuffer());
+  await writeFile(dest, buffer);
+}
 
 export async function installCommand(
   packageSpec: string,
@@ -50,19 +62,13 @@ export async function installCommand(
   console.log(chalk.bold(`  ${packageName}@${requestedVersion}`));
   console.log();
 
+  // No audit found — fallback to npm
   if (!audit) {
     console.log(
-      chalk.gray(
-        `  NOT AUDITED — no NpmGuard record found for this version.`
-      )
-    );
-    console.log(
-      chalk.gray(
-        `  https://www.npmjs.com/package/${packageName}/v/${requestedVersion}`
-      )
+      chalk.gray(`  NOT AUDITED — no NpmGuard record found for this version.`)
     );
     console.log();
-    console.log(chalk.gray("  Proceeding with standard npm install..."));
+    console.log(chalk.gray("  Falling back to npm install..."));
     console.log();
     execSync(`npm install ${packageSpec}`, { stdio: "inherit" });
     return;
@@ -77,50 +83,69 @@ export async function installCommand(
     console.log(chalk.red(`  CRITICAL (score: ${audit.score})`));
   }
 
-  // Show capabilities
   if (audit.capabilities.length > 0) {
     console.log(
       chalk.gray(`  Capabilities: ${audit.capabilities.join(", ")}`)
     );
   }
 
-  // Show IPFS links
   if (audit.reportCid) {
     console.log(
       chalk.gray(`  Report: ${IPFS_GATEWAY}/${audit.reportCid}`)
     );
   }
-  if (audit.sourceCid) {
-    console.log(
-      chalk.gray(`  Source: ${IPFS_GATEWAY}/${audit.sourceCid}`)
-    );
-  }
 
   console.log();
 
-  if (audit.verdict === "SAFE") {
-    execSync(`npm install ${packageSpec}`, { stdio: "inherit" });
-  } else if (audit.verdict === "WARNING") {
-    console.log(chalk.yellow("  Installing with warning..."));
+  // Block CRITICAL unless --force
+  if (audit.verdict === "CRITICAL" && !force) {
+    console.log(
+      chalk.red.bold(
+        "  Installation blocked. This package has critical security issues."
+      )
+    );
+    console.log(chalk.gray("  Use --force to install anyway."));
     console.log();
-    execSync(`npm install ${packageSpec}`, { stdio: "inherit" });
-  } else if (audit.verdict === "CRITICAL") {
-    if (force) {
-      console.log(chalk.red("  --force: Installing despite CRITICAL verdict..."));
+    return;
+  }
+
+  // Install from IPFS if sourceCid is available
+  if (audit.sourceCid) {
+    const dlSpinner = ora(
+      `Downloading verified source from IPFS (${audit.sourceCid.slice(0, 12)}...)`,
+    ).start();
+
+    try {
+      const tmpDir = join(tmpdir(), "npmguard");
+      await mkdir(tmpDir, { recursive: true });
+      const tarballPath = join(
+        tmpDir,
+        `${packageName}-${requestedVersion}.tgz`
+      );
+
+      await downloadFromIPFS(audit.sourceCid, tarballPath);
+      dlSpinner.succeed("Downloaded from IPFS");
+
+      console.log(
+        chalk.green(`  Installing from verified IPFS source...`)
+      );
+      console.log();
+      execSync(`npm install ${tarballPath}`, { stdio: "inherit" });
+
+      // Cleanup
+      await unlink(tarballPath).catch(() => {});
+    } catch (err) {
+      dlSpinner.fail("IPFS download failed");
+      console.log(
+        chalk.yellow("  Falling back to npm install...")
+      );
       console.log();
       execSync(`npm install ${packageSpec}`, { stdio: "inherit" });
-    } else {
-      console.log(
-        chalk.red.bold(
-          "  Installation blocked. This package has critical security issues."
-        )
-      );
-      console.log(
-        chalk.gray(
-          "  Use --force to install anyway."
-        )
-      );
-      console.log();
     }
+  } else {
+    // No sourceCid — install from npm
+    console.log(chalk.gray("  No IPFS source available, installing from npm..."));
+    console.log();
+    execSync(`npm install ${packageSpec}`, { stdio: "inherit" });
   }
 }
