@@ -49,6 +49,10 @@ export function packageVersionToEnsName(packageName, version, rootDomain = DEFAU
   return `${versionToEnsLabel(version)}.${packageToParentEnsName(packageName, rootDomain)}`;
 }
 
+export function versionLabelToEnsName(parentName, version) {
+  return `${versionToEnsLabel(version)}.${parentName}`;
+}
+
 export function buildAuditTextRecords(entry) {
   return {
     [`${TEXT_RECORD_PREFIX}.package`]: entry.packageName,
@@ -67,7 +71,10 @@ export function buildAuditTextRecords(entry) {
 export function buildLatestParentRecords(entry) {
   return {
     [`${TEXT_RECORD_PREFIX}.latest_version`]: entry.version,
-    [`${TEXT_RECORD_PREFIX}.latest_version_name`]: packageVersionToEnsName(entry.packageName, entry.version),
+    [`${TEXT_RECORD_PREFIX}.latest_version_name`]: versionLabelToEnsName(
+      entry.parentName ?? packageToParentEnsName(entry.packageName),
+      entry.version
+    ),
     [`${TEXT_RECORD_PREFIX}.latest_verdict`]: entry.audit.verdict,
     [`${TEXT_RECORD_PREFIX}.latest_score`]: String(entry.audit.score),
     [`${TEXT_RECORD_PREFIX}.latest_report_cid`]: entry.audit.reportCid ?? '',
@@ -241,7 +248,7 @@ export async function publishAuditRecord(entry) {
   }
 
   const parentName = entry.parentName ?? packageToParentEnsName(entry.packageName);
-  const versionName = packageVersionToEnsName(entry.packageName, entry.version);
+  const versionName = versionLabelToEnsName(parentName, entry.version);
   const parentStatus = await getNameStatus({ publicClient, addresses, name: parentName });
   if (!parentStatus.owner || parentStatus.owner === zeroAddress) {
     throw new Error(`Parent ENS name ${parentName} is not registered.`);

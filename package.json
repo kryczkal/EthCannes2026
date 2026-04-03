@@ -16,6 +16,7 @@
   "dependencies": {
     "@ensdomains/content-hash": "^3.0.0",
     "ipfs-only-hash": "^4.0.0",
+    "multiformats": "^13.4.1",
     "tar": "^7.5.13",
     "viem": "^2.47.6"
   }

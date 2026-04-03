@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import tar from 'tar';
 import Hash from 'ipfs-only-hash';
+import { CID } from 'multiformats/cid';
 import { DEFAULT_GATEWAY_HOST } from '../../../src/lib/constants.js';
 import { ensureDir } from '../../../src/lib/fs.js';
 import { resolveAuditRecord } from '../../../src/lib/ens.js';
@@ -74,8 +75,10 @@ async function main() {
   const downloadUrl = `https://${gatewayHost}/ipfs/${record.sourceCid}`;
   const tarballBytes = await downloadFile(downloadUrl, tempTarballPath);
   const computedCid = await Hash.of(tarballBytes);
+  const expectedCidNormalized = CID.parse(record.sourceCid).toV1().toString();
+  const computedCidNormalized = CID.parse(computedCid).toV1().toString();
 
-  if (computedCid !== record.sourceCid) {
+  if (computedCidNormalized !== expectedCidNormalized) {
     throw new Error(`CID mismatch: expected ${record.sourceCid}, received ${computedCid}`);
   }
 
