@@ -1,4 +1,4 @@
-import contentHash from '@ensdomains/content-hash';
+import { decode as decodeContentHash, encode as encodeContentHash } from '@ensdomains/content-hash';
 import {
   createPublicClient,
   createWalletClient,
@@ -80,22 +80,7 @@ export function buildLatestParentRecords(entry) {
 }
 
 export function encodeIpfsContenthash(cid) {
-  const attempts = [
-    () => contentHash.encode('ipfs-ns', cid),
-    () => `0x${contentHash.fromIpfs(cid)}`,
-    () => contentHash.fromIpfs(cid)
-  ];
-
-  for (const attempt of attempts) {
-    try {
-      const value = attempt();
-      if (typeof value === 'string' && value.length > 0) {
-        return value.startsWith('0x') ? value : `0x${value}`;
-      }
-    } catch {}
-  }
-
-  throw new Error(`Unable to encode IPFS CID as ENS contenthash: ${cid}`);
+  return `0x${encodeContentHash('ipfs', cid)}`;
 }
 
 export function decodeIpfsContenthash(contenthashValue) {
@@ -103,18 +88,7 @@ export function decodeIpfsContenthash(contenthashValue) {
     return null;
   }
 
-  const hexValue = contenthashValue.startsWith('0x') ? contenthashValue.slice(2) : contenthashValue;
-  const decoded = contentHash.decode(hexValue);
-
-  if (decoded.startsWith('ipfs://')) {
-    return decoded.replace('ipfs://', '');
-  }
-
-  if (decoded.startsWith('/ipfs/')) {
-    return decoded.replace('/ipfs/', '');
-  }
-
-  return decoded;
+  return decodeContentHash(contenthashValue);
 }
 
 export function createEnsClients() {

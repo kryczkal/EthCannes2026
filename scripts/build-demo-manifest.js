@@ -10,6 +10,8 @@ import { uploadFileToPinata } from '../src/lib/pinata.js';
 import { ARTIFACTS_DIR, MANIFEST_PATH, REPORTS_DIR, TARBALLS_DIR } from '../src/lib/constants.js';
 import { packageVersionToEnsName } from '../src/lib/ens.js';
 
+const LOCAL_NPM_CACHE = path.join(ARTIFACTS_DIR, 'npm-cache');
+
 function hasFlag(flag) {
   return process.argv.slice(2).includes(flag);
 }
@@ -17,7 +19,11 @@ function hasFlag(flag) {
 async function packPackage(directoryPath) {
   const command = spawnSync('npm', ['pack', '--json', '--pack-destination', TARBALLS_DIR], {
     cwd: directoryPath,
-    encoding: 'utf8'
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      npm_config_cache: LOCAL_NPM_CACHE
+    }
   });
 
   if (command.status !== 0) {
@@ -40,6 +46,7 @@ async function main() {
   await ensureDir(ARTIFACTS_DIR);
   await ensureDir(TARBALLS_DIR);
   await ensureDir(REPORTS_DIR);
+  await ensureDir(LOCAL_NPM_CACHE);
 
   const upload = hasFlag('--upload');
   const jwt = process.env.PINATA_JWT;
