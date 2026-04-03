@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { PinataSDK } from 'pinata';
 import { DEFAULT_GATEWAY_HOST } from './constants.js';
 
 function inferMimeType(filePath) {
@@ -27,6 +28,14 @@ function gatewayHeaders() {
 
 function gatewayToken() {
   return process.env.PINATA_GATEWAY_TOKEN ?? process.env.SGINSTALL_GATEWAY_TOKEN ?? '';
+}
+
+function createPinataClient(pinataJwt) {
+  return new PinataSDK({
+    pinataJwt,
+    pinataGateway: DEFAULT_GATEWAY_HOST,
+    pinataGatewayKey: gatewayToken() || undefined
+  });
 }
 
 function gatewayUrlWithToken(url) {
@@ -90,27 +99,11 @@ export async function waitForGatewayAvailability(cid, gatewayHost = DEFAULT_GATE
 }
 
 export async function uploadFileToPinata({ filePath, jwt, name = path.basename(filePath) }) {
-  const form = new FormData();
   const buffer = await fs.readFile(filePath);
   const file = new File([buffer], name, { type: inferMimeType(filePath) });
-
-  form.append('network', 'public');
-  form.append('file', file);
-
-  const response = await fetch('https://uploads.pinata.cloud/v3/files', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${jwt}`
-    },
-    body: form
-  });
-
-  if (!response.ok) {
-    throw new Error(`Pinata upload failed with ${response.status}: ${await response.text()}`);
-  }
-
-  const payload = await response.json();
-  const cid = payload?.data?.cid ?? payload?.cid ?? payload?.IpfsHash;
+  const pinata = createPinataClient(jwt);
+  const payload = await pinata.upload.public.file(file);
+  const cid = payload?.cid;
 
   if (!cid) {
     throw new Error(`Pinata response did not include a CID: ${JSON.stringify(payload)}`);
