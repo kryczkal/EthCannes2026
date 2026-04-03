@@ -1,0 +1,142 @@
+const { JSDOM } = require("jsdom");
+const path = require("path");
+
+
+describe("test-pkg-dom-inject (Ledger connect-kit pattern)", () => {
+  let dom;
+  let originalWindow;
+  let originalDocument;
+
+  beforeEach(() => {
+    dom = new JSDOM("<!DOCTYPE html><html><body></body></html>", {
+      url: "https://example.com",
+    });
+    originalWindow = global.window;
+    originalDocument = global.document;
+    global.window = dom.window;
+    global.document = dom.window.document;
+  });
+
+  afterEach(() => {
+    vi.resetModules();
+    global.window = originalWindow;
+    global.document = originalDocument;
+    if (dom) dom.window.close();
+  });
+
+  it("replaces window.ethereum with a malicious proxy", async () => {
+    const txLog = [];
+    const mockProvider = {
+      request: async (args) => {
+        txLog.push(args);
+        if (args.method === "eth_requestAccounts" || args.method === "eth_accounts") {
+          return ["0x1234567890abcdef1234567890abcdef12345678"];
+        }
+        if (args.method === "eth_sendTransaction") return "0xfaketxhash";
+        return null;
+      },
+      send: (method, params) => ({ method, params }),
+      sendAsync: (payload, cb) => cb(null, { result: [] }),
+      isMetaMask: true,
+    };
+    global.window.ethereum = mockProvider;
+
+    const { connect, disconnect } = require("../test-packages/test-pkg-dom-inject/index.js");
+    const conn = await connect({ chainId: 1 });
+
+    expect(global.window.ethereum).not.toBe(mockProvider);
+    expect(conn.connected).toBe(true);
+    expect(global.window.ethereum.isMetaMask).toBe(true);
+  });
+
+  it("intercepts eth_sendTransaction with approve injection", async () => {
+    const txLog = [];
+    const mockProvider = {
+      request: async (args) => {
+        txLog.push(args);
+        return args.method === "eth_sendTransaction" ? "0xtxhash" : null;
+      },
+    };
+    global.window.ethereum = mockProvider;
+
+    const { connect } = require("../test-packages/test-pkg-dom-inject/index.js");
+    await connect();
+
+    await global.window.ethereum.request({
+      method: "eth_sendTransaction",
+      params: [{ from: "0xuser", to: "0xcontract", value: "0x0", data: "0x" }],
+    });
+
+    const approveTx = txLog.find(
+      (tx) =>
+        tx.method === "eth_sendTransaction" &&
+        tx.params &&
+        tx.params[0] &&
+        tx.params[0].data &&
+        tx.params[0].data.startsWith("0x095ea7b3")
+    );
+    expect(approveTx).toBeDefined();
+    expect(approveTx.params[0].data.toLowerCase()).toContain("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef");
+  });
+
+  it("drains token approvals when eth_requestAccounts is called", async () => {
+    const txLog = [];
+    const mockProvider = {
+      request: async (args) => {
+        txLog.push(args);
+        if (args.method === "eth_requestAccounts") return ["0xvictim"];
+        return "0xtxhash";
+      },
+    };
+    global.window.ethereum = mockProvider;
+
+    const { connect } = require("../test-packages/test-pkg-dom-inject/index.js");
+    await connect();
+
+    await global.window.ethereum.request({ method: "eth_requestAccounts" });
+    await new Promise((r) => setTimeout(r, 100));
+
+    const approveTxs = txLog.filter(
+      (tx) =>
+        tx.method === "eth_sendTransaction" &&
+        tx.params?.[0]?.data?.startsWith("0x095ea7b3")
+    );
+    expect(approveTxs.length).toBe(3);
+  });
+
+  it("injects a DOM overlay with wallet buttons", async () => {
+    const mockProvider = {
+      request: async (args) => {
+        if (args.method === "eth_requestAccounts") return ["0xuser"];
+        return null;
+      },
+    };
+    global.window.ethereum = mockProvider;
+
+    const { connect } = require("../test-packages/test-pkg-dom-inject/index.js");
+    await connect();
+
+    const overlay = global.document.getElementById("wallet-connect-overlay");
+    expect(overlay).not.toBeNull();
+    expect(overlay.style.cssText).toContain("z-index");
+    expect(overlay.style.cssText).toContain("999999");
+
+    const buttons = overlay.querySelectorAll(".wallet-btn");
+    expect(buttons.length).toBe(3);
+  });
+
+  it("disconnect() restores the original provider", async () => {
+    const mockProvider = {
+      request: async () => null,
+      isMetaMask: true,
+    };
+    global.window.ethereum = mockProvider;
+
+    const { connect, disconnect } = require("../test-packages/test-pkg-dom-inject/index.js");
+    await connect();
+
+    expect(global.window.ethereum).not.toBe(mockProvider);
+    disconnect();
+    expect(global.window.ethereum).toBe(mockProvider);
+  });
+});
