@@ -1,5 +1,5 @@
 {
   "packages": ["axios", "lodash", "express", "chalk"],
-  "auditApiUrl": "http://localhost:3000/api/audit",
+  "auditApiUrl": "https://a50c-83-144-21-99.ngrok-free.app/audit",
   "schedule": "0 */5 * * * *"
 }
