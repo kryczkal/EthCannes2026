@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import re
 from dataclasses import dataclass
 
@@ -51,9 +52,7 @@ class NetworkFinding(BaseModel):
     file_line: str = Field(description="e.g. 'src/index.js:42'")
     problem: str = Field(description="One-sentence description of the threat")
     proof_data: str = Field(description="The exact suspicious code snippet")
-    is_exfil: bool = Field(
-        description="True if data is being sent OUT (POST, DNS encode, etc.)"
-    )
+    is_exfil: bool = Field(description="True if data is being sent OUT (POST, DNS encode, etc.)")
 
 
 class NetworkAnalysis(BaseModel):
@@ -63,7 +62,7 @@ class NetworkAnalysis(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# PydanticAI agent (lazy-initialized)
+# PydanticAI agent (lazy-initialized via lru_cache)
 # ---------------------------------------------------------------------------
 
 SYSTEM_PROMPT = """\
@@ -94,32 +93,28 @@ class _Deps:
     signals: list[Signal]
 
 
-_agent: Agent[_Deps, NetworkAnalysis] | None = None
-
-
+@functools.lru_cache(maxsize=1)
 def _get_agent() -> Agent[_Deps, NetworkAnalysis]:
-    global _agent
-    if _agent is None:
-        _agent = Agent(
-            make_model(),
-            deps_type=_Deps,
-            output_type=NetworkAnalysis,
-            retries=2,
-            system_prompt=SYSTEM_PROMPT,
-        )
+    agent: Agent[_Deps, NetworkAnalysis] = Agent(
+        make_model(),
+        deps_type=_Deps,
+        output_type=NetworkAnalysis,
+        retries=2,
+        system_prompt=SYSTEM_PROMPT,
+    )
 
-        @_agent.output_validator
-        def _validate(
-            ctx: RunContext[_Deps], output: NetworkAnalysis  # noqa: ARG001
-        ) -> NetworkAnalysis:
-            for f in output.findings:
-                if ":" not in f.file_line:
-                    raise ModelRetry(
-                        f"file_line '{f.file_line}' must be 'filename:linenum' format"
-                    )
-            return output
+    @agent.output_validator
+    def _validate(
+        ctx: RunContext[_Deps],
+        output: NetworkAnalysis,  # noqa: ARG001
+    ) -> NetworkAnalysis:
+        for f in output.findings:
+            parts = f.file_line.split(":")
+            if len(parts) < 2 or not parts[-1].isdigit():
+                raise ModelRetry(f"file_line '{f.file_line}' must be 'filename:linenum' format")
+        return output
 
-    return _agent
+    return agent
 
 
 # ---------------------------------------------------------------------------

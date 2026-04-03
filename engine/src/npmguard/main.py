@@ -7,6 +7,7 @@ import structlog
 from temporalio.client import Client
 from temporalio.worker import Worker
 
+from npmguard._logging import configure_logging
 from npmguard.activities import (
     analyze_sandbox,
     analyze_static,
@@ -16,7 +17,6 @@ from npmguard.activities import (
 )
 from npmguard.config import Settings
 from npmguard.exceptions import TemporalConnectionError
-from npmguard._logging import configure_logging
 from npmguard.workflows import NpmGuardOrchestrator
 
 log = structlog.get_logger()
