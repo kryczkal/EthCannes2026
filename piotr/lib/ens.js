@@ -217,6 +217,26 @@ async function getNameStatus({ publicClient, addresses, name }) {
   };
 }
 
+function assertControllableName({ status, account, addresses, name }) {
+  const accountAddress = lower(account.address);
+
+  if (status.wrapped) {
+    if (lower(status.wrappedOwner) !== accountAddress) {
+      throw new Error(
+        `ENS name ${name} is wrapped but controlled by ${status.wrappedOwner}, not ${account.address}.`
+      );
+    }
+
+    return;
+  }
+
+  if (lower(status.owner) !== accountAddress) {
+    throw new Error(
+      `ENS name ${name} is owned by ${status.owner}, not ${account.address}.`
+    );
+  }
+}
+
 async function createSubname({
   publicClient,
   walletClient,
@@ -300,6 +320,7 @@ export async function publishAuditRecord(entry) {
   if (!baseDomainStatus.owner || baseDomainStatus.owner === zeroAddress) {
     throw new Error(`Base ENS name ${baseDomain} is not registered.`);
   }
+  assertControllableName({ status: baseDomainStatus, account, addresses, name: baseDomain });
 
   let parentStatus = await getNameStatus({ publicClient, addresses, name: parentName });
   let parentCreationHash = null;
@@ -315,6 +336,7 @@ export async function publishAuditRecord(entry) {
     });
     parentStatus = await getNameStatus({ publicClient, addresses, name: parentName });
   }
+  assertControllableName({ status: parentStatus, account, addresses, name: parentName });
 
   const parentResolver = await ensureResolver({
     publicClient,
