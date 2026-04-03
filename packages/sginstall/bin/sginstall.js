@@ -3,7 +3,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import tar from 'tar';
+import * as tar from 'tar';
 import Hash from 'ipfs-only-hash';
 import { CID } from 'multiformats/cid';
 import { DEFAULT_GATEWAY_HOST } from '../../../src/lib/constants.js';
