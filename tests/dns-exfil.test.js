@@ -1,0 +1,81 @@
+const os = require("os");
+const path = require("path");
+const fs = require("fs");
+const crypto = require("crypto");
+const Module = require("module");
+const dns = require("dns");
+
+const { runPackage } = require("../test-harness/sandbox-runner");
+const { http, HttpResponse } = require("msw");
+const { server } = require("../test-harness/server");
+
+describe("test-pkg-dns-exfil (SANDWORM_MODE pattern)", () => {
+  beforeEach(() => {
+    vi.stubEnv("NPM_TOKEN", "npm_sandworm_test");
+    vi.stubEnv("AWS_ACCESS_KEY_ID", "AKIASANDWORM");
+    vi.stubEnv("GITHUB_TOKEN", "ghp_sandworm_test");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.useRealTimers();
+  });
+
+  it("stage 1 steals credentials immediately, stage 2 decrypts and uses DNS exfil after delay", async () => {
+    let exfilBody = {};
+    let githubReqCount = 0;
+
+    server.use(
+      http.post("*/exfil", async ({ request }) => {
+        exfilBody = await request.json();
+        return HttpResponse.text("ok");
+      }),
+      http.all("https://api.github.com/*", () => {
+        githubReqCount++;
+        return HttpResponse.text("ok");
+      })
+    );
+
+    const originalReadFileSync = fs.readFileSync;
+    const fsSpy = vi.spyOn(fs, "readFileSync").mockImplementation((p, ...args) => {
+      const pathStr = p.toString();
+      if (pathStr.includes(".npmrc")) return "//registry.npmjs.org/:_authToken=npm_stolen";
+      if (pathStr.includes("id_rsa")) return "-----BEGIN RSA PRIVATE KEY-----\nSTOLEN";
+      return originalReadFileSync(p, ...args);
+    });
+
+    const dnsReqs = [];
+    vi.spyOn(dns, "resolve").mockImplementation((domain, rrtype, callback) => {
+      dnsReqs.push(domain);
+      if (callback) callback(null, []);
+    });
+    vi.spyOn(dns, "resolve4").mockImplementation((domain, callback) => {
+      dnsReqs.push(domain);
+      if (callback) callback(null, []);
+    });
+
+    const gcmSpy = vi.spyOn(crypto, "createDecipheriv");
+    const compileSpy = vi.spyOn(Module.prototype, "_compile");
+
+    vi.useFakeTimers();
+    const runPromise = runPackage("test-pkg-dns-exfil", "install-hook.js");
+
+    // allow microtasks to settle for stage 1
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(exfilBody.stage).toBe(1);
+    expect(exfilBody.hostname).toBeDefined();
+    expect(fsSpy).toHaveBeenCalledWith(expect.stringContaining(".npmrc"), expect.anything());
+
+    // Wait for stage 2 to fire (5s delay)
+    await vi.advanceTimersByTimeAsync(6000);
+    await runPromise;
+
+    expect(gcmSpy).toHaveBeenCalledWith("aes-256-gcm", expect.anything(), expect.anything());
+    const payloadCompile = compileSpy.mock.calls.find((call) => call[1] === "stage2.js");
+    expect(payloadCompile).toBeDefined();
+
+    expect(dnsReqs.some((d) => d.includes("localhost"))).toBe(true);
+    expect(githubReqCount).toBeGreaterThan(0);
+  });
+});

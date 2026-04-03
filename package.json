@@ -1,0 +1,14 @@
+{
+  "name": "npmguard-test-suite",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "jsdom": "^26.0.0",
+    "msw": "^2.12.14",
+    "vitest": "^3.1.0"
+  }
+}
