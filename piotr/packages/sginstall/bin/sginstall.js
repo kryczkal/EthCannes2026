@@ -67,14 +67,27 @@ function buildGatewayCandidates(preferredGatewayHost) {
   ]);
 }
 
+function gatewayTimeoutMs() {
+  const raw = process.env.SGINSTALL_GATEWAY_TIMEOUT_MS;
+  if (!raw) {
+    return 12000;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 12000;
+}
+
 async function downloadFile(cid, filePath, gatewayHosts) {
   const errors = [];
+  const timeoutMs = gatewayTimeoutMs();
 
   for (const gatewayHost of gatewayHosts) {
     const url = `https://${gatewayHost}/ipfs/${cid}`;
-    console.error(`Trying gateway: ${url}`);
+    console.error(`Trying gateway: ${url} (timeout ${timeoutMs}ms)`);
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(timeoutMs)
+      });
       if (!response.ok) {
         console.error(`Gateway failed: ${response.status} ${response.statusText}`);
         errors.push(`${url}: ${response.status} ${response.statusText}`);
@@ -89,8 +102,9 @@ async function downloadFile(cid, filePath, gatewayHosts) {
         url
       };
     } catch (error) {
-      console.error(`Gateway error: ${error instanceof Error ? error.message : String(error)}`);
-      errors.push(`${url}: ${error instanceof Error ? error.message : String(error)}`);
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`Gateway error: ${message}`);
+      errors.push(`${url}: ${message}`);
       continue;
     }
   }
