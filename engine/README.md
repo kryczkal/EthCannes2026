@@ -38,3 +38,16 @@ pip install -e .
    ```
 
 The engine connects to the local Temporal server at `localhost:7233` and starts a worker listening on the `npmguard-task-queue` task queue. It registers the orchestrator workflow and the security analysis activities (static analysis, sandboxing, and adversarial fuzzing).
+
+3. Start the API endpoint (in a third terminal):
+   ```bash
+   # If using uv
+   uv run python src/npmguard/api.py
+   ```
+   The API will listen on `http://localhost:8000`. You can trigger an audit with:
+   ```bash
+   curl -X POST http://localhost:8000/audit \
+        -H "Content-Type: application/json" \
+        -d '{"package_name": "serialize-javascript"}'
+   ```
+   You can also visit `http://localhost:8000/docs` to see the interactive Swagger UI.

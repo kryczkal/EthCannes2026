@@ -11,8 +11,10 @@ async def main() -> None:
     logging.basicConfig(level=logging.INFO)
     logging.info("Starting NpmGuard Engine Skeleton")
 
-    # Connect to local Temporal server (update the URL as needed)
-    client = await Client.connect("localhost:7233")
+    from temporalio.contrib.pydantic import pydantic_data_converter
+    
+    # Connect to local Temporal server with pydantic converter
+    client = await Client.connect("localhost:7233", data_converter=pydantic_data_converter)
     logging.info("Connected to Temporal Server")
 
     # Run the worker to process workflows and activities

@@ -1,4 +1,3 @@
-import asyncio
 from datetime import timedelta
 from typing import List
 
@@ -44,8 +43,6 @@ class NpmGuardOrchestrator:
         proofs.extend(static_proofs)
         proofs.extend(sandbox_proofs)
 
-        # Assuming Adversarial fuzzing only runs if previous layers pass or based on an advanced flag
-        # For the skeleton, we run it subsequently
         fuzzing_proofs = await workflow.execute_activity(
             fuzz_adversarial,
             package_name,
@@ -55,11 +52,6 @@ class NpmGuardOrchestrator:
 
         verdict = VerdictEnum.SAFE
         if len(proofs) > 0:
-            # Simple heuristic: any severe proof generated sets verdict to dangerous
             verdict = VerdictEnum.DANGEROUS
 
-        return AuditReport(
-            verdict=verdict,
-            capabilities=list(capabilities),
-            proofs=proofs
-        )
+        return AuditReport(verdict=verdict, capabilities=list(capabilities), proofs=proofs)
