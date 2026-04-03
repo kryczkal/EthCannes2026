@@ -1,7 +1,7 @@
 """
 Centralized structlog configuration for NpmGuard.
 
-Production standard: JSON-formatted structured logs per PRODUCTION_PYTHON_GUIDE §12.
+JSON-formatted structured logs, callable once at startup.
 """
 
 import logging

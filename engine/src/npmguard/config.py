@@ -1,8 +1,7 @@
 """
 NpmGuard configuration via pydantic-settings.
 
-Validates all configuration at startup per PRODUCTION_PYTHON_GUIDE §9.
-Load precedence: Environment variables > .env file > Defaults.
+Validates all configuration at startup. Load precedence: env vars > .env file > defaults.
 """
 
 from pydantic import Field

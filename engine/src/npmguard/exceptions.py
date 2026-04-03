@@ -1,8 +1,5 @@
 """
 NpmGuard custom exception hierarchy.
-
-Every production application defines a base exception and category-level exceptions
-per PRODUCTION_PYTHON_GUIDE §11.
 """
 
 
