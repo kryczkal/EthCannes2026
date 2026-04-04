@@ -1,6 +1,7 @@
 node_modules
 .DS_Store
 .env
+openclaw/.env.gateway
 dist
 build
 coverage

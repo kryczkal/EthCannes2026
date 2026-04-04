@@ -8,7 +8,7 @@ export interface OpenClawEnv {
 
 export function readOpenClawEnv(): OpenClawEnv {
   const command = process.env.OPENCLAW_CMD?.trim() || 'openclaw';
-  const argString = process.env.OPENCLAW_ARGS?.trim() || '--local --json';
+  const argString = process.env.OPENCLAW_ARGS?.trim() || '--local --json --agent verifier';
 
   return {
     command,
