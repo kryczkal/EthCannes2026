@@ -80,4 +80,5 @@ Notes:
 
 - The Docker image installs OpenClaw inside the image, so you can uninstall the host CLI after the container is working.
 - The container keeps its state in a Docker volume named `openclaw_state`.
+- The published port is pinned to `127.0.0.1` by default, matching the OpenClaw container docs for local browser access.
 - The dashboard URL uses `#token=...` because token-auth gateways need the browser UI to receive the gateway token explicitly.
