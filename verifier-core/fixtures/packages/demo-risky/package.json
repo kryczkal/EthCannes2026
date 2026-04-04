@@ -1,0 +1,8 @@
+{
+  "name": "demo-risky",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "postinstall": "node index.js"
+  }
+}
