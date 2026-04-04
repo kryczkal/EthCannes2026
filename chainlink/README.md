@@ -1,37 +1,41 @@
 # Chainlink CRE — npm Monitor Workflow
 
-CRE workflow that monitors npm packages for new versions and triggers the NpmGuard audit engine.
+CRE workflow that monitors npm packages for new versions, checks ENS on-chain for existing audits, and triggers the NpmGuard audit engine when needed.
 
 ## How it works
 
-```
-Cron (every 5 min) or HTTP trigger
-        │
-        ▼
-  Fetch npm registry → detect latest version
-        │
-        ▼
-  POST /audit to NpmGuard engine
-        │
-        ▼
-  Return verdict (SAFE / DANGEROUS) + capabilities + proofs
+```mermaid
+flowchart TD
+    A[Cron trigger every 5 min\nor HTTP trigger manual] --> B[Fetch npm registry\nGET /package/latest]
+    B --> C[Detected: axios@1.14.0]
+    C --> D{Read ENS on-chain\n1-14-0.axios.npmguard.eth\nnpmguard.verdict}
+    D -->|verdict exists| E[Already audited — skip]
+    D -->|no verdict| F[POST /audit to\nNpmGuard engine]
+    F --> G[Engine returns\nverdict + capabilities + proofs]
 ```
 
-The workflow runs on Chainlink's Decentralized Oracle Network (DON) with consensus — multiple nodes independently fetch the data and must agree on the result before proceeding.
+What happens step by step:
+
+1. **Trigger** — Cron fires every 5 min (production) or HTTP trigger fires on demand (demo)
+2. **Fetch npm** — For each monitored package, fetches `registry.npmjs.org/{package}/latest` to get the current version
+3. **Check ENS on-chain** — Reads `npmguard.verdict` text record on `{version}.{package}.npmguard.eth` via EVMClient chain read on Sepolia. This is a direct on-chain read, no API intermediary.
+4. **Skip or audit** — If a verdict exists, the version was already audited → skip. If no verdict, trigger the audit engine via HTTP POST.
+5. **Audit result** — The engine returns verdict (SAFE/DANGEROUS), capabilities, and proofs.
 
 ## Triggers
 
 | Trigger | Use case | Input |
 |---------|----------|-------|
-| **HTTP** | Demo / manual check | `{"package": "axios"}` |
-| **Cron** | Production monitoring | Checks all packages from config every 5 min |
+| **HTTP** | Demo — check single package on demand | `{"package": "axios"}` |
+| **Cron** | Production — check all packages every 5 min | Reads from config |
 
 ## Config
 
 `npm-monitor/config.staging.json`:
+
 ```json
 {
-  "packages": ["axios", "lodash", "express", "chalk"],
+  "packages": ["code-formatter", "axios", "lodash", "express", "chalk"],
   "auditApiUrl": "https://<ngrok-or-production-url>/audit",
   "schedule": "0 */5 * * * *"
 }
@@ -52,13 +56,15 @@ cd npm-monitor && bun install
 ## Simulate
 
 HTTP trigger (single package):
+
 ```bash
 cre workflow simulate npm-monitor -T staging-settings --trigger-index 0 --http-payload '{"package":"axios"}' --non-interactive
 ```
 
-Cron trigger (all packages):
+Cron trigger (all packages — needs custom limits):
+
 ```bash
-cre workflow simulate npm-monitor -T staging-settings --trigger-index 1 --non-interactive
+cre workflow simulate npm-monitor -T staging-settings --trigger-index 1 --non-interactive --limits /path/to/npm-monitor/limits.json
 ```
 
 ## Simulate with audit engine
@@ -74,17 +80,30 @@ Then update `auditApiUrl` in `npm-monitor/config.staging.json` with the ngrok UR
 > See `engine/README.md` for how to start the audit engine.
 > In production on the DON, the workflow calls the engine API directly — no ngrok needed.
 
+## On-chain ENS read
+
+The workflow reads ENS text records directly on Sepolia using the CRE EVMClient. It calls `text(node, "npmguard.verdict")` on the ENS Public Resolver contract (`0xE99638b40E4Fff0129D56f03b55b6bbC4BBE49b5`).
+
+```mermaid
+flowchart LR
+    A[CRE Workflow] -->|EVMClient.callContract| B[ENS Public Resolver\nSepolia]
+    B -->|text record| C["npmguard.verdict = safe"]
+```
+
+Note: ENS reads use `LAST_FINALIZED_BLOCK_NUMBER`, so newly published records need ~15 min for Sepolia finality before the workflow can read them.
+
 ## Project structure
 
 ```
 chainlink/
 ├── project.yaml              # RPC endpoints (Sepolia)
-├── secrets.yaml              # Secret mappings (empty for now)
+├── secrets.yaml              # Secret mappings
 ├── commands.md               # Quick reference commands
 └── npm-monitor/
     ├── main.ts               # Entry point — registers HTTP + Cron triggers
-    ├── workflow.ts            # Handlers — npm fetch + audit trigger
+    ├── workflow.ts            # Handlers — npm fetch, ENS check, audit trigger
     ├── config.staging.json   # Packages list, audit API URL, cron schedule
+    ├── limits.json           # Custom simulation limits (20 HTTP calls)
     ├── workflow.yaml         # CRE workflow settings
     ├── package.json          # Dependencies (@chainlink/cre-sdk)
     └── tsconfig.json
