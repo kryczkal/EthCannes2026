@@ -151,6 +151,14 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
           problem: f.problem,
         })),
         proofCount: inv.proofs.length,
+        toolCalls: inv.toolCalls.map((tc) => ({
+          tool: tc.tool,
+          args: tc.args,
+          resultPreview: tc.resultPreview,
+          timestamp: tc.timestamp,
+          injectionDetected: tc.injectionDetected,
+        })),
+        agentText: inv.agentText.slice(0, 2000),
       }),
     );
     trace.push(investigateLog);

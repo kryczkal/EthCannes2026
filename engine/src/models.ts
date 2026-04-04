@@ -122,6 +122,7 @@ export const InvestigationOutput = z.object({
   findings: z.array(Finding).default([]),
   summary: z.string().default(""),
 });
+
 export type InvestigationOutput = z.infer<typeof InvestigationOutput>;
 
 export const ToolCallRecord = z.object({
@@ -132,6 +133,13 @@ export const ToolCallRecord = z.object({
   injectionDetected: z.boolean().default(false),
 });
 export type ToolCallRecord = z.infer<typeof ToolCallRecord>;
+
+/** Extended output from the agent runner — includes tool call trace for observability. */
+export const InvestigationAgentOutput = InvestigationOutput.extend({
+  toolCalls: z.array(ToolCallRecord).default([]),
+  agentText: z.string().default(""),
+});
+export type InvestigationAgentOutput = z.infer<typeof InvestigationAgentOutput>;
 
 // ---------------------------------------------------------------------------
 // Instrumentation sub-models

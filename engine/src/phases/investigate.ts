@@ -1,5 +1,5 @@
 import { config } from "../config.js";
-import { CapabilityEnum, type FileVerdict, type Finding, type InvestigationInput, type InventoryReport, type Proof, type TriageResult } from "../models.js";
+import { CapabilityEnum, type FileVerdict, type Finding, type InvestigationInput, type InventoryReport, type Proof, type ToolCallRecord, type TriageResult } from "../models.js";
 import { DockerSandboxController } from "../sandbox/controller.js";
 import { runInvestigationAgent } from "../investigation/agent.js";
 import { LIFECYCLE_SCRIPTS } from "../inventory/parse-manifest.js";
@@ -8,6 +8,8 @@ export interface InvestigationResult {
   capabilities: CapabilityEnum[];
   proofs: Proof[];
   findings: Finding[];
+  toolCalls: ToolCallRecord[];
+  agentText: string;
 }
 
 export async function investigate(
@@ -18,7 +20,7 @@ export async function investigate(
 ): Promise<InvestigationResult> {
   if (!config.investigationEnabled) {
     console.log("[investigate] skipped — investigation disabled");
-    return { capabilities: [], proofs: [], findings: [] };
+    return { capabilities: [], proofs: [], findings: [], toolCalls: [], agentText: "" };
   }
 
   // Build investigation input
@@ -85,7 +87,13 @@ export async function investigate(
       });
     }
 
-    return { capabilities: [...capabilities], proofs, findings: output.findings };
+    return {
+      capabilities: [...capabilities],
+      proofs,
+      findings: output.findings,
+      toolCalls: output.toolCalls,
+      agentText: output.agentText,
+    };
   } finally {
     await sandbox.stop();
   }

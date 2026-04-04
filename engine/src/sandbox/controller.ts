@@ -120,16 +120,31 @@ export class DockerSandboxController {
   async exec(cmd: string[], timeoutS = 15): Promise<ExecResult> {
     if (!this.containerName) throw new Error("Sandbox not running — call start() first");
 
+    const cmdPreview = cmd.map((c) => (c.length > 120 ? c.slice(0, 120) + "…" : c)).join(" ");
+    console.log(`[sandbox:exec] $ ${cmdPreview}`);
+
     const args = ["exec", this.containerName, ...cmd];
+    const start = Date.now();
     const result = await dockerExec(args, timeoutS * 1000);
+    const elapsed = Date.now() - start;
 
     if (result.timedOut) {
+      console.log(`[sandbox:exec] TIMEOUT after ${elapsed}ms`);
       // Best-effort kill processes inside container
       await dockerExec(["exec", this.containerName, "kill", "-9", "-1"], 5000).catch(() => {});
     }
 
     const stdout = sanitize(result.stdout);
     const stderr = sanitize(result.stderr);
+
+    const outBytes = stdout.text.length;
+    const errBytes = stderr.text.length;
+    const injection = stdout.injectionDetected || stderr.injectionDetected;
+    console.log(
+      `[sandbox:exec] exit=${result.exitCode} ${elapsed}ms stdout=${outBytes}B stderr=${errBytes}B` +
+        (result.timedOut ? " TIMED_OUT" : "") +
+        (injection ? " INJECTION_REDACTED" : ""),
+    );
 
     return {
       stdout: stdout.text,
