@@ -66,6 +66,15 @@ flowchart LR
     E -->|no| I[Install from<br/>npm anyway]
 ```
 
+## How audits are triggered
+
+| Trigger | Who | Cost | How |
+|---------|-----|------|-----|
+| **Chainlink CRE Cron** | Automated | Free | Monitors npm every 5 min, reads ENS on-chain, triggers audit for new versions |
+| **CLI + WalletConnect** | Developer | 0.01 0G | `npx npmguard-cli install <pkg>` → pays on 0G Galileo → triggers audit |
+
+Both paths end at the same engine (`POST /audit`), which runs the full pipeline and publishes results to IPFS + ENS.
+
 ## Live Services
 
 | Service | URL |
