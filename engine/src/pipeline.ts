@@ -6,6 +6,7 @@ import { runTriage } from "./phases/triage.js";
 import { investigate } from "./phases/investigate.js";
 import { generateTests } from "./phases/test-gen.js";
 import { verifyProofs } from "./phases/verify.js";
+import { startAuditLog, writeLog, getRunDir } from "./audit-log.js";
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
@@ -45,6 +46,7 @@ async function timedPhase<T>(
 
 export async function runAudit(packageName: string): Promise<AuditReport> {
   console.log(`[pipeline] starting audit for ${packageName}`);
+  startAuditLog(packageName);
   const trace: PhaseLog[] = [];
 
   // Phase 0a: Resolve package
@@ -56,6 +58,7 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
     (r) => ({ path: r.path, needsCleanup: r.needsCleanup }),
   );
   trace.push(resolveLog);
+  writeLog("resolve.json", resolved);
 
   try {
     // Phase 0b: Inventory
@@ -76,6 +79,7 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
       }),
     );
     trace.push(inventoryLog);
+    writeLog("inventory.json", inventory);
 
     // Dealbreaker → immediate DANGEROUS
     if (inventory.dealbreaker) {
@@ -116,6 +120,7 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
       }),
     );
     trace.push(triageLog);
+    writeLog("triage.json", triageOutput);
     const triage = triageOutput.result;
 
     if (triage.riskScore < config.triageRiskThreshold) {
@@ -162,6 +167,7 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
       }),
     );
     trace.push(investigateLog);
+    writeLog("investigation.json", investigationResult);
 
     // Phase 1c: Test generation
     const { result: proofs, log: testGenLog } = await timedPhase(
@@ -186,7 +192,7 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
     const verdict = verifiedProofs.length > 0 ? "DANGEROUS" : "SAFE";
     console.log(`[pipeline] verdict: ${verdict} (${verifiedProofs.length} proofs)`);
 
-    return {
+    const report: AuditReport = {
       verdict,
       capabilities: investigationResult.capabilities,
       proofs: verifiedProofs,
@@ -194,6 +200,9 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
       findings: investigationResult.findings,
       trace,
     };
+    writeLog("report.json", report);
+    console.log(`[pipeline] full logs saved to ${getRunDir()}`);
+    return report;
   } finally {
     cleanupPackage(resolved);
   }

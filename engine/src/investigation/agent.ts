@@ -3,6 +3,7 @@ import { z } from "zod";
 import { config } from "../config.js";
 import { getModel } from "../llm.js";
 import { InvestigationOutput, type InvestigationAgentOutput, type ToolCallRecord } from "../models.js";
+import { writeLog } from "../audit-log.js";
 import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt.js";
 import { readFileImpl, listFilesImpl, searchFilesImpl } from "./tools-read.js";
 import { evalJsImpl, requireAndTraceImpl, runLifecycleHookImpl, fastForwardTimersImpl } from "./tools-execute.js";
@@ -71,9 +72,12 @@ export async function runInvestigationAgent(
 
   // Collect tool call records for observability
   const toolCallRecords: ToolCallRecord[] = [];
+  // Full untruncated results for file logging
+  const fullToolResults: { tool: string; args: unknown; result: string; reasoning: string }[] = [];
   let stepIndex = 0;
 
   console.log(`[agent] starting investigation of ${input.packageName || "unknown"}`);
+  writeLog("agent_prompt.md", `# System Prompt\n\n${SYSTEM_PROMPT}\n\n# User Prompt\n\n${buildUserPrompt(input)}`);
 
   // Step 1: Multi-turn investigation with tool use
   const result = await generateText({
@@ -115,6 +119,14 @@ export async function runInvestigationAgent(
           timestamp: new Date().toISOString(),
           injectionDetected,
         });
+
+        // Save full untruncated result
+        fullToolResults.push({
+          tool: tc.toolName,
+          args: tc.args,
+          result: resultStr,
+          reasoning: text || "",
+        });
       }
 
       // Log agent reasoning between tool calls
@@ -129,6 +141,9 @@ export async function runInvestigationAgent(
 
   console.log(`[agent] investigation complete — ${result.steps.length} steps, ${toolCallRecords.length} tool calls`);
 
+  // Save full untruncated agent conversation to file
+  writeLog("agent_steps.json", fullToolResults);
+
   // Log the agent's final text response
   if (result.text) {
     console.log(`[agent] final response (${result.text.length} chars):`);
@@ -140,6 +155,8 @@ export async function runInvestigationAgent(
       console.log(`[agent]   ... (${result.text.length - 1000} more chars)`);
     }
   }
+
+  writeLog("agent_response.md", result.text);
 
   // Build concise tool context for the extraction LLM
   const toolCallLog: string[] = [];
@@ -157,6 +174,8 @@ export async function runInvestigationAgent(
     `Investigation result:\n${result.text}${toolContext}`;
   console.log(`[agent] extraction prompt: ${extractionPrompt.length} chars (${toolCallLog.length} tool calls included)`);
 
+  writeLog("extraction_prompt.md", extractionPrompt);
+
   const extraction = await generateObject({
     model,
     schema: InvestigationOutput,
@@ -167,6 +186,8 @@ export async function runInvestigationAgent(
   for (const f of extraction.object.findings) {
     console.log(`[agent]   [${f.confidence}] ${f.capability} @ ${f.fileLine}: ${f.problem.slice(0, 120)}`);
   }
+
+  writeLog("extraction_result.json", extraction.object);
 
   return {
     ...extraction.object,
