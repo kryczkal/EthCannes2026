@@ -1,19 +1,64 @@
 import "dotenv/config";
-import { createPublicClient, createWalletClient, http, parseEther } from "viem";
+import { createPublicClient, createWalletClient, http, parseEther, defineChain } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { sepolia } from "viem/chains";
+import { sepolia, baseSepolia } from "viem/chains";
 import { readFileSync } from "node:fs";
 
-const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
-const CHAIN_ID = "11155111"; // Sepolia
+// --- Chain definitions ---
+const ogGalileo = defineChain({
+  id: 16602,
+  name: "0G-Galileo-Testnet",
+  nativeCurrency: { name: "0G", symbol: "0G", decimals: 18 },
+  rpcUrls: { default: { http: ["https://evmrpc-testnet.0g.ai"] } },
+  blockExplorers: { default: { name: "0G Explorer", url: "https://chainscan-galileo.0g.ai" } },
+  testnet: true,
+});
+
+const CHAINS: Record<string, {
+  chain: any; defaultRpc: string; chainId: string; symbol: string; defaultFee: string;
+  verifyApi: string | null; explorerUrl: string;
+}> = {
+  sepolia: {
+    chain: sepolia,
+    defaultRpc: "https://ethereum-sepolia-rpc.publicnode.com",
+    chainId: "11155111",
+    symbol: "ETH",
+    defaultFee: "0.001",
+    verifyApi: "https://api.etherscan.io/v2/api?chainid=11155111",
+    explorerUrl: "https://sepolia.etherscan.io",
+  },
+  "base-sepolia": {
+    chain: baseSepolia,
+    defaultRpc: "https://sepolia.base.org",
+    chainId: "84532",
+    symbol: "ETH",
+    defaultFee: "0.001",
+    verifyApi: "https://api.etherscan.io/v2/api?chainid=84532",
+    explorerUrl: "https://sepolia.basescan.org",
+  },
+  og: {
+    chain: ogGalileo,
+    defaultRpc: "https://evmrpc-testnet.0g.ai",
+    chainId: "16602",
+    symbol: "0G",
+    defaultFee: "0.01",
+    verifyApi: "https://chainscan-galileo.0g.ai/open/api",
+    explorerUrl: "https://chainscan-galileo.0g.ai",
+  },
+};
 
 // --- Config ---
+const TARGET = process.env.DEPLOY_CHAIN ?? "og"; // "sepolia", "base-sepolia", or "og"
+const chainConfig = CHAINS[TARGET];
+if (!chainConfig) {
+  console.error(`Unknown DEPLOY_CHAIN="${TARGET}". Use "sepolia", "base-sepolia", or "og".`);
+  process.exit(1);
+}
+
+const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
 const PRIVATE_KEY = process.env.PRIVATE_KEY ?? process.env.SEPOLIA_PRIVATE_KEY;
-const RPC_URL =
-  process.env.RPC_URL ??
-  process.env.SEPOLIA_RPC_URL ??
-  "https://ethereum-sepolia-rpc.publicnode.com";
-const AUDIT_FEE = parseEther(process.env.AUDIT_FEE ?? "0.001");
+const RPC_URL = process.env.RPC_URL ?? chainConfig.defaultRpc;
+const AUDIT_FEE = parseEther(process.env.AUDIT_FEE ?? chainConfig.defaultFee);
 
 if (!PRIVATE_KEY) {
   console.error("Set PRIVATE_KEY or SEPOLIA_PRIVATE_KEY env var");
@@ -28,18 +73,18 @@ const account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`);
 
 const walletClient = createWalletClient({
   account,
-  chain: sepolia,
+  chain: chainConfig.chain,
   transport: http(RPC_URL),
 });
 
 const publicClient = createPublicClient({
-  chain: sepolia,
+  chain: chainConfig.chain,
   transport: http(RPC_URL),
 });
 
-console.log(`Deploying NpmGuardAuditRequest...`);
+console.log(`Deploying NpmGuardAuditRequest on ${chainConfig.chain.name}...`);
 console.log(`  From:      ${account.address}`);
-console.log(`  Audit fee: ${AUDIT_FEE} wei (${process.env.AUDIT_FEE ?? "0.001"} ETH)`);
+console.log(`  Audit fee: ${AUDIT_FEE} wei (${process.env.AUDIT_FEE ?? chainConfig.defaultFee} ${chainConfig.symbol})`);
 console.log(`  RPC:       ${RPC_URL}`);
 console.log();
 
@@ -50,9 +95,25 @@ const hash = await walletClient.deployContract({
 });
 
 console.log(`Tx sent: ${hash}`);
-console.log("Waiting for confirmation...");
+console.log(`  Explorer: ${chainConfig.explorerUrl}/tx/${hash}`);
+console.log("Waiting for confirmation (up to 5 min)...");
 
-const receipt = await publicClient.waitForTransactionReceipt({ hash });
+// Manual polling — more resilient than viem's waitForTransactionReceipt on some chains
+let receipt: Awaited<ReturnType<typeof publicClient.getTransactionReceipt>> | null = null;
+const deadline = Date.now() + 300_000; // 5 min
+while (!receipt && Date.now() < deadline) {
+  await new Promise((r) => setTimeout(r, 4_000));
+  try {
+    receipt = await publicClient.getTransactionReceipt({ hash });
+  } catch {
+    process.stdout.write(".");
+  }
+}
+if (!receipt) {
+  console.error("\nTimed out waiting for receipt. Check the explorer link above.");
+  process.exit(1);
+}
+console.log();
 
 console.log();
 console.log(`Contract deployed!`);
@@ -62,17 +123,19 @@ console.log(`  Gas:     ${receipt.gasUsed}`);
 console.log();
 console.log(`Update cli/src/contract.ts with:`);
 console.log(`  export const AUDIT_REQUEST_ADDRESS = "${receipt.contractAddress}";`);
+console.log(`  Explorer: ${chainConfig.explorerUrl}/address/${receipt.contractAddress}`);
 
-// --- Verify on Etherscan ---
-if (ETHERSCAN_API_KEY) {
+// --- Verify contract ---
+const canVerify = TARGET === "og" || ETHERSCAN_API_KEY;
+if (canVerify && chainConfig.verifyApi) {
   console.log();
-  console.log("Verifying on Etherscan...");
+  console.log(`Verifying on ${chainConfig.explorerUrl}...`);
 
   const sourceCode = readFileSync("src/NpmGuardAuditRequest.sol", "utf8");
   const constructorArgs = AUDIT_FEE.toString(16).padStart(64, "0");
 
   const params = new URLSearchParams({
-    apikey: ETHERSCAN_API_KEY,
+    ...(ETHERSCAN_API_KEY && TARGET !== "og" ? { apikey: ETHERSCAN_API_KEY } : {}),
     module: "contract",
     action: "verifysourcecode",
     contractaddress: receipt.contractAddress!,
@@ -87,7 +150,7 @@ if (ETHERSCAN_API_KEY) {
   });
 
   const verifyResp = await fetch(
-    `https://api.etherscan.io/v2/api?chainid=${CHAIN_ID}`,
+    chainConfig.verifyApi,
     { method: "POST", body: params }
   );
   const verifyResult = await verifyResp.json() as any;
@@ -96,18 +159,18 @@ if (ETHERSCAN_API_KEY) {
     const guid = verifyResult.result;
     console.log(`  Submitted (guid: ${guid}). Checking status...`);
 
-    // Poll for verification result
     await new Promise((r) => setTimeout(r, 5000));
 
-    const checkResp = await fetch(
-      `https://api.etherscan.io/v2/api?chainid=${CHAIN_ID}&module=contract&action=checkverifystatus&guid=${guid}&apikey=${ETHERSCAN_API_KEY}`
-    );
+    const checkUrl = TARGET === "og"
+      ? `${chainConfig.verifyApi}?module=contract&action=checkverifystatus&guid=${guid}`
+      : `${chainConfig.verifyApi}&module=contract&action=checkverifystatus&guid=${guid}&apikey=${ETHERSCAN_API_KEY}`;
+    const checkResp = await fetch(checkUrl);
     const checkResult = await checkResp.json() as any;
     console.log(`  ${checkResult.result}`);
   } else {
     console.log(`  Verification failed: ${verifyResult.result}`);
   }
-} else {
+} else if (!canVerify) {
   console.log();
-  console.log("Set ETHERSCAN_API_KEY in .env to auto-verify on Etherscan.");
+  console.log("Set ETHERSCAN_API_KEY in .env to auto-verify (Etherscan chains).");
 }

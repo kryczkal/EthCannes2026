@@ -1,8 +1,16 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { z } from "zod";
-import { createPublicClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
+import { createPublicClient, http, defineChain } from "viem";
+
+const ogGalileo = defineChain({
+  id: 16602,
+  name: "0G-Galileo-Testnet",
+  nativeCurrency: { name: "0G", symbol: "0G", decimals: 18 },
+  rpcUrls: { default: { http: ["https://evmrpc-testnet.0g.ai"] } },
+  blockExplorers: { default: { name: "0G Explorer", url: "https://chainscan-galileo.0g.ai" } },
+  testnet: true,
+});
 import { config } from "./config.js";
 import { runAudit } from "./pipeline.js";
 
@@ -23,8 +31,8 @@ async function checkPaymentOnChain(packageName: string, version: string): Promis
   if (!config.contractAddress) return true; // No contract configured — skip check
 
   const client = createPublicClient({
-    chain: baseSepolia,
-    transport: http(config.baseSepoliaRpcUrl),
+    chain: ogGalileo,
+    transport: http(config.ogRpcUrl),
   });
 
   try {

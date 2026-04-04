@@ -2,7 +2,7 @@
 
 Autonomous npm supply chain security auditor. Monitors npm for new package releases, audits them through a multi-step security pipeline, and publishes verifiable results on-chain via ENS (Sepolia) + IPFS.
 
-Users can pay for audits on-chain (Base Sepolia) via the CLI — with a private key or by scanning a WalletConnect QR code from their mobile wallet.
+Users can pay for audits on-chain (0G Galileo Testnet) via the CLI — with a private key or by scanning a WalletConnect QR code from their mobile wallet.
 
 Any developer or AI agent can check `axios.npmguard.eth` before installing a package.
 
@@ -23,7 +23,7 @@ flowchart TD
         CLI_INSTALL[npmguard install express] --> ENS_READ{Check ENS<br/>audit exists?}
         ENS_READ -->|yes| SHOW[Show verdict<br/>install from IPFS]
         ENS_READ -->|no| PAY{Pay for audit?}
-        PAY -->|private key| TX[Send tx to<br/>smart contract<br/>Base Sepolia]
+        PAY -->|private key| TX[Send tx to<br/>smart contract<br/>0G Galileo]
         PAY -->|WalletConnect| QR[Scan QR<br/>confirm in wallet]
         TX --> ENGINE
         QR --> ENGINE
@@ -52,7 +52,7 @@ flowchart LR
     B -->|yes + SAFE| C[Install from<br/>verified IPFS]
     B -->|yes + DANGEROUS| D[Block install]
     B -->|no audit| E{Pay 0.0001 ETH?}
-    E -->|yes| F[On-chain tx] --> G[Audit engine] --> H[Show verdict]
+    E -->|yes, 0.01 0G| F[On-chain tx] --> G[Audit engine] --> H[Show verdict]
     E -->|no| I[Install from<br/>npm anyway]
 ```
 
@@ -73,7 +73,7 @@ npmguard.eth
 
 | Contract | Network | Address |
 |----------|---------|---------|
-| NpmGuardAuditRequest | Base Sepolia | [`0x071e...63b8`](https://sepolia.basescan.org/address/0x071e893552f89876bdc1f514fbf882fd167163b8) |
+| NpmGuardAuditRequest | 0G Galileo Testnet | [`0x1201...d0de`](https://chainscan-galileo.0g.ai/address/0x1201448ae5f00e1783036439569e71ab3757d0de) |
 | NpmGuardAuditRequest | Sepolia | [`0x4bba...d6ae`](https://sepolia.etherscan.io/address/0x4bbaf196bde9e02594631e03c28ebe16719214f3) |
 | ENS Public Resolver | Sepolia | `0xE996...49b5` |
 
@@ -125,7 +125,14 @@ cd engine && npm install && npx tsx src/index.ts
 ### Deploy Contract
 
 ```bash
-cd contracts && npm install && npm run compile && npm run deploy
+cd contracts && npm install && npm run compile
+
+# Deploy on 0G Galileo (default)
+DEPLOY_CHAIN=og npm run deploy
+
+# Deploy on Sepolia or Base Sepolia
+DEPLOY_CHAIN=sepolia npm run deploy
+DEPLOY_CHAIN=base-sepolia npm run deploy
 ```
 
 
@@ -139,7 +146,7 @@ The Dockerized OpenClaw verifier prototype, model-switching commands, and manual
 |-----------|------------|
 | Monitoring | [Chainlink CRE](https://docs.chain.link/cre) — Cron + HTTP + EVMClient |
 | Audit Pipeline | TypeScript + [Hono](https://hono.dev/) — inventory, LLM static analysis, Docker sandbox |
-| Payment | Solidity smart contract on Base Sepolia + WalletConnect v2 |
+| Payment | Solidity smart contract on [0G Galileo Testnet](https://chainscan-galileo.0g.ai) + WalletConnect v2 |
 | On-chain Registry | [ENS](https://docs.ens.domains/) subnames on Sepolia |
 | Storage | [IPFS](https://pinata.cloud/) via Pinata |
 | CLI | TypeScript, published as [`npmguard-cli`](https://www.npmjs.com/package/npmguard-cli) on npm |

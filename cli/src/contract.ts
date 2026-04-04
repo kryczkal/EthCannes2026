@@ -1,11 +1,11 @@
-// NpmGuardAuditRequest contract — deployed on Sepolia + Base Sepolia
+// NpmGuardAuditRequest contract — deployed on Sepolia + 0G Galileo Testnet
 // Update these addresses after running: cd contracts && npm run deploy
 
 export const AUDIT_REQUEST_ADDRESS =
   "0x4bbaf196bde9e02594631e03c28ebe16719214f3" as `0x${string}`; // Sepolia
 
-export const AUDIT_REQUEST_ADDRESS_BASE_SEPOLIA =
-  "0x071e893552f89876bdc1f514fbf882fd167163b8" as `0x${string}`; // Base Sepolia (WalletConnect)
+export const AUDIT_REQUEST_ADDRESS_0G =
+  "0x1201448ae5f00e1783036439569e71ab3757d0de" as `0x${string}`; // 0G Galileo Testnet
 
 export const AUDIT_REQUEST_ABI = [
   {

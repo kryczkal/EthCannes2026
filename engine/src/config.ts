@@ -15,7 +15,7 @@ const ConfigSchema = z.object({
   // Payment verification
   creApiKey: z.string().optional(),
   contractAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/, "Must be a valid 0x-prefixed Ethereum address").optional(),
-  baseSepoliaRpcUrl: z.string().default("https://sepolia.base.org"),
+  ogRpcUrl: z.string().default("https://evmrpc-testnet.0g.ai"),
 
   triageModel: z.string().default("claude-haiku-4-5-20251001"),
   triageRiskThreshold: z.coerce.number().int().min(0).max(10).default(3),
@@ -47,7 +47,7 @@ function loadConfig() {
     apiPort: env.NPMGUARD_API_PORT,
     creApiKey: env.NPMGUARD_CRE_API_KEY,
     contractAddress: env.NPMGUARD_CONTRACT_ADDRESS,
-    baseSepoliaRpcUrl: env.NPMGUARD_BASE_SEPOLIA_RPC_URL,
+    ogRpcUrl: env.NPMGUARD_OG_RPC_URL,
     triageModel: env.NPMGUARD_TRIAGE_MODEL,
     triageRiskThreshold: env.NPMGUARD_TRIAGE_RISK_THRESHOLD,
     investigationModel: env.NPMGUARD_INVESTIGATION_MODEL,

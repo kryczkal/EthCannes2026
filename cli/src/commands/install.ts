@@ -11,20 +11,29 @@ import {
   encodeFunctionData,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { baseSepolia } from "viem/chains";
+import { defineChain } from "viem";
 import { SignClient } from "@walletconnect/sign-client";
 import type { AuditSource } from "../audit-source.js";
 import {
-  AUDIT_REQUEST_ADDRESS_BASE_SEPOLIA,
+  AUDIT_REQUEST_ADDRESS_0G,
   AUDIT_REQUEST_ABI,
 } from "../contract.js";
+
+const ogGalileo = defineChain({
+  id: 16602,
+  name: "0G-Galileo-Testnet",
+  nativeCurrency: { name: "0G", symbol: "0G", decimals: 18 },
+  rpcUrls: { default: { http: ["https://evmrpc-testnet.0g.ai"] } },
+  blockExplorers: { default: { name: "0G Explorer", url: "https://chainscan-galileo.0g.ai" } },
+  testnet: true,
+});
 
 const IPFS_GATEWAY = "https://gateway.pinata.cloud/ipfs";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const DEFAULT_AUDIT_API_URL = "https://api.npmguard.dev/audit";
 const WALLETCONNECT_PROJECT_ID = process.env.WALLETCONNECT_PROJECT_ID ?? "d5eb170c427570e15ac00ae53acc93ba";
-const BASE_SEPOLIA_RPC = "https://sepolia.base.org";
-const BLOCK_EXPLORER = "https://sepolia.basescan.org";
+const OG_RPC = "https://evmrpc-testnet.0g.ai";
+const BLOCK_EXPLORER = "https://chainscan-galileo.0g.ai";
 
 function prompt(question: string): Promise<string> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -61,27 +70,27 @@ async function requestAuditOnChain(
   privateKey: string
 ): Promise<string> {
   const account = privateKeyToAccount(privateKey as `0x${string}`);
-  const rpcUrl = BASE_SEPOLIA_RPC;
+  const rpcUrl = OG_RPC;
 
   const publicClient = createPublicClient({
-    chain: baseSepolia,
+    chain: ogGalileo,
     transport: http(rpcUrl),
   });
 
   const walletClient = createWalletClient({
     account,
-    chain: baseSepolia,
+    chain: ogGalileo,
     transport: http(rpcUrl),
   });
 
   const auditFee = await publicClient.readContract({
-    address: AUDIT_REQUEST_ADDRESS_BASE_SEPOLIA,
+    address: AUDIT_REQUEST_ADDRESS_0G,
     abi: AUDIT_REQUEST_ABI,
     functionName: "auditFee",
   });
 
   const hash = await walletClient.writeContract({
-    address: AUDIT_REQUEST_ADDRESS_BASE_SEPOLIA,
+    address: AUDIT_REQUEST_ADDRESS_0G,
     abi: AUDIT_REQUEST_ABI,
     functionName: "requestAudit",
     args: [packageName, version],
@@ -133,7 +142,7 @@ async function payViaWalletConnect(
       requiredNamespaces: {
         eip155: {
           methods: ["eth_sendTransaction"],
-          chains: ["eip155:84532"],
+          chains: ["eip155:16602"],
           events: ["chainChanged", "accountsChanged"],
         },
       },
@@ -153,11 +162,11 @@ async function payViaWalletConnect(
     const pairSpinner = ora("  Waiting for wallet connection...").start();
     const session = await approval();
 
-    // Find the Base Sepolia account in approved namespaces
+    // Find the 0G Galileo account in approved namespaces
     const accounts = session.namespaces.eip155?.accounts ?? [];
-    const baseSepoliaAccount = accounts.find((a: string) => a.startsWith("eip155:84532:"));
-    const account = baseSepoliaAccount
-      ? baseSepoliaAccount.split(":")[2]
+    const ogAccount = accounts.find((a: string) => a.startsWith("eip155:16602:"));
+    const account = ogAccount
+      ? ogAccount.split(":")[2]
       : accounts[0]?.split(":")[2];
 
     if (!account) {
@@ -173,13 +182,13 @@ async function payViaWalletConnect(
 
     const txHash = await signClient.request({
       topic: session.topic,
-      chainId: "eip155:84532",
+      chainId: "eip155:16602",
       request: {
         method: "eth_sendTransaction",
         params: [
           {
             from: account,
-            to: AUDIT_REQUEST_ADDRESS_BASE_SEPOLIA,
+            to: AUDIT_REQUEST_ADDRESS_0G,
             data: calldata,
             value: "0x" + feeWei.toString(16),
           },
@@ -188,11 +197,11 @@ async function payViaWalletConnect(
     });
 
     const confirmSpinner = ora("  Waiting for on-chain confirmation...").start();
-    const baseSepoliaClient = createPublicClient({
-      chain: baseSepolia,
-      transport: http(BASE_SEPOLIA_RPC),
+    const ogClient = createPublicClient({
+      chain: ogGalileo,
+      transport: http(OG_RPC),
     });
-    const receipt = await baseSepoliaClient.waitForTransactionReceipt({
+    const receipt = await ogClient.waitForTransactionReceipt({
       hash: txHash as `0x${string}`,
     });
 
@@ -276,19 +285,19 @@ export async function installCommand(
     console.log();
 
     const privateKey = process.env.NPMGUARD_PRIVATE_KEY;
-    const contractDeployed = AUDIT_REQUEST_ADDRESS_BASE_SEPOLIA !== ZERO_ADDRESS;
+    const contractDeployed = AUDIT_REQUEST_ADDRESS_0G !== ZERO_ADDRESS;
 
     if (contractDeployed) {
       const publicClient = createPublicClient({
-        chain: baseSepolia,
-        transport: http(BASE_SEPOLIA_RPC),
+        chain: ogGalileo,
+        transport: http(OG_RPC),
       });
 
       // Check if user already paid (previous attempt where audit engine failed)
       let alreadyPaid = false;
       try {
         alreadyPaid = (await publicClient.readContract({
-          address: AUDIT_REQUEST_ADDRESS_BASE_SEPOLIA,
+          address: AUDIT_REQUEST_ADDRESS_0G,
           abi: AUDIT_REQUEST_ABI,
           functionName: "isRequested",
           args: [packageName, requestedVersion],
@@ -302,15 +311,15 @@ export async function installCommand(
         console.log();
       } else {
         // Read fee for display
-        let feeDisplay = "0.001 ETH";
-        let feeWei = 1000000000000000n;
+        let feeDisplay = "0.01 0G";
+        let feeWei = 10000000000000000n;
         try {
           feeWei = (await publicClient.readContract({
-            address: AUDIT_REQUEST_ADDRESS_BASE_SEPOLIA,
+            address: AUDIT_REQUEST_ADDRESS_0G,
             abi: AUDIT_REQUEST_ABI,
             functionName: "auditFee",
           })) as bigint;
-          feeDisplay = `${formatEther(feeWei)} ETH`;
+          feeDisplay = `${formatEther(feeWei)} 0G`;
         } catch {}
 
         const wantAudit = await prompt(
