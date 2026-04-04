@@ -65,3 +65,4 @@ npm test
 - Run the smallest relevant test set for the subproject you changed.
 - If you touched LLM config, verify `engine/tests/test_llm.py` and the live 0G test still make sense.
 - If you touched ENS/IPFS publishing, verify the CID flow, not just local file generation.
+- Update this file and `Claude.md` when project structure, commands, or core workflow assumptions change.

@@ -49,3 +49,4 @@ uv run pytest tests/test_0g_integration.py -m integration -v
 - Keep README and env examples aligned with the code.
 - When a service is just OpenAI-compatible, prefer configuration over new abstraction.
 - If a flow depends on onchain or gateway state, verify the external state before blaming the code.
+- Update this file and `Agent.md` whenever repo structure, standard commands, or core integration assumptions change.
