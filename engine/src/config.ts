@@ -28,6 +28,8 @@ const ConfigSchema = z.object({
     .default("true"),
 
   testGenModel: z.string().default("claude-sonnet-4-6"),
+  testGenMode: z.enum(["openclaw", "direct"]).default("direct"),
+  verifyTimeoutSec: z.coerce.number().int().min(10).max(300).default(60),
 
   sandboxImage: z.string().default("node:22-slim"),
   sandboxMemoryMb: z.coerce.number().int().min(64).max(4096).default(512),
@@ -54,6 +56,8 @@ function loadConfig() {
     maxAgentTurns: env.NPMGUARD_MAX_AGENT_TURNS,
     investigationEnabled: env.NPMGUARD_INVESTIGATION_ENABLED,
     testGenModel: env.NPMGUARD_TEST_GEN_MODEL,
+    testGenMode: env.NPMGUARD_TEST_GEN_MODE,
+    verifyTimeoutSec: env.NPMGUARD_VERIFY_TIMEOUT_SEC,
     sandboxImage: env.NPMGUARD_SANDBOX_IMAGE,
     sandboxMemoryMb: env.NPMGUARD_SANDBOX_MEMORY_MB,
     sandboxCpus: env.NPMGUARD_SANDBOX_CPUS,
