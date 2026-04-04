@@ -12,6 +12,9 @@ Read the root `README.md` first, then switch into the subproject you are actuall
 - `chainlink/` - Chainlink CRE triggers and workflow code.
 - `sandbox/` - Dynamic runtime harness and test fixtures.
 - `contracts/` - Onchain and ENS-related scripts.
+- `docs/` - Architecture docs, research notes, production guides.
+- `artifacts/` - Cached tarballs, reports, npm-cache (gitignored payloads).
+- `test-package-install/` - Minimal workspace for testing package installation.
 
 ## Codex Rules
 
@@ -65,4 +68,4 @@ npm test
 - Run the smallest relevant test set for the subproject you changed.
 - If you touched LLM config, verify `engine/tests/test_llm.py` and the live 0G test still make sense.
 - If you touched ENS/IPFS publishing, verify the CID flow, not just local file generation.
-- Update this file and `Claude.md` when project structure, commands, or core workflow assumptions change.
+- Update this file and `CLAUDE.md` when project structure, commands, or core workflow assumptions change.

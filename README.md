@@ -76,7 +76,10 @@ npmguard.eth
 | `cli/` | `npmguard-cli` — check packages against ENS audits |
 | `contracts/` | ENS registry management scripts |
 | `sandbox/` | Dynamic exploitation harness |
-| `piotr/` | Demo packages + ENS publishing scripts |
+| `npmguard/` | ENS/IPFS demo publisher, demo packages, `sginstall` |
+| `docs/` | Architecture docs, research notes, production guides |
+| `artifacts/` | Cached tarballs, reports, npm-cache |
+| `test-package-install/` | Minimal workspace for testing package installation |
 
 ## Quick Start
 
