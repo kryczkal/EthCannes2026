@@ -207,9 +207,12 @@ export async function runAudit(packageName: string, emit?: EmitFn, auditId?: str
     const { result: proofs, log: testGenLog } = await timedPhase(
       "test-gen",
       () => generateTests(investigationResult, resolved.path),
-      2 * 60_000,
-      { proofCount: investigationResult.proofs.length },
-      (p) => ({ proofCount: p.length }),
+      5 * 60_000,
+      { proofCount: investigationResult.proofs.length, findingCount: investigationResult.findings.length },
+      (p) => ({
+        proofCount: p.length,
+        withTests: p.filter((x) => x.testFile).length,
+      }),
       emit,
     );
     trace.push(testGenLog);
@@ -219,8 +222,12 @@ export async function runAudit(packageName: string, emit?: EmitFn, auditId?: str
       "verify",
       () => verifyProofs(proofs, resolved.path),
       5 * 60_000,
-      { proofCount: proofs.length },
-      (p) => ({ verifiedCount: p.length }),
+      { proofCount: proofs.length, withTests: proofs.filter((x) => x.testFile).length },
+      (p) => ({
+        verifiedCount: p.length,
+        confirmed: p.filter((x) => x.kind === "TEST_CONFIRMED").length,
+        unconfirmed: p.filter((x) => x.kind === "TEST_UNCONFIRMED").length,
+      }),
       emit,
     );
     trace.push(verifyLog);
