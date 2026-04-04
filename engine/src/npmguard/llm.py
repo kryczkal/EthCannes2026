@@ -27,9 +27,9 @@ def make_model() -> AnthropicModel | OpenAIModel:
         log.info(
             "llm_backend_selected",
             backend=settings.llm_backend.value,
-            model=settings.effective_llm_model,
+            model=settings.llm_model,
         )
-        return AnthropicModel(settings.effective_llm_model)
+        return AnthropicModel(settings.llm_model)
 
     base_url = settings.effective_llm_base_url
     assert base_url is not None  # validated by Settings
@@ -40,13 +40,11 @@ def make_model() -> AnthropicModel | OpenAIModel:
 
     log_payload = {
         "backend": settings.llm_backend.value,
-        "model": settings.effective_llm_model,
+        "model": settings.llm_model,
         "base_url_host": urlparse(base_url).netloc,
     }
-    if settings.zero_g_service_url is not None:
-        log_payload["zero_g_network"] = settings.zero_g_network.value
 
     log.info("llm_backend_selected", **log_payload)
 
     provider = OpenAIProvider(**provider_kwargs)
-    return OpenAIModel(settings.effective_llm_model, provider=provider)
+    return OpenAIModel(settings.llm_model, provider=provider)
