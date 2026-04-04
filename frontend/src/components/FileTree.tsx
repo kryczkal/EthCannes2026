@@ -37,7 +37,6 @@ function buildTree(files: FileRecord[]): TreeNode[] {
     }
   }
 
-  // Sort: directories first, then alphabetically
   const sort = (nodes: TreeNode[]) => {
     nodes.sort((a, b) => {
       if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
@@ -51,11 +50,11 @@ function buildTree(files: FileRecord[]): TreeNode[] {
 }
 
 const STATUS_COLORS: Record<FileStatus, string> = {
-  pending: "bg-[var(--color-pending)]",
-  analyzing: "bg-[var(--color-investigating)] animate-pulse-blue",
-  safe: "bg-[var(--color-safe)]",
-  suspicious: "bg-[var(--color-suspected)]",
-  dangerous: "bg-[var(--color-danger)]",
+  pending: "var(--pending)",
+  analyzing: "var(--investigating)",
+  safe: "var(--safe)",
+  suspicious: "var(--suspected)",
+  dangerous: "var(--danger)",
 };
 
 function TreeNodeComponent({ node, depth }: { node: TreeNode; depth: number }) {
@@ -69,7 +68,6 @@ function TreeNodeComponent({ node, depth }: { node: TreeNode; depth: number }) {
   const verdict = fileVerdicts[node.path];
   const isSelected = selectedFile === node.path;
 
-  // For directories, compute aggregate status
   const dirStatus = useMemo(() => {
     if (!node.isDir) return null;
     const prefix = node.path + "/";
@@ -88,67 +86,98 @@ function TreeNodeComponent({ node, depth }: { node: TreeNode; depth: number }) {
   return (
     <div>
       <div
-        role={node.isDir ? "treeitem" : "treeitem"}
+        role="treeitem"
         aria-expanded={node.isDir ? expanded : undefined}
         aria-selected={isSelected}
         tabIndex={0}
-        className={`flex items-center gap-1.5 px-2 py-0.5 cursor-pointer hover:bg-[var(--color-bg-secondary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--color-investigating)] ${
-          isSelected ? "bg-[var(--color-bg-secondary)]" : ""
-        }`}
-        style={{ paddingLeft: `${depth * 16 + 8}px` }}
+        className={effectiveStatus === "analyzing" ? "animate-pulse-blue" : ""}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 7,
+          padding: `3px 14px`,
+          paddingLeft: node.isDir ? 14 : 14 + depth * 14,
+          cursor: "pointer",
+          fontFamily: "var(--font-mono)",
+          fontSize: "0.74rem",
+          color: isSelected ? "var(--text)" : "var(--text-dim)",
+          background: isSelected ? "var(--bg-tertiary)" : "transparent",
+          whiteSpace: "nowrap",
+          transition: "background 0.12s",
+        }}
+        onMouseEnter={(e) => {
+          if (!isSelected)
+            (e.currentTarget as HTMLElement).style.background =
+              "var(--bg-secondary)";
+        }}
+        onMouseLeave={(e) => {
+          if (!isSelected)
+            (e.currentTarget as HTMLElement).style.background = "transparent";
+        }}
         onClick={() => {
-          if (node.isDir) {
-            setExpanded(!expanded);
-          } else {
-            selectFile(node.path);
-          }
+          if (node.isDir) setExpanded(!expanded);
+          else selectFile(node.path);
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            if (node.isDir) {
-              setExpanded(!expanded);
-            } else {
-              selectFile(node.path);
-            }
+            if (node.isDir) setExpanded(!expanded);
+            else selectFile(node.path);
           }
         }}
       >
-        {/* Status dot */}
-        {effectiveStatus && (
-          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_COLORS[effectiveStatus as FileStatus] || ""}`} />
+        {node.isDir ? (
+          <span
+            style={{
+              fontSize: "0.55rem",
+              color: "var(--text-muted)",
+              transition: "transform 0.15s",
+              transform: expanded ? "rotate(90deg)" : "none",
+              display: "inline-block",
+            }}
+          >
+            &#9656;
+          </span>
+        ) : (
+          <div
+            style={{
+              width: 5,
+              height: 5,
+              borderRadius: "50%",
+              flexShrink: 0,
+              background: effectiveStatus
+                ? STATUS_COLORS[effectiveStatus as FileStatus]
+                : "var(--pending)",
+            }}
+          />
         )}
-        {!effectiveStatus && <div className="w-1.5 h-1.5 shrink-0" />}
-
-        {/* Icon */}
-        <span className="text-[var(--color-text-dim)] text-[11px] w-4 text-center shrink-0">
-          {node.isDir ? (expanded ? "v" : ">") : " "}
-        </span>
-
-        {/* Name */}
-        <span className={`text-xs truncate ${
-          isSelected ? "text-[var(--color-text)]" :
-          effectiveStatus === "dangerous" ? "text-[var(--color-danger)]" :
-          effectiveStatus === "suspicious" ? "text-[var(--color-suspected)]" :
-          "text-[var(--color-text-dim)]"
-        }`}>
-          {node.name}
-        </span>
-
-        {/* Risk badge */}
+        <span>{node.isDir ? `${node.name}/` : node.name}</span>
         {verdict && verdict.riskContribution >= 3 && (
-          <span className={`ml-auto text-[9px] px-1 rounded ${
-            verdict.riskContribution >= 5 ? "bg-[var(--color-danger)]/20 text-[var(--color-danger)]" :
-            "bg-[var(--color-suspected)]/20 text-[var(--color-suspected)]"
-          }`}>
+          <span
+            style={{
+              marginLeft: "auto",
+              fontSize: "0.6rem",
+              padding: "0 4px",
+              borderRadius: 2,
+              fontFamily: "var(--font-mono)",
+              background: "var(--danger-bg)",
+              color: "var(--danger)",
+            }}
+          >
             {verdict.riskContribution}
           </span>
         )}
       </div>
 
-      {node.isDir && expanded && node.children.map((child) => (
-        <TreeNodeComponent key={child.path} node={child} depth={depth + 1} />
-      ))}
+      {node.isDir &&
+        expanded &&
+        node.children.map((child) => (
+          <TreeNodeComponent
+            key={child.path}
+            node={child}
+            depth={depth + 1}
+          />
+        ))}
     </div>
   );
 }
@@ -159,14 +188,17 @@ export function FileTree() {
 
   if (files.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center text-[var(--color-pending)] text-xs">
+      <div
+        className="h-full flex items-center justify-center"
+        style={{ color: "var(--pending)", fontSize: "0.75rem" }}
+      >
         Waiting for package...
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-y-auto py-1" role="tree" aria-label="Package files">
+    <div className="py-1" role="tree" aria-label="Package files">
       {tree.map((node) => (
         <TreeNodeComponent key={node.path} node={node} depth={0} />
       ))}

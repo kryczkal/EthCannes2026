@@ -11,44 +11,57 @@ export function VerdictBanner() {
   const isDangerous = verdict === "DANGEROUS";
 
   return (
-    <div className={`animate-slide-down ${isDangerous ? "glow-danger" : "glow-safe"}`}>
-      <div className={`px-4 py-3 flex items-center gap-4 ${
-        isDangerous
-          ? "bg-[var(--color-danger)]/10 border-b-2 border-[var(--color-danger)]"
-          : "bg-[var(--color-safe)]/10 border-b-2 border-[var(--color-safe)]"
-      }`}>
-        {/* Verdict */}
-        <div className={`text-2xl font-black tracking-widest ${
-          isDangerous ? "text-[var(--color-danger)]" : "text-[var(--color-safe)]"
-        }`}>
-          {verdict}
-        </div>
+    <div
+      className="animate-slide-down flex items-center gap-4 shrink-0"
+      style={{
+        padding: "12px 28px",
+        borderTop: `2px solid ${isDangerous ? "var(--danger)" : "var(--safe)"}`,
+        background: "var(--bg)",
+      }}
+    >
+      <span
+        style={{
+          fontFamily: "var(--font-heading)",
+          fontWeight: 800,
+          fontSize: "1.1rem",
+          letterSpacing: "0.04em",
+          color: isDangerous ? "var(--danger)" : "var(--safe)",
+        }}
+      >
+        {verdict}
+      </span>
 
-        {/* Stats */}
-        <div className="flex items-center gap-4 text-xs">
-          {proofCount > 0 && (
-            <span className="text-[var(--color-text-dim)]">
-              <span className="text-[var(--color-danger)] font-bold">{proofCount}</span> proof{proofCount !== 1 ? "s" : ""}
-            </span>
-          )}
-          {findings.length > 0 && (
-            <span className="text-[var(--color-text-dim)]">
-              <span className="text-[var(--color-suspected)] font-bold">{findings.length}</span> finding{findings.length !== 1 ? "s" : ""}
-            </span>
-          )}
-        </div>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "0.72rem",
+          color: "var(--text-dim)",
+        }}
+      >
+        {proofCount} proof{proofCount !== 1 ? "s" : ""} · {findings.length}{" "}
+        finding{findings.length !== 1 ? "s" : ""}
+      </span>
 
-        {/* Capabilities */}
-        {capabilities.length > 0 && (
-          <div className="flex gap-1 flex-wrap ml-auto">
-            {capabilities.map((cap) => (
-              <span key={cap} className="text-[9px] px-1.5 py-0.5 rounded border border-[var(--color-danger)]/30 text-[var(--color-danger)] bg-[var(--color-danger)]/10">
-                {cap}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
+      {capabilities.length > 0 && (
+        <div className="ml-auto flex gap-1">
+          {capabilities.map((cap) => (
+            <span
+              key={cap}
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.6rem",
+                padding: "1px 6px",
+                borderRadius: "var(--radius-sm)",
+                border: `1px solid ${isDangerous ? "var(--danger)" : "var(--safe)"}`,
+                color: isDangerous ? "var(--danger)" : "var(--safe)",
+                opacity: 0.7,
+              }}
+            >
+              {cap}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,27 +1,73 @@
 @import "tailwindcss";
 
-@theme {
-  --color-bg: #0d1117;
-  --color-bg-secondary: #161b22;
-  --color-bg-tertiary: #010409;
-  --color-border: #30363d;
-  --color-text: #e6edf3;
-  --color-text-dim: #8b949e;
-  --color-safe: #3fb950;
-  --color-danger: #f85149;
-  --color-investigating: #58a6ff;
-  --color-suspected: #d29922;
-  --color-pending: #484f58;
-  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, Consolas, monospace;
+/* ── Paper Cream (default) ── */
+:root {
+  --bg: #f4f0e8;
+  --bg-secondary: #ece8df;
+  --bg-tertiary: #e4dfd6;
+  --bg-code: #e8e3d9;
+  --text: #1a1a1a;
+  --text-dim: #6b6558;
+  --text-muted: #9e9787;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.15);
+  --accent: #5b21b6;
+  --accent-light: #7c3aed;
+  --accent-bg: rgba(124, 58, 237, 0.06);
+  --safe: #16a34a;
+  --safe-bg: rgba(22, 163, 74, 0.08);
+  --danger: #dc2626;
+  --danger-bg: rgba(220, 38, 38, 0.08);
+  --investigating: #2563eb;
+  --investigating-bg: rgba(37, 99, 235, 0.08);
+  --suspected: #ca8a04;
+  --suspected-bg: rgba(202, 138, 4, 0.08);
+  --pending: #9e9787;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-heading: "Cabinet Grotesk", system-ui, sans-serif;
+  --font-mono: "Space Mono", "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* ── Urushi (dark lacquer / gold) ── */
+html.urushi {
+  --bg: #0d0b09;
+  --bg-secondary: #181410;
+  --bg-tertiary: #1f1b15;
+  --bg-code: #080604;
+  --text: #f0e8da;
+  --text-dim: rgb(200, 182, 148);
+  --text-muted: rgb(140, 125, 100);
+  --border: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --accent: #c9a84c;
+  --accent-light: #dfc060;
+  --accent-bg: rgba(201, 168, 76, 0.08);
+  --safe: #4ade80;
+  --safe-bg: rgba(74, 222, 128, 0.1);
+  --danger: #f87171;
+  --danger-bg: rgba(248, 113, 113, 0.1);
+  --investigating: #60a5fa;
+  --investigating-bg: rgba(96, 165, 250, 0.1);
+  --suspected: #fbbf24;
+  --suspected-bg: rgba(251, 191, 36, 0.1);
+  --pending: rgb(140, 125, 100);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 body {
-  margin: 0;
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: var(--font-mono);
-  font-size: 13px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
@@ -29,7 +75,7 @@ body {
   overflow: hidden;
 }
 
-/* Scrollbar styling */
+/* ── Scrollbar ── */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -38,32 +84,64 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: var(--border-strong);
   border-radius: 3px;
 }
 
-/* Pulsing animation for investigating state */
+/* ── Animations ── */
 @keyframes pulse-blue {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 .animate-pulse-blue {
   animation: pulse-blue 1.5s ease-in-out infinite;
 }
 
-/* Verdict banner glow */
 @keyframes glow-red {
-  0%, 100% { box-shadow: 0 0 20px rgba(248, 81, 73, 0.3); }
-  50% { box-shadow: 0 0 40px rgba(248, 81, 73, 0.6); }
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(220, 38, 38, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(220, 38, 38, 0.3);
+  }
 }
 @keyframes glow-green {
-  0%, 100% { box-shadow: 0 0 20px rgba(63, 185, 80, 0.3); }
-  50% { box-shadow: 0 0 40px rgba(63, 185, 80, 0.6); }
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(22, 163, 74, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(22, 163, 74, 0.3);
+  }
 }
-.glow-danger { animation: glow-red 2s ease-in-out infinite; }
-.glow-safe { animation: glow-green 2s ease-in-out infinite; }
+.glow-danger {
+  animation: glow-red 2s ease-in-out infinite;
+}
+.glow-safe {
+  animation: glow-green 2s ease-in-out infinite;
+}
 
-/* Screen-reader only utility */
+@keyframes slide-down {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.animate-slide-down {
+  animation: slide-down 0.5s ease-out;
+}
+
+/* ── Screen-reader only ── */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -76,11 +154,89 @@ body {
   border: 0;
 }
 
-/* Slide-in animation */
-@keyframes slide-down {
-  from { transform: translateY(-100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+/* ── CodeMirror theme overrides ── */
+.cm-editor {
+  background: var(--bg-code) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 0.82rem !important;
 }
-.animate-slide-down {
-  animation: slide-down 0.5s ease-out;
+.cm-editor .cm-gutters {
+  background: var(--bg-code) !important;
+  border-right: 1px solid var(--border) !important;
+  color: var(--text-muted) !important;
+}
+.cm-editor .cm-content {
+  color: var(--text) !important;
+}
+.cm-editor .cm-activeLine {
+  background: transparent !important;
+}
+.cm-editor .cm-activeLineGutter {
+  background: transparent !important;
+}
+.cm-editor .cm-cursor {
+  border-left-color: var(--text) !important;
+}
+.cm-editor .cm-selectionBackground {
+  background: var(--accent-bg) !important;
+}
+
+/* Suspicious line highlight */
+.cm-suspicious-line {
+  background-color: var(--danger-bg) !important;
+  border-left: 3px solid var(--danger);
+}
+
+/* ── Activity feed items ── */
+.feed-item {
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.feed-item:hover {
+  background: var(--bg-secondary);
+}
+.feed-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.feed-body {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+.feed-body strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.feed-body code {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  background: var(--bg-code);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.feed-file-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--accent);
+  cursor: pointer;
+  margin-top: 4px;
+}
+.feed-file-ref:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ── Landing input focus ── */
+input:focus {
+  border-color: var(--accent) !important;
 }

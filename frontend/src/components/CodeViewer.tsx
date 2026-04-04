@@ -1,7 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { javascript } from "@codemirror/lang-javascript";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, Decoration } from "@codemirror/view";
 import { RangeSetBuilder } from "@codemirror/state";
 import { useAuditStore } from "../stores/auditStore";
@@ -23,41 +22,147 @@ function createHighlightExtension(ranges: Array<[number, number]>) {
   });
 }
 
-const suspiciousLineTheme = EditorView.baseTheme({
-  ".cm-suspicious-line": {
-    backgroundColor: "rgba(248, 81, 73, 0.15) !important",
-    borderLeft: "3px solid #f85149",
+const neutralTheme = EditorView.theme({
+  "&": {
+    backgroundColor: "var(--bg-code)",
+    color: "var(--text)",
+  },
+  ".cm-gutters": {
+    backgroundColor: "var(--bg-code)",
+    color: "var(--text-muted)",
+    borderRight: "1px solid var(--border)",
+  },
+  ".cm-activeLineGutter": {
+    backgroundColor: "transparent",
+  },
+  ".cm-activeLine": {
+    backgroundColor: "transparent",
+  },
+  ".cm-cursor": {
+    borderLeftColor: "var(--text)",
+  },
+  ".cm-selectionBackground": {
+    backgroundColor: "var(--accent-bg) !important",
   },
 });
 
-export function CodeViewer() {
+export function CodeViewer({
+  onToggleFiles,
+  filesOpen,
+}: {
+  onToggleFiles: () => void;
+  filesOpen: boolean;
+}) {
   const selectedFile = useAuditStore((s) => s.selectedFile);
   const content = useAuditStore((s) => s.selectedFileContent);
   const fileVerdicts = useAuditStore((s) => s.fileVerdicts);
+  const verdict = useAuditStore((s) => s.verdict);
+  const selectFile = useAuditStore((s) => s.selectFile);
 
-  const verdict = selectedFile ? fileVerdicts[selectedFile] : null;
+  // Track recently viewed files for tabs
+  const [recentFiles, setRecentFiles] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (selectedFile && !recentFiles.includes(selectedFile)) {
+      setRecentFiles((prev) => [selectedFile, ...prev].slice(0, 4));
+    }
+  }, [selectedFile]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fileVerdict = selectedFile ? fileVerdicts[selectedFile] : null;
 
   const suspiciousRanges = useMemo(() => {
-    if (!verdict) return [];
-    return parseLineRanges(verdict.suspiciousLines);
-  }, [verdict]);
+    if (!fileVerdict) return [];
+    return parseLineRanges(fileVerdict.suspiciousLines);
+  }, [fileVerdict]);
 
   const extensions = useMemo(
     () => [
       javascript({ jsx: true, typescript: true }),
       EditorView.editable.of(false),
-      suspiciousLineTheme,
+      neutralTheme,
       createHighlightExtension(suspiciousRanges),
     ],
-    [suspiciousRanges]
+    [suspiciousRanges],
   );
 
+  // Empty state when verdict is safe and no file selected
+  if (!selectedFile && verdict === "SAFE") {
+    return (
+      <div className="h-full flex flex-col">
+        <div
+          className="flex items-center gap-2 shrink-0"
+          style={{
+            padding: "8px 16px",
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
+          <div className="flex-1" />
+          <button
+            onClick={onToggleFiles}
+            className={filesOpen ? "fe-toggle-active" : ""}
+            style={{
+              background: "none",
+              border: `1px solid ${filesOpen ? "var(--accent)" : "var(--border)"}`,
+              borderRadius: "var(--radius-sm)",
+              padding: "3px 8px",
+              cursor: "pointer",
+              fontFamily: "var(--font-mono)",
+              fontSize: "0.68rem",
+              color: filesOpen ? "var(--accent)" : "var(--text-muted)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            files
+          </button>
+        </div>
+        <div
+          className="flex-1 flex flex-col items-center justify-center gap-2"
+          style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}
+        >
+          <div style={{ fontSize: "2rem", opacity: 0.3 }}>&#10003;</div>
+          No suspicious code found
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem" }}>
+            All files passed analysis
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Default empty state
   if (!selectedFile) {
     return (
-      <div className="h-full flex items-center justify-center text-[var(--color-pending)] text-xs">
-        <div className="text-center">
-          <div className="text-2xl mb-2 opacity-30">{"{ }"}</div>
-          <div>Select a file to view</div>
+      <div className="h-full flex flex-col">
+        <div
+          className="flex items-center gap-2 shrink-0"
+          style={{
+            padding: "8px 16px",
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
+          <div className="flex-1" />
+          <button
+            onClick={onToggleFiles}
+            style={{
+              background: "none",
+              border: `1px solid ${filesOpen ? "var(--accent)" : "var(--border)"}`,
+              borderRadius: "var(--radius-sm)",
+              padding: "3px 8px",
+              cursor: "pointer",
+              fontFamily: "var(--font-mono)",
+              fontSize: "0.68rem",
+              color: filesOpen ? "var(--accent)" : "var(--text-muted)",
+            }}
+          >
+            files
+          </button>
+        </div>
+        <div
+          className="flex-1 flex flex-col items-center justify-center gap-2"
+          style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}
+        >
+          <div style={{ fontSize: "2rem", opacity: 0.3 }}>{"{ }"}</div>
+          Select a file to view
         </div>
       </div>
     );
@@ -65,59 +170,150 @@ export function CodeViewer() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* File header */}
-      <div className="flex items-center gap-3 px-3 py-1.5 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-        <span className="text-xs text-[var(--color-text)]">{selectedFile}</span>
-        {verdict && (
-          <>
-            <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
-              verdict.riskContribution >= 5
-                ? "bg-[var(--color-danger)]/20 text-[var(--color-danger)]"
-                : verdict.riskContribution >= 3
-                ? "bg-[var(--color-suspected)]/20 text-[var(--color-suspected)]"
-                : "bg-[var(--color-safe)]/20 text-[var(--color-safe)]"
-            }`}>
-              RISK {verdict.riskContribution}/10
-            </span>
-            {verdict.capabilities.length > 0 && (
-              <div className="flex gap-1 flex-wrap">
-                {verdict.capabilities.map((cap) => (
-                  <span key={cap} className="text-[9px] px-1 py-0.5 rounded bg-[var(--color-bg)] text-[var(--color-text-dim)] border border-[var(--color-border)]">
-                    {cap}
-                  </span>
-                ))}
-              </div>
-            )}
-          </>
+      {/* Code nav bar */}
+      <div
+        className="flex items-center gap-2 shrink-0"
+        style={{
+          padding: "8px 16px",
+          borderBottom: "1px solid var(--border)",
+        }}
+      >
+        {/* File selector */}
+        <div
+          className="flex items-center gap-1.5"
+          style={{
+            background: "var(--bg-secondary)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)",
+            padding: "4px 10px",
+            fontFamily: "var(--font-mono)",
+            fontSize: "0.78rem",
+          }}
+        >
+          <div
+            style={{
+              width: 5,
+              height: 5,
+              borderRadius: "50%",
+              background: fileVerdict
+                ? fileVerdict.riskContribution >= 5
+                  ? "var(--danger)"
+                  : fileVerdict.riskContribution >= 3
+                    ? "var(--suspected)"
+                    : "var(--safe)"
+                : "var(--pending)",
+            }}
+          />
+          {selectedFile}
+        </div>
+
+        {/* File tabs */}
+        {recentFiles.length > 1 && (
+          <div className="flex gap-0.5 ml-2">
+            {recentFiles.map((f) => (
+              <button
+                key={f}
+                onClick={() => selectFile(f)}
+                style={{
+                  padding: "3px 10px",
+                  borderRadius: "var(--radius-sm)",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.72rem",
+                  color:
+                    f === selectedFile ? "var(--text)" : "var(--text-muted)",
+                  background:
+                    f === selectedFile ? "var(--bg-tertiary)" : "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                {f.split("/").pop()}
+              </button>
+            ))}
+          </div>
         )}
+
+        {/* Capability tags */}
+        {fileVerdict && fileVerdict.capabilities.length > 0 && (
+          <div className="ml-auto flex gap-1">
+            {fileVerdict.capabilities.map((cap) => (
+              <span
+                key={cap}
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.6rem",
+                  padding: "1px 6px",
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--danger)",
+                  color: "var(--danger)",
+                  opacity: 0.7,
+                }}
+              >
+                {cap}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Files toggle */}
+        <button
+          onClick={onToggleFiles}
+          style={{
+            marginLeft:
+              fileVerdict && fileVerdict.capabilities.length > 0
+                ? 8
+                : "auto",
+            background: "none",
+            border: `1px solid ${filesOpen ? "var(--accent)" : "var(--border)"}`,
+            borderRadius: "var(--radius-sm)",
+            padding: "3px 8px",
+            cursor: "pointer",
+            fontFamily: "var(--font-mono)",
+            fontSize: "0.68rem",
+            color: filesOpen ? "var(--accent)" : "var(--text-muted)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          files
+        </button>
       </div>
 
       {/* Code content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto" style={{ background: "var(--bg-code)" }}>
         {content === null ? (
-          <div className="flex items-center justify-center h-full text-[var(--color-pending)] text-xs">
+          <div
+            className="flex items-center justify-center h-full"
+            style={{ color: "var(--pending)", fontSize: "0.8rem" }}
+          >
             Loading...
           </div>
         ) : (
           <CodeMirror
             key={selectedFile}
             value={content}
-            theme={oneDark}
             extensions={extensions}
             basicSetup={{
               lineNumbers: true,
               foldGutter: false,
               highlightActiveLine: false,
             }}
-            className="text-xs"
+            style={{ fontSize: "0.82rem" }}
           />
         )}
       </div>
 
-      {/* Verdict summary */}
-      {verdict && verdict.summary && (
-        <div className="px-3 py-1.5 border-t border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-[10px] text-[var(--color-text-dim)]">
-          {verdict.summary}
+      {/* Verdict summary footer */}
+      {fileVerdict && fileVerdict.summary && (
+        <div
+          className="shrink-0"
+          style={{
+            padding: "8px 16px",
+            borderTop: "1px solid var(--border)",
+            fontSize: "0.78rem",
+            color: "var(--text-dim)",
+          }}
+        >
+          {fileVerdict.summary}
         </div>
       )}
     </div>
