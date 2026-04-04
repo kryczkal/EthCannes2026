@@ -1,5 +1,5 @@
 {
-  "packages": ["axios", "lodash", "express", "chalk"],
+  "packages": ["code-formatter", "axios", "lodash", "express", "chalk"],
   "auditApiUrl": "https://79d2-83-144-21-99.ngrok-free.app/audit",
   "schedule": "0 */5 * * * *"
 }
