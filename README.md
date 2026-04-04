@@ -74,6 +74,7 @@ flowchart LR
 | Audit Engine API | [`http://209.38.42.28:8000`](http://209.38.42.28:8000) |
 | CLI (npm) | [`npx npmguard-cli`](https://www.npmjs.com/package/npmguard-cli) |
 | 0G Contract | [`0x1201448ae5f00e1783036439569e71ab3757d0de`](https://chainscan-galileo.0g.ai/address/0x1201448ae5f00e1783036439569e71ab3757d0de) |
+| ENS Registry | [`npmguard.eth`](https://sepolia.app.ens.domains/npmguard.eth) |
 
 ## ENS Registry
 
