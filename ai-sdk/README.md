@@ -1,6 +1,6 @@
 # ai-sdk verifier
 
-Prototype vulnerability verifier that uses the Vercel AI SDK with the shared `verifier-core` Docker/tooling layer.
+Prototype vulnerability verifier that uses the Vercel AI SDK with its own Docker sandbox and bounded verification tools.
 
 ## Env
 
