@@ -5,6 +5,15 @@ export interface OpenClawClientOptions {
   args: string[];
 }
 
+function getPayloadText(value: unknown): string | null {
+  return Array.isArray(value) &&
+    typeof value[0] === 'object' &&
+    value[0] !== null &&
+    typeof (value[0] as { text?: unknown }).text === 'string'
+    ? (value[0] as { text: string }).text
+    : null;
+}
+
 function extractResponseText(stdout: string): string {
   const trimmed = stdout.trim();
   if (!trimmed) {
@@ -13,15 +22,16 @@ function extractResponseText(stdout: string): string {
 
   try {
     const parsed = JSON.parse(trimmed) as Record<string, unknown>;
-    const payloadText =
-      Array.isArray(parsed.payloads) &&
-      typeof parsed.payloads[0] === 'object' &&
-      parsed.payloads[0] !== null &&
-      typeof (parsed.payloads[0] as { text?: unknown }).text === 'string'
-        ? (parsed.payloads[0] as { text: string }).text
-        : null;
+    const result = typeof parsed.result === 'object' && parsed.result !== null
+      ? (parsed.result as Record<string, unknown>)
+      : null;
+    const payloadText = getPayloadText(parsed.payloads) || getPayloadText(result?.payloads);
     const text =
       payloadText ||
+      (typeof result?.output === 'string' && result.output) ||
+      (typeof result?.text === 'string' && result.text) ||
+      (typeof result?.message === 'string' && result.message) ||
+      (typeof result?.response === 'string' && result.response) ||
       (typeof parsed.output === 'string' && parsed.output) ||
       (typeof parsed.text === 'string' && parsed.text) ||
       (typeof parsed.message === 'string' && parsed.message) ||
