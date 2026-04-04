@@ -1,14 +1,15 @@
+import { execFile } from "node:child_process";
 import { mkdtempSync, writeFileSync, readFileSync, copyFileSync, mkdirSync, rmSync } from "node:fs";
-import { join, basename, dirname, resolve } from "node:path";
+import { join, basename, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import { randomUUID } from "node:crypto";
 
 import { config } from "../config.js";
-import { DockerSandboxController } from "../sandbox/controller.js";
 import type { Proof } from "../models.js";
 
 const HARNESS_DIR = resolve(import.meta.dirname, "../../../sandbox/harness");
 
-/** vitest.config.js for running generated tests inside the Docker sandbox. */
+/** vitest.config.js for running generated tests. */
 const VITEST_CONFIG = `const { defineConfig } = require("vitest/config");
 
 module.exports = defineConfig({
@@ -24,14 +25,10 @@ module.exports = defineConfig({
 });
 `;
 
-/**
- * Create a modified sandbox-runner.js that points PACKAGES_DIR at the
- * package mounted inside the Docker container at /pkg.
- */
 function createSandboxRunner(packageDirName: string): string {
   return `const path = require("path");
 
-const PACKAGES_DIR = "/test-packages";
+const PACKAGES_DIR = path.resolve(__dirname, "..", "test-packages");
 
 async function runPackage(packageName, entryPoint) {
   const packageDir = path.join(PACKAGES_DIR, packageName);
@@ -57,14 +54,11 @@ module.exports = { runPackage };
 `;
 }
 
-/**
- * Modified child-process-runner that works inside the Docker container.
- */
 function createChildProcessRunner(): string {
   return `const { fork } = require("child_process");
 const path = require("path");
 
-const PACKAGES_DIR = "/test-packages";
+const PACKAGES_DIR = path.resolve(__dirname, "..", "test-packages");
 
 async function runInChildProcess(packageName, entryPoint, options = {}) {
   const { timeout = 3000, maxOutput = 65536 } = options;
@@ -129,15 +123,12 @@ interface VitestResult {
 }
 
 function parseVitestOutput(stdout: string): VitestResult | null {
-  // vitest --reporter=json outputs JSON to stdout
-  // It may have non-JSON preamble, so find the JSON object
   const jsonStart = stdout.indexOf("{");
   if (jsonStart === -1) return null;
 
   try {
     return JSON.parse(stdout.slice(jsonStart)) as VitestResult;
   } catch {
-    // Try to find JSON in the output more aggressively
     const lines = stdout.split("\n");
     for (let i = lines.length - 1; i >= 0; i--) {
       if (lines[i]!.trim().startsWith("{")) {
@@ -148,6 +139,23 @@ function parseVitestOutput(stdout: string): VitestResult | null {
     }
     return null;
   }
+}
+
+function dockerExec(args: string[], timeoutMs: number): Promise<{ stdout: string; stderr: string; exitCode: number; timedOut: boolean }> {
+  return new Promise((resolve) => {
+    const child = execFile("docker", args, {
+      maxBuffer: 10 * 1024 * 1024,
+      timeout: timeoutMs,
+      encoding: "utf-8",
+    }, (error, stdout, stderr) => {
+      const timedOut = error?.killed === true;
+      let exitCode: number;
+      if (timedOut) exitCode = -1;
+      else if (!error) exitCode = 0;
+      else exitCode = child.exitCode ?? 1;
+      resolve({ stdout: stdout ?? "", stderr: stderr ?? "", exitCode, timedOut });
+    });
+  });
 }
 
 /** Phase 2: Verify proofs by running generated Vitest tests in a Docker sandbox. */
@@ -168,15 +176,20 @@ export async function verifyProofs(
   const workDir = mkdtempSync(join(tmpdir(), "npmguard-verify-"));
   const harnessDir = join(workDir, "harness");
   const generatedDir = join(workDir, "generated");
+  const testPkgDir = join(workDir, "test-packages");
   mkdirSync(harnessDir, { recursive: true });
   mkdirSync(generatedDir, { recursive: true });
+  mkdirSync(testPkgDir, { recursive: true });
+
+  const containerName = `npmguard-verify-${randomUUID().slice(0, 12)}`;
+  const timeoutMs = config.verifyTimeoutSec * 1000;
 
   try {
     // Copy harness files
     copyFileSync(join(HARNESS_DIR, "setup.js"), join(harnessDir, "setup.js"));
     copyFileSync(join(HARNESS_DIR, "server.js"), join(harnessDir, "server.js"));
 
-    // Write custom sandbox-runner and child-process-runner for the container
+    // Write custom sandbox-runner and child-process-runner
     const packageDirName = basename(packagePath);
     writeFileSync(join(harnessDir, "sandbox-runner.js"), createSandboxRunner(packageDirName), "utf-8");
     writeFileSync(join(harnessDir, "child-process-runner.js"), createChildProcessRunner(), "utf-8");
@@ -184,8 +197,13 @@ export async function verifyProofs(
     // Write vitest config
     writeFileSync(join(workDir, "vitest.config.js"), VITEST_CONFIG, "utf-8");
 
+    // Symlink the package into test-packages/ so sandbox-runner can find it
+    // Use a copy instead of symlink for Docker bind mount compatibility
+    const { execSync } = await import("node:child_process");
+    execSync(`cp -r "${packagePath}" "${join(testPkgDir, packageDirName)}"`, { timeout: 10_000 });
+
     // Copy generated test files
-    const testFileMap = new Map<string, number>(); // test filename -> proof index
+    const testFileMap = new Map<string, number>();
     for (let i = 0; i < proofs.length; i++) {
       const proof = proofs[i]!;
       if (!proof.testFile) continue;
@@ -204,73 +222,56 @@ export async function verifyProofs(
       return proofs;
     }
 
-    // 2. Start Docker sandbox
-    const sandbox = new DockerSandboxController(
+    // 2. Start Docker container with workspace bind-mounted (writable)
+    //    Key differences from investigation sandbox:
+    //    - NOT read-only (need writable workspace for npm install)
+    //    - tmpfs without noexec (need to run vitest binaries)
+    //    - More memory for node_modules
+    //    - network=none still (MSW intercepts in-process)
+    console.log(`[verify] starting container ${containerName}`);
+    const startResult = await dockerExec([
+      "run", "-d",
+      "--name", containerName,
+      `--network=${config.sandboxNetwork}`,
+      "--cap-drop=ALL",
+      `--memory=${config.sandboxMemoryMb}m`,
+      `--cpus=${config.sandboxCpus}`,
+      "--user", "0:0",  // root to allow npm install
+      "--pids-limit", "128",
+      "-v", `${workDir}:/workspace`,
+      "-w", "/workspace",
       config.sandboxImage,
-      `${config.sandboxMemoryMb}m`,
-      config.sandboxCpus,
-      config.sandboxNetwork,
-    );
+      "sleep", "infinity",
+    ], 30_000);
 
-    // We need a custom start that mounts both the package AND the workspace
-    // The existing controller only mounts packagePath at /pkg.
-    // We'll use the existing start() which mounts package at /pkg,
-    // then copy workspace files into the container.
-    await sandbox.start(packagePath);
+    if (startResult.exitCode !== 0) {
+      console.error(`[verify] failed to start container: ${startResult.stderr}`);
+      return proofs;
+    }
+    console.log(`[verify] container started`);
 
     try {
-      // Create test-packages dir structure so runPackage can find the package
-      await sandbox.exec(["sh", "-c", `mkdir -p /tmp/test-packages && cp -r /pkg /tmp/test-packages/${packageDirName}`], 30);
-
-      // Create workspace inside container's /tmp
-      await sandbox.exec(["mkdir", "-p", "/tmp/workspace/harness", "/tmp/workspace/generated"], 10);
-
-      // Copy workspace files into container via docker exec + sh -c cat
-      const filesToCopy = [
-        { src: join(workDir, "vitest.config.js"), dst: "/tmp/workspace/vitest.config.js" },
-        { src: join(harnessDir, "setup.js"), dst: "/tmp/workspace/harness/setup.js" },
-        { src: join(harnessDir, "server.js"), dst: "/tmp/workspace/harness/server.js" },
-        { src: join(harnessDir, "sandbox-runner.js"), dst: "/tmp/workspace/harness/sandbox-runner.js" },
-        { src: join(harnessDir, "child-process-runner.js"), dst: "/tmp/workspace/harness/child-process-runner.js" },
-      ];
-
-      for (const { src, dst } of filesToCopy) {
-        const content = readFileSync(src, "utf-8");
-        await sandbox.exec(["sh", "-c", `cat > ${dst} << 'NPMGUARD_EOF'\n${content}\nNPMGUARD_EOF`], 10);
-      }
-
-      // Copy generated test files
-      for (const [testFileName] of testFileMap) {
-        const content = readFileSync(join(generatedDir, testFileName), "utf-8");
-        await sandbox.exec(
-          ["sh", "-c", `cat > /tmp/workspace/generated/${testFileName} << 'NPMGUARD_EOF'\n${content}\nNPMGUARD_EOF`],
-          10,
-        );
-      }
-
-      // Fix PACKAGES_DIR in sandbox-runner to point to the copied package
-      await sandbox.exec(
-        ["sh", "-c", `sed -i 's|/test-packages|/tmp/test-packages|g' /tmp/workspace/harness/sandbox-runner.js /tmp/workspace/harness/child-process-runner.js`],
-        10,
-      );
-
-      // 3. Install vitest + msw in the container
-      console.log("[verify] installing vitest and msw in sandbox...");
-      const installResult = await sandbox.exec(
-        ["sh", "-c", "cd /tmp/workspace && npm init -y > /dev/null 2>&1 && npm install --no-save vitest msw 2>&1 | tail -5"],
-        config.verifyTimeoutSec,
+      // 3. Install vitest + msw
+      console.log("[verify] installing vitest and msw...");
+      const installResult = await dockerExec(
+        ["exec", containerName, "sh", "-c", "cd /workspace && npm init -y > /dev/null 2>&1 && npm install --no-save vitest msw 2>&1 | tail -5"],
+        timeoutMs,
       );
       if (installResult.exitCode !== 0) {
-        console.error(`[verify] npm install failed: ${installResult.stderr}`);
-        return proofs;
+        console.error(`[verify] npm install failed (exit=${installResult.exitCode}):`);
+        console.error(installResult.stderr.slice(0, 500));
+        console.error(installResult.stdout.slice(0, 500));
+        return proofs.map((proof) =>
+          proof.testFile ? { ...proof, kind: "TEST_UNCONFIRMED" as const } : proof,
+        );
       }
       console.log("[verify] dependencies installed");
 
       // 4. Run vitest
       console.log("[verify] running vitest...");
-      const vitestResult = await sandbox.exec(
-        ["sh", "-c", "cd /tmp/workspace && npx vitest run --reporter=json 2>/dev/null || true"],
-        config.verifyTimeoutSec,
+      const vitestResult = await dockerExec(
+        ["exec", containerName, "sh", "-c", "cd /workspace && npx vitest run --reporter=json 2>/dev/null || true"],
+        timeoutMs,
       );
 
       console.log(`[verify] vitest exited with code ${vitestResult.exitCode}`);
@@ -281,6 +282,7 @@ export async function verifyProofs(
       if (!parsed?.testResults) {
         console.log("[verify] could not parse vitest output, marking all as TEST_UNCONFIRMED");
         console.log(`[verify] stdout preview: ${vitestResult.stdout.slice(0, 500)}`);
+        console.log(`[verify] stderr preview: ${vitestResult.stderr.slice(0, 500)}`);
         return proofs.map((proof) =>
           proof.testFile ? { ...proof, kind: "TEST_UNCONFIRMED" as const } : proof,
         );
@@ -309,17 +311,18 @@ export async function verifyProofs(
           ?.filter((a) => a.status === "failed")
           ?.flatMap((a) => a.failureMessages ?? [])
           ?.join("\n")
-          ?.slice(0, 200);
+          ?.slice(0, 500);
 
         console.log(`[verify] finding-${i}: ${testResult?.status ?? "NOT_FOUND"} -> TEST_UNCONFIRMED${failureMsg ? ` (${failureMsg})` : ""}`);
 
         return { ...proof, kind: "TEST_UNCONFIRMED" as const };
       });
     } finally {
-      await sandbox.stop();
+      // Stop and remove container
+      await dockerExec(["rm", "-f", containerName], 10_000).catch(() => {});
+      console.log("[verify] container stopped");
     }
   } finally {
-    // Cleanup host workspace
     try {
       rmSync(workDir, { recursive: true, force: true });
     } catch { /* best effort */ }
