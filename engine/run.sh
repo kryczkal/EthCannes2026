@@ -3,6 +3,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+npm install --silent
+
 # Run in its own process group so we can kill the entire tree
 set -m
 
