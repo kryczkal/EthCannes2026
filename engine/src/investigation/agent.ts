@@ -1,27 +1,12 @@
 import { generateText, generateObject, tool } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
-import { createOpenAI } from "@ai-sdk/openai";
 import { z } from "zod";
 import { config } from "../config.js";
+import { getModel } from "../llm.js";
 import { InvestigationOutput, type InvestigationInput } from "../models.js";
 import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt.js";
 import { readFileImpl, listFilesImpl, searchFilesImpl } from "./tools-read.js";
 import { evalJsImpl, requireAndTraceImpl, runLifecycleHookImpl, fastForwardTimersImpl } from "./tools-execute.js";
 import type { DockerSandboxController } from "../sandbox/controller.js";
-
-function getModel(modelName: string) {
-  if (config.llmBackend === "anthropic") {
-    return anthropic(modelName);
-  }
-  if (!config.llmBaseUrl) {
-    throw new Error("NPMGUARD_LLM_BASE_URL is required for openai_compatible backend");
-  }
-  const openai = createOpenAI({
-    baseURL: config.llmBaseUrl,
-    apiKey: config.llmApiKey ?? "",
-  });
-  return openai(modelName);
-}
 
 export async function runInvestigationAgent(
   input: InvestigationInput,

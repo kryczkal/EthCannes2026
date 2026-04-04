@@ -1,6 +1,3 @@
-// Legitimate-looking IPC utility
-// This is the "clean" face of the package
-
 const SAFE_TEST_MODE = true;
 
 const net = require("net");

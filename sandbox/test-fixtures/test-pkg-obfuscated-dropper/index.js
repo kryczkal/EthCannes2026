@@ -1,18 +1,9 @@
-// Legitimate-looking HTTP client utility
-// This is the "clean" face of the package
-
 const SAFE_TEST_MODE = true;
 
 const http = require("http");
 const https = require("https");
 const { URL } = require("url");
 
-/**
- * Simple HTTP request with retry support
- * @param {string} url
- * @param {object} options
- * @returns {Promise<{status: number, data: string}>}
- */
 function request(url, options = {}) {
   const maxRetries = options.retries || 3;
   const timeout = options.timeout || 5000;

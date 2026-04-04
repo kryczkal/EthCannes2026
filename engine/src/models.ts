@@ -83,6 +83,16 @@ export const TriageResult = z.object({
 });
 export type TriageResult = z.infer<typeof TriageResult>;
 
+export const FileVerdict = z.object({
+  file: z.string(),
+  capabilities: z.array(z.string()).default([]),
+  suspiciousPatterns: z.array(z.string()).default([]),
+  suspiciousLines: z.string().nullable().default(null),
+  summary: z.string(),
+  riskContribution: z.number().int().min(0).max(10),
+});
+export type FileVerdict = z.infer<typeof FileVerdict>;
+
 // ---------------------------------------------------------------------------
 // Phase 1b: Investigation
 // ---------------------------------------------------------------------------
@@ -204,12 +214,21 @@ export const Proof = z.object({
 });
 export type Proof = z.infer<typeof Proof>;
 
+export const PhaseLog = z.object({
+  phase: z.string(),
+  durationMs: z.number(),
+  input: z.record(z.unknown()).default({}),
+  output: z.record(z.unknown()).default({}),
+});
+export type PhaseLog = z.infer<typeof PhaseLog>;
+
 export const AuditReport = z.object({
   verdict: VerdictEnum,
   capabilities: z.array(CapabilityEnum).default([]),
   proofs: z.array(Proof).default([]),
   triage: TriageResult.nullable().default(null),
   findings: z.array(Finding).default([]),
+  trace: z.array(PhaseLog).default([]),
 });
 export type AuditReport = z.infer<typeof AuditReport>;
 

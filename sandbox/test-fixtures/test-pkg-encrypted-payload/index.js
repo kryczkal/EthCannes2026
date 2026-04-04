@@ -1,15 +1,7 @@
-// Legitimate-looking stream utility
-// This is the "clean" face of the package — the attack is in index.min.js
-
 const SAFE_TEST_MODE = true;
 
 const { Transform } = require("stream");
 
-/**
- * Creates a flatmap transform stream
- * @param {Function} fn - mapping function
- * @returns {Transform}
- */
 function flatmap(fn) {
   return new Transform({
     objectMode: true,
@@ -29,11 +21,6 @@ function flatmap(fn) {
   });
 }
 
-/**
- * Creates a filter transform stream
- * @param {Function} predicate
- * @returns {Transform}
- */
 function filter(predicate) {
   return new Transform({
     objectMode: true,

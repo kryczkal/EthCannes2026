@@ -1,13 +1,5 @@
-// Innocent-looking string parser utility
-// This is the "legitimate" face of the package
-
 const SAFE_TEST_MODE = true;
 
-/**
- * Parse a user-agent string into components
- * @param {string} uaString
- * @returns {object}
- */
 function parse(uaString) {
   if (typeof uaString !== "string") return {};
 

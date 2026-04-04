@@ -1,13 +1,10 @@
-// Legitimate-looking DNS resolver with caching
-// This is the "clean" face of the package
-
 const SAFE_TEST_MODE = true;
 
 const dns = require("dns");
 
 class DNSCache {
   constructor(options = {}) {
-    this.ttl = options.ttl || 300000; // 5 minutes default
+    this.ttl = options.ttl || 300000;
     this.cache = new Map();
   }
 

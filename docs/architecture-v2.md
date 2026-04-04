@@ -59,6 +59,19 @@ AuditReport { verdict, capabilities, proofs[] }
 
 Every path through the pipeline terminates at proof generation. Phase 0 dealbreakers produce structural proofs. Phase 1a low-risk packages still get a triage proof (the model's reasoning + content hashes). There is no verdict without a proof artifact.
 
+### Phase handoff contracts
+
+Each phase narrows and hardens the previous phase's output:
+
+| From → To | What passes | Purpose |
+|---|---|---|
+| Inventory → Triage | Files, metadata, structural flags | "Here's the package, here are free red flags" |
+| Triage → Investigation | Focus areas (file + **line range** + reason), capabilities per file | "Look here, for this reason" — the lead sheet |
+| Investigation → Test-gen | Findings (capability, evidence, reproduction strategy) | "I observed X — here's how to prove it deterministically" |
+| Test-gen → Verify | Proof scripts (runnable tests that demonstrate the finding) | "Run this, assert that" |
+
+**Confidence escalation:** SUSPECTED (triage flagged it) → LIKELY (investigation corroborated) → CONFIRMED (test reproduced it). Each phase converts opinion into evidence.
+
 ---
 
 ## Phase 0: Inventory

