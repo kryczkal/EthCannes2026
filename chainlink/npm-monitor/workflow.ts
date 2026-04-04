@@ -21,6 +21,7 @@ import {
 type Config = {
   packages: string[];
   auditApiUrl: string;
+  creApiKey: string;
   schedule: string;
 };
 
@@ -173,7 +174,7 @@ function checkEnsAudit(
 // Trigger the audit engine API
 // -------------------------------------------------------------------
 
-const triggerAudit = (packageName: string, auditApiUrl: string) => {
+const triggerAudit = (packageName: string, auditApiUrl: string, creApiKey: string) => {
   return (nodeRuntime: NodeRuntime<Config>): AuditResponse => {
     const httpClient = new HTTPClient();
 
@@ -187,6 +188,7 @@ const triggerAudit = (packageName: string, auditApiUrl: string) => {
         url: auditApiUrl,
         headers: {
           "Content-Type": "application/json",
+          "X-API-Key": creApiKey,
           "ngrok-skip-browser-warning": "true",
         },
         body: Buffer.from(body).toString("base64"),
@@ -267,7 +269,7 @@ export const onHttpTrigger = (
 
   const auditResult = runtime
     .runInNodeMode(
-      triggerAudit(packageName, config.auditApiUrl),
+      triggerAudit(packageName, config.auditApiUrl, config.creApiKey),
       consensusIdenticalAggregation<AuditResponse>()
     )()
     .result();
@@ -338,7 +340,7 @@ export const onCronTrigger = (runtime: Runtime<Config>): string => {
 
     const auditResult = runtime
       .runInNodeMode(
-        triggerAudit(packageName, config.auditApiUrl),
+        triggerAudit(packageName, config.auditApiUrl, config.creApiKey),
         consensusIdenticalAggregation<AuditResponse>()
       )()
       .result();

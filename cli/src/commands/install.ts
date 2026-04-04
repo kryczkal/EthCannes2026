@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import ora from "ora";
+import qrcode from "qrcode-terminal";
 import { createInterface } from "node:readline";
 import { execSync } from "node:child_process";
 import {
@@ -7,25 +8,23 @@ import {
   createWalletClient,
   http,
   formatEther,
+  encodeFunctionData,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { sepolia } from "viem/chains";
+import { baseSepolia } from "viem/chains";
+import { SignClient } from "@walletconnect/sign-client";
 import type { AuditSource } from "../audit-source.js";
 import {
-  AUDIT_REQUEST_ADDRESS,
+  AUDIT_REQUEST_ADDRESS_BASE_SEPOLIA,
   AUDIT_REQUEST_ABI,
 } from "../contract.js";
 
 const IPFS_GATEWAY = "https://gateway.pinata.cloud/ipfs";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-
-const RPC_URLS = process.env.SEPOLIA_RPC_URL
-  ? [process.env.SEPOLIA_RPC_URL]
-  : [
-      "https://ethereum-sepolia-rpc.publicnode.com",
-      "https://rpc.sepolia.org",
-      "https://sepolia.drpc.org",
-    ];
+const DEFAULT_AUDIT_API_URL = "https://api.npmguard.dev/audit";
+const WALLETCONNECT_PROJECT_ID = process.env.WALLETCONNECT_PROJECT_ID ?? "d5eb170c427570e15ac00ae53acc93ba";
+const BASE_SEPOLIA_RPC = "https://sepolia.base.org";
+const BLOCK_EXPLORER = "https://sepolia.basescan.org";
 
 function prompt(question: string): Promise<string> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -33,6 +32,15 @@ function prompt(question: string): Promise<string> {
     rl.question(question, (answer) => {
       rl.close();
       resolve(answer.trim().toLowerCase());
+    });
+  });
+}
+
+function generateQrCode(text: string): Promise<void> {
+  return new Promise((resolve) => {
+    qrcode.generate(text, { small: true }, (code: string) => {
+      console.log(code);
+      resolve();
     });
   });
 }
@@ -53,28 +61,27 @@ async function requestAuditOnChain(
   privateKey: string
 ): Promise<string> {
   const account = privateKeyToAccount(privateKey as `0x${string}`);
-  const rpcUrl = RPC_URLS[0];
+  const rpcUrl = BASE_SEPOLIA_RPC;
 
   const publicClient = createPublicClient({
-    chain: sepolia,
+    chain: baseSepolia,
     transport: http(rpcUrl),
   });
 
   const walletClient = createWalletClient({
     account,
-    chain: sepolia,
+    chain: baseSepolia,
     transport: http(rpcUrl),
   });
 
-  // Read the current audit fee from the contract
   const auditFee = await publicClient.readContract({
-    address: AUDIT_REQUEST_ADDRESS,
+    address: AUDIT_REQUEST_ADDRESS_BASE_SEPOLIA,
     abi: AUDIT_REQUEST_ABI,
     functionName: "auditFee",
   });
 
   const hash = await walletClient.writeContract({
-    address: AUDIT_REQUEST_ADDRESS,
+    address: AUDIT_REQUEST_ADDRESS_BASE_SEPOLIA,
     abi: AUDIT_REQUEST_ABI,
     functionName: "requestAudit",
     args: [packageName, version],
@@ -84,6 +91,136 @@ async function requestAuditOnChain(
   await publicClient.waitForTransactionReceipt({ hash });
 
   return hash;
+}
+
+async function payViaWalletConnect(
+  packageName: string,
+  version: string,
+  feeWei: bigint,
+  feeDisplay: string
+): Promise<boolean> {
+  const calldata = encodeFunctionData({
+    abi: AUDIT_REQUEST_ABI,
+    functionName: "requestAudit",
+    args: [packageName, version],
+  });
+
+  let signClient: InstanceType<typeof SignClient> | null = null;
+
+  // WalletConnect throws unhandled errors when MetaMask sends
+  // session events after the session is cleaned up — suppress them
+  const wcErrorHandler = (err: Error) => {
+    if (err?.message?.includes("No matching key")) return;
+    console.error(err);
+    process.exit(1);
+  };
+  process.on("uncaughtException", wcErrorHandler);
+
+  try {
+    const initSpinner = ora("  Connecting to WalletConnect...").start();
+    signClient = await SignClient.init({
+      projectId: WALLETCONNECT_PROJECT_ID,
+      metadata: {
+        name: "NpmGuard",
+        description: "NPM package security audit",
+        url: "https://npmguard.dev",
+        icons: [],
+      },
+    });
+    initSpinner.stop();
+
+    const { uri, approval } = await signClient.connect({
+      requiredNamespaces: {
+        eip155: {
+          methods: ["eth_sendTransaction"],
+          chains: ["eip155:84532"],
+          events: ["chainChanged", "accountsChanged"],
+        },
+      },
+    });
+
+    if (!uri) {
+      console.log(chalk.red("  Failed to generate WalletConnect URI"));
+      return false;
+    }
+
+    console.log();
+    console.log(chalk.cyan(`  Scan with your wallet to connect:`));
+    console.log();
+    await generateQrCode(uri);
+    console.log();
+
+    const pairSpinner = ora("  Waiting for wallet connection...").start();
+    const session = await approval();
+
+    // Find the Base Sepolia account in approved namespaces
+    const accounts = session.namespaces.eip155?.accounts ?? [];
+    const baseSepoliaAccount = accounts.find((a: string) => a.startsWith("eip155:84532:"));
+    const account = baseSepoliaAccount
+      ? baseSepoliaAccount.split(":")[2]
+      : accounts[0]?.split(":")[2];
+
+    if (!account) {
+      pairSpinner.fail("Wallet did not approve any accounts");
+      return false;
+    }
+
+    pairSpinner.succeed(`Connected: ${account.slice(0, 6)}...${account.slice(-4)}`);
+
+    console.log(
+      chalk.cyan(`  Confirm the ${feeDisplay} transaction in your wallet...`)
+    );
+
+    const txHash = await signClient.request({
+      topic: session.topic,
+      chainId: "eip155:84532",
+      request: {
+        method: "eth_sendTransaction",
+        params: [
+          {
+            from: account,
+            to: AUDIT_REQUEST_ADDRESS_BASE_SEPOLIA,
+            data: calldata,
+            value: "0x" + feeWei.toString(16),
+          },
+        ],
+      },
+    });
+
+    const confirmSpinner = ora("  Waiting for on-chain confirmation...").start();
+    const baseSepoliaClient = createPublicClient({
+      chain: baseSepolia,
+      transport: http(BASE_SEPOLIA_RPC),
+    });
+    const receipt = await baseSepoliaClient.waitForTransactionReceipt({
+      hash: txHash as `0x${string}`,
+    });
+
+    if (receipt.status === "success") {
+      confirmSpinner.succeed("Payment confirmed on-chain!");
+      console.log(
+        chalk.gray(`  Tx: ${BLOCK_EXPLORER}/tx/${txHash}`)
+      );
+      console.log();
+      return true;
+    } else {
+      confirmSpinner.fail("Transaction reverted");
+      return false;
+    }
+  } catch (err: any) {
+    const msg = err.message ?? String(err);
+    if (msg.includes("rejected") || msg.includes("denied")) {
+      console.log(chalk.yellow("  Transaction rejected by user."));
+    } else {
+      console.log(chalk.red(`  WalletConnect error: ${msg}`));
+    }
+    console.log();
+    return false;
+  } finally {
+    signClient = null;
+    // Remove handler after a delay to catch late WC events
+    setTimeout(() => process.off("uncaughtException", wcErrorHandler), 5000);
+  }
 }
 
 export async function installCommand(
@@ -139,19 +276,19 @@ export async function installCommand(
     console.log();
 
     const privateKey = process.env.NPMGUARD_PRIVATE_KEY;
-    const contractDeployed = AUDIT_REQUEST_ADDRESS !== ZERO_ADDRESS;
+    const contractDeployed = AUDIT_REQUEST_ADDRESS_BASE_SEPOLIA !== ZERO_ADDRESS;
 
-    if (privateKey && contractDeployed) {
+    if (contractDeployed) {
       const publicClient = createPublicClient({
-        chain: sepolia,
-        transport: http(RPC_URLS[0]),
+        chain: baseSepolia,
+        transport: http(BASE_SEPOLIA_RPC),
       });
 
       // Check if user already paid (previous attempt where audit engine failed)
       let alreadyPaid = false;
       try {
         alreadyPaid = (await publicClient.readContract({
-          address: AUDIT_REQUEST_ADDRESS,
+          address: AUDIT_REQUEST_ADDRESS_BASE_SEPOLIA,
           abi: AUDIT_REQUEST_ABI,
           functionName: "isRequested",
           args: [packageName, requestedVersion],
@@ -161,53 +298,80 @@ export async function installCommand(
       }
 
       if (alreadyPaid) {
-        // Already paid — skip payment, go straight to audit
         console.log(chalk.cyan(`  Already paid on-chain — re-triggering audit...`));
         console.log();
       } else {
-        // Ask user to pay
+        // Read fee for display
         let feeDisplay = "0.001 ETH";
+        let feeWei = 1000000000000000n;
         try {
-          const fee = await publicClient.readContract({
-            address: AUDIT_REQUEST_ADDRESS,
+          feeWei = (await publicClient.readContract({
+            address: AUDIT_REQUEST_ADDRESS_BASE_SEPOLIA,
             abi: AUDIT_REQUEST_ABI,
             functionName: "auditFee",
-          });
-          feeDisplay = `${formatEther(fee)} ETH`;
+          })) as bigint;
+          feeDisplay = `${formatEther(feeWei)} ETH`;
         } catch {}
 
-        const answer = await prompt(
+        const wantAudit = await prompt(
           chalk.yellow(`  Request on-chain audit for ${feeDisplay}? (y/n) `)
         );
 
-        if (answer !== "y" && answer !== "yes") {
+        if (wantAudit !== "y" && wantAudit !== "yes") {
           return askInstallWithoutAudit(packageSpec);
         }
 
-        // Pay on-chain
-        const txSpinner = ora("  Sending payment transaction...").start();
-        try {
-          const txHash = await requestAuditOnChain(packageName, requestedVersion, privateKey);
-          txSpinner.succeed("Payment confirmed on-chain!");
-          console.log(chalk.gray(`  Tx: https://sepolia.etherscan.io/tx/${txHash}`));
-          console.log();
-        } catch (err: any) {
-          txSpinner.fail("Transaction failed");
-          console.log(chalk.red(`  ${err.shortMessage ?? err.message}`));
-          console.log();
+        // Ask how to pay
+        console.log();
+        console.log(chalk.bold(`  How to pay?`));
+        if (privateKey) {
+          console.log(`    1) Wallet (NPMGUARD_PRIVATE_KEY)`);
+          console.log(`    2) WalletConnect (mobile wallet)`);
+          console.log(`    3) Back`);
+        } else {
+          console.log(`    1) WalletConnect (mobile wallet)`);
+          console.log(`    2) Back`);
+        }
+        console.log();
+        const choice = await prompt(`  Choice: `);
+
+        const backChoice = privateKey ? "3" : "2";
+        if (choice === backChoice) {
+          return askInstallWithoutAudit(packageSpec);
+        }
+
+        if (privateKey && choice === "1") {
+          const txSpinner = ora("  Sending payment transaction...").start();
+          try {
+            const txHash = await requestAuditOnChain(packageName, requestedVersion, privateKey);
+            txSpinner.succeed("Payment confirmed on-chain!");
+            console.log(chalk.gray(`  Tx: ${BLOCK_EXPLORER}/tx/${txHash}`));
+            console.log();
+          } catch (err: any) {
+            txSpinner.fail("Transaction failed");
+            console.log(chalk.red(`  ${err.shortMessage ?? err.message}`));
+            console.log();
+            return askInstallWithoutAudit(packageSpec);
+          }
+        } else if ((privateKey && choice === "2") || (!privateKey && choice === "1")) {
+          const paid = await payViaWalletConnect(
+            packageName, requestedVersion, feeWei, feeDisplay
+          );
+          if (!paid) return askInstallWithoutAudit(packageSpec);
+        } else {
           return askInstallWithoutAudit(packageSpec);
         }
       }
 
-      // Trigger audit engine (runs whether first attempt or retry)
-      const auditApiUrl = process.env.NPMGUARD_AUDIT_API_URL ?? "http://localhost:8000/audit";
+      // Trigger audit engine
+      const auditApiUrl = process.env.NPMGUARD_AUDIT_API_URL ?? DEFAULT_AUDIT_API_URL;
       const auditSpinner = ora("  Running security audit...").start();
 
       try {
         const resp = await fetch(auditApiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ package_name: packageName }),
+          body: JSON.stringify({ package_name: packageName, version: requestedVersion }),
         });
 
         if (!resp.ok) throw new Error(`Audit engine returned ${resp.status}`);
@@ -251,14 +415,7 @@ export async function installCommand(
       return;
     }
 
-    // No private key or contract not deployed
-    if (!contractDeployed) {
-      // skip silently
-    } else {
-      console.log(chalk.gray(`  Set NPMGUARD_PRIVATE_KEY to request an on-chain audit.`));
-      console.log();
-    }
-
+    // Contract not deployed
     return askInstallWithoutAudit(packageSpec);
   }
 
@@ -315,7 +472,6 @@ export async function installCommand(
       execSync(`npm install ${packageSpec}`, { stdio: "inherit" });
     }
   } else {
-    // No sourceCid — install from npm
     console.log(chalk.gray("  No IPFS source available, installing from npm..."));
     console.log();
     execSync(`npm install ${packageSpec}`, { stdio: "inherit" });

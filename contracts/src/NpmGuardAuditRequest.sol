@@ -8,6 +8,11 @@ contract NpmGuardAuditRequest {
         address indexed requester
     );
 
+    event AuditRequestedByKey(
+        bytes32 indexed key,
+        address indexed requester
+    );
+
     address public owner;
     uint256 public auditFee;
 
@@ -31,6 +36,18 @@ contract NpmGuardAuditRequest {
         emit AuditRequested(packageName, version, msg.sender);
 
         // Refund excess payment
+        if (msg.value > auditFee) {
+            payable(msg.sender).transfer(msg.value - auditFee);
+        }
+    }
+
+    function requestAuditByKey(bytes32 key) external payable {
+        require(msg.value >= auditFee, "Insufficient fee");
+        require(!requested[key], "Already requested");
+        requested[key] = true;
+
+        emit AuditRequestedByKey(key, msg.sender);
+
         if (msg.value > auditFee) {
             payable(msg.sender).transfer(msg.value - auditFee);
         }

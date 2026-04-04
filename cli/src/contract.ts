@@ -1,8 +1,11 @@
-// NpmGuardAuditRequest contract — deployed on Sepolia
-// Update this address after running: cd contracts && npm run deploy
+// NpmGuardAuditRequest contract — deployed on Sepolia + Base Sepolia
+// Update these addresses after running: cd contracts && npm run deploy
 
 export const AUDIT_REQUEST_ADDRESS =
-  "0x4dd8e49df27242a9cea4c9b9eb3b62298439d6ae" as `0x${string}`;
+  "0x4bbaf196bde9e02594631e03c28ebe16719214f3" as `0x${string}`; // Sepolia
+
+export const AUDIT_REQUEST_ADDRESS_BASE_SEPOLIA =
+  "0x071e893552f89876bdc1f514fbf882fd167163b8" as `0x${string}`; // Base Sepolia (WalletConnect)
 
 export const AUDIT_REQUEST_ABI = [
   {
@@ -21,11 +24,27 @@ export const AUDIT_REQUEST_ABI = [
     type: "event",
   },
   {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "key", type: "bytes32" },
+      { indexed: true, name: "requester", type: "address" },
+    ],
+    name: "AuditRequestedByKey",
+    type: "event",
+  },
+  {
     inputs: [
       { name: "packageName", type: "string" },
       { name: "version", type: "string" },
     ],
     name: "requestAudit",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "key", type: "bytes32" }],
+    name: "requestAuditByKey",
     outputs: [],
     stateMutability: "payable",
     type: "function",
