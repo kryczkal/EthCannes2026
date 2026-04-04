@@ -68,13 +68,12 @@ flowchart LR
 
 ## Live Services
 
-| Service | URL | Description |
-|---------|-----|-------------|
-| Frontend Dashboard | [`http://209.38.42.28:3000`](http://209.38.42.28:3000) | Live audit viewer with real-time SSE streaming |
-| Audit Engine API | [`http://209.38.42.28:8000`](http://209.38.42.28:8000) | DigitalOcean Droplet (Amsterdam) |
-| Health check | [`http://209.38.42.28:8000/health`](http://209.38.42.28:8000/health) | `{"status":"ok"}` |
-| CLI (npm) | `npx npmguard-cli` | [npmjs.com/package/npmguard-cli](https://www.npmjs.com/package/npmguard-cli) |
-| 0G Contract | `0x1201...d0de` | [Explorer](https://chainscan-galileo.0g.ai/address/0x1201448ae5f00e1783036439569e71ab3757d0de) |
+| Service | URL |
+|---------|-----|
+| Frontend Dashboard | [`http://209.38.42.28:3000`](http://209.38.42.28:3000) |
+| Audit Engine API | [`http://209.38.42.28:8000`](http://209.38.42.28:8000) |
+| CLI (npm) | [`npx npmguard-cli`](https://www.npmjs.com/package/npmguard-cli) |
+| 0G Contract | [`0x1201448ae5f00e1783036439569e71ab3757d0de`](https://chainscan-galileo.0g.ai/address/0x1201448ae5f00e1783036439569e71ab3757d0de) |
 
 ## ENS Registry
 
