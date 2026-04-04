@@ -1,0 +1,46 @@
+{
+  "metadata": {
+    "name": "test-pkg-dos-loop",
+    "version": "1.4.44-liberty-2",
+    "description": "Fast terminal color utilities",
+    "license": "MIT",
+    "homepage": null,
+    "repository": null
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "entryPoints": {
+    "install": [],
+    "runtime": [
+      "index.js"
+    ],
+    "bin": []
+  },
+  "dependencies": {
+    "prod": {},
+    "dev": {},
+    "optional": {},
+    "peer": {}
+  },
+  "files": [
+    {
+      "path": "index.js",
+      "fileType": "js",
+      "sizeBytes": 1275,
+      "permissions": "644",
+      "isBinary": false,
+      "binaryType": null
+    },
+    {
+      "path": "package.json",
+      "fileType": "json",
+      "sizeBytes": 320,
+      "permissions": "644",
+      "isBinary": false,
+      "binaryType": null
+    }
+  ],
+  "flags": [],
+  "dealbreaker": null
+}

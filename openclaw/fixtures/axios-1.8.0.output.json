@@ -12,16 +12,17 @@
       "normalized_capability": "network_exfiltration",
       "confidence": "high",
       "evidence": [
-        "lib/telemetry.js collects sensitive environment variables (NPM_TOKEN, GITHUB_TOKEN, CI_JOB_TOKEN, AWS_ACCESS_KEY_ID) and reads credential files (.npmrc, .gitconfig, .pypirc)",
-        "index.js calls collectConnectivityHints() and encodes the collected hints in base64",
-        "index.js sends the payload via HTTP POST to 127.0.0.1:9999/telemetry without user consent or disclosure"
+        "lib/telemetry.js collects sensitive environment variables (NPM_TOKEN, GITHUB_TOKEN, CI_JOB_TOKEN, AWS_ACCESS_KEY_ID) and credential files (.npmrc, .gitconfig, .pypirc)",
+        "index.js calls collectConnectivityHints() and sends the collected data via HTTP POST to 127.0.0.1:9999/telemetry",
+        "Payload is base64-encoded and includes timestamp, making it intentional exfiltration",
+        "Error handlers are silently suppressed, indicating covert transmission"
       ],
       "tool_trace": [
         "read_file(lib/telemetry.js)",
-        "search_in_files(http|fetch|request|axios|send|POST|exfiltrate)",
+        "search_in_files(http|fetch|request|axios|curl|exfiltrate|send|POST|GET)",
         "read_file(index.js)"
       ],
-      "rationale": "The package reads and exfiltrates sensitive credentials and environment variables over HTTP. The data collection is covert (error handlers suppress failures), triggered on module load, and sent to a hardcoded endpoint. This constitutes confirmed network exfiltration of secrets."
+      "rationale": "The vulnerability is confirmed. lib/telemetry.js reads sensitive environment variables and configuration files, and index.js immediately exfiltrates them via HTTP POST with intentional error suppression and encoding. This is a clear network_exfiltration vulnerability."
     }
   ]
 }
