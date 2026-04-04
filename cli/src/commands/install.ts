@@ -30,7 +30,7 @@ const ogGalileo = defineChain({
 
 const IPFS_GATEWAY = "https://gateway.pinata.cloud/ipfs";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-const DEFAULT_AUDIT_API_URL = "https://api.npmguard.dev/audit";
+const DEFAULT_AUDIT_API_URL = "http://209.38.42.28:8000/audit";
 const WALLETCONNECT_PROJECT_ID = process.env.WALLETCONNECT_PROJECT_ID ?? "d5eb170c427570e15ac00ae53acc93ba";
 const OG_RPC = "https://evmrpc-testnet.0g.ai";
 const BLOCK_EXPLORER = "https://chainscan-galileo.0g.ai";
