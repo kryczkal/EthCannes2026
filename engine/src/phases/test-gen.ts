@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { mkdtempSync, writeFileSync, readFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, writeFileSync, readFileSync, existsSync, readdirSync, statSync, rmSync, unlinkSync } from "node:fs";
 import { join, basename, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { generateText } from "ai";
@@ -22,7 +23,6 @@ function readExampleTest(capability: string): string {
   try {
     return readFileSync(examplePath, "utf-8");
   } catch {
-    // Fallback to env-exfil if the specific example doesn't exist
     const fallback = join(EXPLOITS_DIR, "env-exfil.test.js");
     return existsSync(fallback) ? readFileSync(fallback, "utf-8") : "";
   }
@@ -56,6 +56,26 @@ function readPackageSource(packagePath: string): string {
   return files.join("\n\n");
 }
 
+function isValidJs(code: string): boolean {
+  const tmpFile = join(tmpdir(), `npmguard-syntax-check-${Date.now()}.js`);
+  try {
+    writeFileSync(tmpFile, code, "utf-8");
+    execFileSync("node", ["--check", tmpFile], { timeout: 5000, stdio: "pipe" });
+    return true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Log the first part of the error for debugging
+    console.error(`[test-gen] syntax check failed: ${msg.split("\n").slice(0, 3).join(" | ")}`);
+    return false;
+  } finally {
+    try { unlinkSync(tmpFile); } catch { /* ignore */ }
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function generateTestDirect(
   finding: Finding,
   packageName: string,
@@ -70,12 +90,21 @@ async function generateTestDirect(
       system: TESTGEN_SYSTEM_PROMPT,
       prompt: userPrompt,
       temperature: 0.2,
-      maxTokens: 4096,
+      maxTokens: 8192,
     });
 
     let code = result.text.trim();
     // Strip markdown fences if present
     code = code.replace(/^```(?:javascript|js)?\n?/m, "").replace(/\n?```\s*$/m, "");
+
+    console.log(`[test-gen] LLM returned ${code.length} bytes for ${finding.fileLine}`);
+
+    // Validate JS syntax — reject truncated/invalid output
+    if (!isValidJs(code)) {
+      console.error(`[test-gen] generated code has invalid syntax for ${finding.fileLine}, skipping (${code.length} bytes)`);
+      return null;
+    }
+
     return code;
   } catch (err) {
     console.error(`[test-gen] LLM call failed for finding ${finding.fileLine}: ${err}`);
@@ -97,16 +126,33 @@ export async function generateTests(
   const packageSource = readPackageSource(packagePath);
   const testDir = mkdtempSync(join(tmpdir(), "npmguard-tests-"));
 
-  console.log(`[test-gen] generating tests for ${investigation.findings.length} findings`);
+  // Limit to top 3 findings to stay within rate limits and time budget.
+  // Prefer CONFIRMED findings and deduplicate by capability.
+  const seen = new Set<string>();
+  const selectedFindings: Array<{ index: number; finding: Finding }> = [];
+  for (let i = 0; i < investigation.findings.length && selectedFindings.length < 3; i++) {
+    const finding = investigation.findings[i]!;
+    const cap = finding.capability;
+    if (seen.has(cap)) continue; // skip duplicate capabilities
+    seen.add(cap);
+    selectedFindings.push({ index: i, finding });
+  }
 
-  // Generate test for each finding
-  const testResults = await Promise.all(
-    investigation.findings.map(async (finding, i) => {
-      console.log(`[test-gen] generating test for finding ${i}: ${finding.capability} @ ${finding.fileLine}`);
-      const testCode = await generateTestDirect(finding, packageName, packageSource);
-      return { index: i, finding, testCode };
-    }),
-  );
+  console.log(`[test-gen] generating tests for ${selectedFindings.length}/${investigation.findings.length} findings (deduplicated by capability)`);
+
+  // Generate tests SEQUENTIALLY to avoid rate limiting
+  const testResults: Array<{ index: number; finding: Finding; testCode: string | null }> = [];
+  for (let j = 0; j < selectedFindings.length; j++) {
+    const { index: i, finding } = selectedFindings[j]!;
+    console.log(`[test-gen] generating test ${j + 1}/${selectedFindings.length}: ${finding.capability} @ ${finding.fileLine}`);
+    const testCode = await generateTestDirect(finding, packageName, packageSource);
+    testResults.push({ index: i, finding, testCode });
+
+    // Delay between LLM calls to respect rate limits (important for Gemini free tier)
+    if (j < selectedFindings.length - 1) {
+      await sleep(5000);
+    }
+  }
 
   // Write test files and update proofs
   const updatedProofs = investigation.proofs.map((proof, i) => {
