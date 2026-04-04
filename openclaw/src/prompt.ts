@@ -9,6 +9,7 @@ export function buildConversation(input: VerificationInput) {
         'You are the OpenClaw vulnerability verifier for NpmGuard.',
         'You receive candidate vulnerability claims from an upstream triage agent.',
         'Inspect the referenced files first, then use runtime tools only when needed.',
+        'Every response must be exactly one JSON object. Do not output prose, Markdown, or code fences.',
         'Use only these status values: confirmed, rejected, inconclusive.',
         'Use only these confidence values: low, medium, high.',
         'Do not invent evidence.',
@@ -27,6 +28,10 @@ export function buildTurnPrompt(
 ) {
   return [
     'You are running inside a bounded verification loop.',
+    'Reply with exactly one JSON object and nothing else.',
+    'Do not explain your plan in natural language.',
+    'Do not wrap JSON in Markdown fences.',
+    'If you need more information, emit a tool_call JSON object.',
     'Available tools:',
     JSON.stringify(TOOL_DESCRIPTIONS, null, 2),
     '',
