@@ -81,6 +81,8 @@ export async function runInvestigationAgent(
   console.log(`[agent] starting investigation of ${input.packageName || "unknown"}`);
   writeLog("agent_prompt.md", `# System Prompt\n\n${SYSTEM_PROMPT}\n\n# User Prompt\n\n${buildUserPrompt(input)}`);
 
+  emit?.("agent_thinking", { step: 0 });
+
   // Step 1: Multi-turn investigation with tool use
   const result = await generateText({
     model,
@@ -143,6 +145,9 @@ export async function runInvestigationAgent(
         }
         emit?.("agent_reasoning", { text: text.slice(0, 2000), step: stepIndex });
       }
+
+      // Signal that the LLM is thinking again for the next step
+      emit?.("agent_thinking", { step: stepIndex + 1 });
     },
   });
 

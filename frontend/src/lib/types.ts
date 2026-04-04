@@ -130,6 +130,18 @@ export interface VerdictReachedEvent extends BaseEvent {
   proofCount: number;
 }
 
+export interface AgentThinkingEvent extends BaseEvent {
+  type: "agent_thinking";
+  step: number;
+}
+
+export interface TriageProgressEvent extends BaseEvent {
+  type: "triage_progress";
+  current: number;
+  total: number;
+  file: string;
+}
+
 export interface AuditErrorEvent extends BaseEvent {
   type: "audit_error";
   error?: string;
@@ -148,6 +160,8 @@ export type SSEEvent =
   | AgentReasoningEvent
   | FindingDiscoveredEvent
   | VerdictReachedEvent
+  | AgentThinkingEvent
+  | TriageProgressEvent
   | AuditErrorEvent;
 
 export const PHASE_ORDER = ["resolve", "inventory", "triage", "investigation", "test-gen", "verify"] as const;

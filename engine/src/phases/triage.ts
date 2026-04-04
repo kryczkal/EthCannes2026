@@ -222,10 +222,15 @@ export async function runTriage(
   }
 
   // MAP: analyze each file in parallel
+  const total = sourceFiles.length;
+  let completedCount = 0;
   const fileVerdicts = await Promise.all(
-    sourceFiles.map((f) =>
-      analyzeFile(packagePath, f.path, flagsByFile.get(f.path) ?? [], emit),
-    ),
+    sourceFiles.map(async (f) => {
+      emit?.("triage_progress", { current: completedCount + 1, total, file: f.path });
+      const verdict = await analyzeFile(packagePath, f.path, flagsByFile.get(f.path) ?? [], emit);
+      completedCount++;
+      return verdict;
+    }),
   );
 
   console.log(

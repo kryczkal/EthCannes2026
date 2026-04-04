@@ -1,6 +1,38 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuditStore } from "../stores/auditStore";
 import type { AgentStep, Finding } from "../lib/types";
+
+// ── Hooks ──
+
+function useTypewriter(text: string, speed = 10): { displayed: string; done: boolean } {
+  const [index, setIndex] = useState(0);
+  useEffect(() => { setIndex(0); }, [text]);
+  useEffect(() => {
+    if (index >= text.length) return;
+    const t = setTimeout(() => setIndex((i) => i + 1), speed);
+    return () => clearTimeout(t);
+  }, [index, text, speed]);
+  return { displayed: text.slice(0, index), done: index >= text.length };
+}
+
+function useCountUp(target: number, durationMs = 1000): number {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    if (target === 0) { setVal(0); return; }
+    const steps = 20;
+    const interval = durationMs / steps;
+    let i = 0;
+    const timer = setInterval(() => {
+      i++;
+      setVal(+(target * (i / steps)).toFixed(1));
+      if (i >= steps) clearInterval(timer);
+    }, interval);
+    return () => clearInterval(timer);
+  }, [target, durationMs]);
+  return val;
+}
+
+// ── Sub-components ──
 
 function FeedTag({
   type,
@@ -33,7 +65,7 @@ function FeedTag({
   );
 }
 
-function ToolCallItem({ step }: { step: AgentStep }) {
+function ToolCallItem({ step, isPending }: { step: AgentStep; isPending: boolean }) {
   const selectFile = useAuditStore((s) => s.selectFile);
   const filePath =
     step.tool === "readFile"
@@ -45,6 +77,7 @@ function ToolCallItem({ step }: { step: AgentStep }) {
       <div className="feed-meta">
         <FeedTag type="tool">{step.tool || "tool"}</FeedTag>
         <span>step {step.step}</span>
+        {isPending && <span className="tool-spinner" />}
       </div>
       <div className="feed-body">
         {step.tool === "readFile" && filePath ? (
@@ -79,13 +112,18 @@ function ToolCallItem({ step }: { step: AgentStep }) {
 }
 
 function ReasoningItem({ step }: { step: AgentStep }) {
+  const { displayed, done } = useTypewriter(step.text || "", 10);
+
   return (
     <div className="feed-item">
       <div className="feed-meta">
         <FeedTag type="think">thinking</FeedTag>
         <span>step {step.step}</span>
       </div>
-      <div className="feed-body">{step.text}</div>
+      <div className="feed-body">
+        {displayed}
+        {!done && <span className="typewriter-cursor" />}
+      </div>
     </div>
   );
 }
@@ -118,11 +156,14 @@ function ToolResultItem({ step }: { step: AgentStep }) {
           lineHeight: 1.5,
         }}
       >
-        {step.resultPreview.split("\n").slice(0, 3).map((line, i) => (
-          <div key={i} className="truncate">
-            {line || "\u00A0"}
-          </div>
-        ))}
+        {step.resultPreview
+          .split("\n")
+          .slice(0, 3)
+          .map((line, i) => (
+            <div key={i} className="truncate">
+              {line || "\u00A0"}
+            </div>
+          ))}
       </div>
     </div>
   );
@@ -133,7 +174,7 @@ function FindingItem({ finding }: { finding: Finding }) {
 
   return (
     <div
-      className="feed-item"
+      className="feed-item finding-slam"
       style={{
         borderLeft: "3px solid var(--danger)",
         background: "var(--danger-bg)",
@@ -178,6 +219,8 @@ function FindingItem({ finding }: { finding: Finding }) {
 
 function TriageItem({ summary }: { summary: string }) {
   const riskScore = useAuditStore((s) => s.riskScore);
+  const displayScore = useCountUp(riskScore ?? 0, 1200);
+
   return (
     <div className="feed-item">
       <div className="feed-meta">
@@ -197,7 +240,7 @@ function TriageItem({ summary }: { summary: string }) {
                       : "var(--safe)",
               }}
             >
-              {riskScore} / 10
+              {displayScore} / 10
             </strong>
             <br />
           </>
@@ -208,11 +251,29 @@ function TriageItem({ summary }: { summary: string }) {
   );
 }
 
+function ThinkingIndicator() {
+  return (
+    <div className="feed-item" style={{ opacity: 0.7 }}>
+      <div className="feed-meta">
+        <FeedTag type="think">thinking</FeedTag>
+      </div>
+      <div className="feed-body">
+        <span className="thinking-dot" />
+        <span className="thinking-dot" />
+        <span className="thinking-dot" />
+      </div>
+    </div>
+  );
+}
+
+// ── Main ──
+
 export function ActivityFeed() {
   const agentSteps = useAuditStore((s) => s.agentSteps);
   const findings = useAuditStore((s) => s.findings);
   const riskSummary = useAuditStore((s) => s.riskSummary);
   const riskScore = useAuditStore((s) => s.riskScore);
+  const agentThinking = useAuditStore((s) => s.agentThinking);
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -226,9 +287,23 @@ export function ActivityFeed() {
     if (isNearBottom()) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [agentSteps.length, findings.length, isNearBottom]);
+  }, [agentSteps.length, findings.length, agentThinking, isNearBottom]);
 
-  const hasContent = agentSteps.length > 0 || findings.length > 0 || riskSummary;
+  const hasContent =
+    agentSteps.length > 0 || findings.length > 0 || riskSummary;
+
+  // Determine if a tool call is pending (last tool_call with no following tool_result)
+  const lastToolCallIndex = (() => {
+    for (let i = agentSteps.length - 1; i >= 0; i--) {
+      if (agentSteps[i].type === "tool_call") return i;
+    }
+    return -1;
+  })();
+  const lastToolCallPending =
+    lastToolCallIndex >= 0 &&
+    !agentSteps
+      .slice(lastToolCallIndex + 1)
+      .some((s) => s.type === "tool_result" && s.step === agentSteps[lastToolCallIndex].step);
 
   const riskPillClass =
     riskScore !== null && riskScore >= 7
@@ -288,7 +363,7 @@ export function ActivityFeed() {
         aria-live="polite"
         aria-relevant="additions"
       >
-        {!hasContent && (
+        {!hasContent && !agentThinking && (
           <div
             className="flex items-center justify-center h-full"
             style={{ color: "var(--pending)", fontSize: "0.8rem" }}
@@ -302,7 +377,13 @@ export function ActivityFeed() {
         {agentSteps.map((step, i) => {
           switch (step.type) {
             case "tool_call":
-              return <ToolCallItem key={i} step={step} />;
+              return (
+                <ToolCallItem
+                  key={i}
+                  step={step}
+                  isPending={i === lastToolCallIndex && lastToolCallPending}
+                />
+              );
             case "tool_result":
               return <ToolResultItem key={i} step={step} />;
             case "reasoning":
@@ -315,6 +396,8 @@ export function ActivityFeed() {
         {findings.map((f, i) => (
           <FindingItem key={`f-${i}`} finding={f} />
         ))}
+
+        {agentThinking && <ThinkingIndicator />}
 
         <div ref={bottomRef} />
       </div>

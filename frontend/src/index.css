@@ -187,11 +187,113 @@ body {
   border-left: 3px solid var(--danger);
 }
 
+/* ── Feed item entrance ── */
+@keyframes feed-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Finding slam-in ── */
+@keyframes slam-in {
+  0% { transform: scale(1.08) translateX(-4px); opacity: 0; }
+  40% { transform: scale(1.02) translateX(0); opacity: 1; }
+  70% { transform: scale(1.005); }
+  100% { transform: scale(1); }
+}
+.finding-slam { animation: slam-in 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* ── Typewriter cursor ── */
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.typewriter-cursor::after {
+  content: "▌";
+  animation: blink-cursor 0.8s step-end infinite;
+  color: var(--accent-light);
+  font-weight: 400;
+}
+
+/* ── Thinking dots ── */
+@keyframes thinking-dots {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+.thinking-dot {
+  display: inline-block;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--investigating);
+  margin: 0 2px;
+}
+.thinking-dot:nth-child(1) { animation: thinking-dots 1.4s infinite 0s; }
+.thinking-dot:nth-child(2) { animation: thinking-dots 1.4s infinite 0.2s; }
+.thinking-dot:nth-child(3) { animation: thinking-dots 1.4s infinite 0.4s; }
+
+/* ── Tool call pending spinner ── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.tool-spinner {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border: 1.5px solid var(--border-strong);
+  border-top-color: var(--investigating);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* ── Phase pip celebration ── */
+@keyframes phase-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.8); box-shadow: 0 0 8px var(--safe); }
+  100% { transform: scale(1); }
+}
+.phase-pip-pop { animation: phase-pop 0.4s ease-out; }
+
+/* ── Code scanner sweep ── */
+@keyframes scanner-sweep {
+  0% { top: 0; opacity: 0.7; }
+  100% { top: 100%; opacity: 0; }
+}
+.code-scanner-line {
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--investigating), transparent);
+  pointer-events: none;
+  z-index: 10;
+  animation: scanner-sweep 2s ease-in-out forwards;
+}
+
+/* ── Verdict staged reveal ── */
+@keyframes verdict-word-reveal {
+  from { opacity: 0; transform: scale(0.8) translateY(10px); filter: blur(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+}
+.verdict-reveal { animation: verdict-word-reveal 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+
+@keyframes cap-tag-pop {
+  from { opacity: 0; transform: scale(0); }
+  60% { transform: scale(1.15); }
+  to { opacity: 1; transform: scale(1); }
+}
+.cap-pop { animation: cap-tag-pop 0.3s ease-out forwards; opacity: 0; }
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.fade-in { animation: fade-in 0.4s ease-out forwards; opacity: 0; }
+
 /* ── Activity feed items ── */
 .feed-item {
   padding: 10px 20px;
   border-bottom: 1px solid var(--border);
   transition: background 0.15s;
+  animation: feed-enter 0.25s ease-out;
 }
 .feed-item:hover {
   background: var(--bg-secondary);

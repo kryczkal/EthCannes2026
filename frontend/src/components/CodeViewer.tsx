@@ -1,5 +1,5 @@
-import { useMemo, useState, useEffect } from "react";
-import CodeMirror from "@uiw/react-codemirror";
+import { useMemo, useState, useEffect, useRef } from "react";
+import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { javascript } from "@codemirror/lang-javascript";
 import { EditorView, Decoration } from "@codemirror/view";
 import { RangeSetBuilder } from "@codemirror/state";
@@ -13,7 +13,11 @@ function createHighlightExtension(ranges: Array<[number, number]>) {
     if (ranges.length === 0) return Decoration.none;
     const builder = new RangeSetBuilder<Decoration>();
     for (const [startLine, endLine] of ranges) {
-      for (let line = startLine; line <= endLine && line <= state.doc.lines; line++) {
+      for (
+        let line = startLine;
+        line <= endLine && line <= state.doc.lines;
+        line++
+      ) {
         const lineObj = state.doc.line(line);
         builder.add(lineObj.from, lineObj.from, lineDeco);
       }
@@ -32,15 +36,9 @@ const neutralTheme = EditorView.theme({
     color: "var(--text-muted)",
     borderRight: "1px solid var(--border)",
   },
-  ".cm-activeLineGutter": {
-    backgroundColor: "transparent",
-  },
-  ".cm-activeLine": {
-    backgroundColor: "transparent",
-  },
-  ".cm-cursor": {
-    borderLeftColor: "var(--text)",
-  },
+  ".cm-activeLineGutter": { backgroundColor: "transparent" },
+  ".cm-activeLine": { backgroundColor: "transparent" },
+  ".cm-cursor": { borderLeftColor: "var(--text)" },
   ".cm-selectionBackground": {
     backgroundColor: "var(--accent-bg) !important",
   },
@@ -59,8 +57,9 @@ export function CodeViewer({
   const verdict = useAuditStore((s) => s.verdict);
   const selectFile = useAuditStore((s) => s.selectFile);
 
-  // Track recently viewed files for tabs
   const [recentFiles, setRecentFiles] = useState<string[]>([]);
+  const [showScanner, setShowScanner] = useState(false);
+  const editorRef = useRef<ReactCodeMirrorRef>(null);
 
   useEffect(() => {
     if (selectedFile && !recentFiles.includes(selectedFile)) {
@@ -85,7 +84,48 @@ export function CodeViewer({
     [suspiciousRanges],
   );
 
-  // Empty state when verdict is safe and no file selected
+  // Scanner sweep on file load
+  useEffect(() => {
+    if (content !== null && selectedFile) {
+      setShowScanner(true);
+      const t = setTimeout(() => {
+        setShowScanner(false);
+        // Auto-scroll to first suspicious line after sweep
+        if (suspiciousRanges.length > 0 && editorRef.current?.view) {
+          const view = editorRef.current.view;
+          const line = suspiciousRanges[0][0];
+          if (line <= view.state.doc.lines) {
+            const lineObj = view.state.doc.line(line);
+            view.dispatch({
+              effects: EditorView.scrollIntoView(lineObj.from, { y: "center" }),
+            });
+          }
+        }
+      }, 2000);
+      return () => clearTimeout(t);
+    }
+  }, [content, selectedFile]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filesToggleBtn = (
+    <button
+      onClick={onToggleFiles}
+      style={{
+        background: "none",
+        border: `1px solid ${filesOpen ? "var(--accent)" : "var(--border)"}`,
+        borderRadius: "var(--radius-sm)",
+        padding: "3px 8px",
+        cursor: "pointer",
+        fontFamily: "var(--font-mono)",
+        fontSize: "0.68rem",
+        color: filesOpen ? "var(--accent)" : "var(--text-muted)",
+        whiteSpace: "nowrap",
+      }}
+    >
+      files
+    </button>
+  );
+
+  // Empty state — safe verdict
   if (!selectedFile && verdict === "SAFE") {
     return (
       <div className="h-full flex flex-col">
@@ -97,23 +137,7 @@ export function CodeViewer({
           }}
         >
           <div className="flex-1" />
-          <button
-            onClick={onToggleFiles}
-            className={filesOpen ? "fe-toggle-active" : ""}
-            style={{
-              background: "none",
-              border: `1px solid ${filesOpen ? "var(--accent)" : "var(--border)"}`,
-              borderRadius: "var(--radius-sm)",
-              padding: "3px 8px",
-              cursor: "pointer",
-              fontFamily: "var(--font-mono)",
-              fontSize: "0.68rem",
-              color: filesOpen ? "var(--accent)" : "var(--text-muted)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            files
-          </button>
+          {filesToggleBtn}
         </div>
         <div
           className="flex-1 flex flex-col items-center justify-center gap-2"
@@ -141,21 +165,7 @@ export function CodeViewer({
           }}
         >
           <div className="flex-1" />
-          <button
-            onClick={onToggleFiles}
-            style={{
-              background: "none",
-              border: `1px solid ${filesOpen ? "var(--accent)" : "var(--border)"}`,
-              borderRadius: "var(--radius-sm)",
-              padding: "3px 8px",
-              cursor: "pointer",
-              fontFamily: "var(--font-mono)",
-              fontSize: "0.68rem",
-              color: filesOpen ? "var(--accent)" : "var(--text-muted)",
-            }}
-          >
-            files
-          </button>
+          {filesToggleBtn}
         </div>
         <div
           className="flex-1 flex flex-col items-center justify-center gap-2"
@@ -256,30 +266,24 @@ export function CodeViewer({
         )}
 
         {/* Files toggle */}
-        <button
-          onClick={onToggleFiles}
+        <div
           style={{
             marginLeft:
               fileVerdict && fileVerdict.capabilities.length > 0
                 ? 8
                 : "auto",
-            background: "none",
-            border: `1px solid ${filesOpen ? "var(--accent)" : "var(--border)"}`,
-            borderRadius: "var(--radius-sm)",
-            padding: "3px 8px",
-            cursor: "pointer",
-            fontFamily: "var(--font-mono)",
-            fontSize: "0.68rem",
-            color: filesOpen ? "var(--accent)" : "var(--text-muted)",
-            whiteSpace: "nowrap",
           }}
         >
-          files
-        </button>
+          {filesToggleBtn}
+        </div>
       </div>
 
-      {/* Code content */}
-      <div className="flex-1 overflow-auto" style={{ background: "var(--bg-code)" }}>
+      {/* Code content with scanner overlay */}
+      <div
+        className="flex-1 overflow-auto"
+        style={{ background: "var(--bg-code)", position: "relative" }}
+      >
+        {showScanner && <div className="code-scanner-line" />}
         {content === null ? (
           <div
             className="flex items-center justify-center h-full"
@@ -289,6 +293,7 @@ export function CodeViewer({
           </div>
         ) : (
           <CodeMirror
+            ref={editorRef}
             key={selectedFile}
             value={content}
             extensions={extensions}

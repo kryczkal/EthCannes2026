@@ -48,6 +48,10 @@ interface AuditState {
   autoFollow: boolean;
   error: string | null;
 
+  // Animation state
+  agentThinking: boolean;
+  triageProgress: { current: number; total: number } | null;
+
   // Actions
   startAudit: (packageName: string) => Promise<void>;
   handleEvent: (event: SSEEvent) => void;
@@ -76,6 +80,8 @@ const initialState = {
   selectedFileContent: null,
   autoFollow: true,
   error: null,
+  agentThinking: false,
+  triageProgress: null,
 };
 
 let activeEventSource: EventSource | null = null;
@@ -139,7 +145,8 @@ export const useAuditStore = create<AuditState>((set, get) => ({
     const eventTypes = [
       "audit_started", "phase_started", "phase_completed",
       "file_list", "file_analyzing", "file_verdict",
-      "triage_complete", "agent_tool_call", "agent_tool_result",
+      "triage_complete", "triage_progress",
+      "agent_thinking", "agent_tool_call", "agent_tool_result",
       "agent_reasoning", "finding_discovered", "verdict_reached",
       "audit_error",
     ] as const;
@@ -205,16 +212,28 @@ export const useAuditStore = create<AuditState>((set, get) => ({
         break;
       }
 
+      case "triage_progress": {
+        set({ triageProgress: { current: event.current, total: event.total } });
+        break;
+      }
+
       case "triage_complete": {
         set({
           riskScore: event.riskScore,
           riskSummary: event.riskSummary,
           focusAreas: event.focusAreas,
+          triageProgress: null,
         });
         break;
       }
 
+      case "agent_thinking": {
+        set({ agentThinking: true });
+        break;
+      }
+
       case "agent_tool_call": {
+        set({ agentThinking: false });
         const step: AgentStep = {
           type: "tool_call",
           tool: event.tool,
@@ -246,6 +265,7 @@ export const useAuditStore = create<AuditState>((set, get) => ({
       }
 
       case "agent_reasoning": {
+        set({ agentThinking: false });
         const step: AgentStep = {
           type: "reasoning",
           text: event.text,
@@ -267,6 +287,7 @@ export const useAuditStore = create<AuditState>((set, get) => ({
           capabilities: event.capabilities,
           proofCount: event.proofCount,
           isRunning: false,
+          agentThinking: false,
         });
         break;
       }
