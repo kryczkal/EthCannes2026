@@ -3,24 +3,50 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from urllib.parse import urlparse
 
+import structlog
 from pydantic_ai.models.anthropic import AnthropicModel
 from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from npmguard.config import Settings
+from npmguard.config import LLMBackend, Settings
+
+log = structlog.get_logger()
 
 
 @lru_cache(maxsize=1)
 def make_model() -> AnthropicModel | OpenAIModel:
     """Build a PydanticAI model from current settings.
 
-    If ``llm_base_url`` is set the model is created via the OpenAI-compatible
-    provider (for 0G Compute / vLLM / etc.), otherwise we default to the
-    native Anthropic provider.
+    OpenAI-compatible providers are configured through explicit backend
+    selection. 0G Compute is treated as a named OpenAI-compatible backend.
     """
     settings = Settings()
-    if settings.llm_base_url:
-        provider = OpenAIProvider(base_url=settings.llm_base_url)
-        return OpenAIModel(settings.llm_model, provider=provider)
-    return AnthropicModel(settings.llm_model)
+    if settings.llm_backend == LLMBackend.ANTHROPIC:
+        log.info(
+            "llm_backend_selected",
+            backend=settings.llm_backend.value,
+            model=settings.effective_llm_model,
+        )
+        return AnthropicModel(settings.effective_llm_model)
+
+    base_url = settings.effective_llm_base_url
+    assert base_url is not None  # validated by Settings
+
+    provider_kwargs: dict[str, str] = {"base_url": base_url}
+    if settings.llm_api_key is not None:
+        provider_kwargs["api_key"] = settings.llm_api_key.get_secret_value()
+
+    log_payload = {
+        "backend": settings.llm_backend.value,
+        "model": settings.effective_llm_model,
+        "base_url_host": urlparse(base_url).netloc,
+    }
+    if settings.llm_backend == LLMBackend.ZERO_G:
+        log_payload["zero_g_network"] = settings.zero_g_network.value
+
+    log.info("llm_backend_selected", **log_payload)
+
+    provider = OpenAIProvider(**provider_kwargs)
+    return OpenAIModel(settings.effective_llm_model, provider=provider)

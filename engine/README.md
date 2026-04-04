@@ -38,6 +38,38 @@ uv sync
    ```
    Interactive docs at `http://localhost:8000/docs`.
 
+### Use 0G Compute
+
+The engine supports selectable LLM backends. For 0G Compute, use the documented OpenAI-compatible
+inference endpoint directly from Python.
+
+Recommended first setup: 0G testnet.
+
+```bash
+export NPMGUARD_LLM_BACKEND=zero_g
+export NPMGUARD_LLM_MODEL=qwen/qwen-2.5-7b-instruct
+export NPMGUARD_LLM_API_KEY=app-sk-...
+export NPMGUARD_ZERO_G_SERVICE_URL=https://compute-network-6.integratenetwork.work
+export NPMGUARD_ZERO_G_NETWORK=testnet
+```
+
+Notes:
+
+- The engine normalizes the 0G service URL to the OpenAI-compatible proxy path by appending
+  `/v1/proxy` when needed.
+- Anthropic remains available as a fallback with `NPMGUARD_LLM_BACKEND=anthropic`.
+- Generic OpenAI-compatible providers are also supported:
+
+```bash
+export NPMGUARD_LLM_BACKEND=openai_compatible
+export NPMGUARD_LLM_MODEL=your-model
+export NPMGUARD_LLM_BASE_URL=https://your-provider.example/v1
+export NPMGUARD_LLM_API_KEY=...
+```
+
+This v1 integration does not use a JS SDK sidecar or TEE verification. Those can be added later if
+you want broker-native verification flows.
+
 ## Smoke Test (no Temporal required)
 
 Run static checks against all test fixtures locally:
@@ -117,5 +149,10 @@ Settings are loaded from environment variables with the `NPMGUARD_` prefix (or a
 | `NPMGUARD_API_HOST` | `0.0.0.0` | API listen host |
 | `NPMGUARD_API_PORT` | `8000` | API listen port |
 | `NPMGUARD_TASK_QUEUE` | `npmguard-task-queue` | Temporal task queue name |
+| `NPMGUARD_LLM_BACKEND` | `anthropic` | LLM backend: `anthropic`, `openai_compatible`, or `zero_g` |
 | `NPMGUARD_LLM_MODEL` | `claude-sonnet-4-6` | LLM model for static analysis |
-| `NPMGUARD_LLM_BASE_URL` | _(unset)_ | OpenAI-compatible endpoint (e.g. 0G Compute) |
+| `NPMGUARD_LLM_BASE_URL` | _(unset)_ | OpenAI-compatible endpoint for generic providers |
+| `NPMGUARD_LLM_API_KEY` | _(unset)_ | API key for `openai_compatible` or `zero_g` backends |
+| `NPMGUARD_LLM_TIMEOUT_SECONDS` | `60.0` | Request timeout budget for LLM calls |
+| `NPMGUARD_ZERO_G_NETWORK` | `testnet` | 0G network label for config and logs |
+| `NPMGUARD_ZERO_G_SERVICE_URL` | _(unset)_ | 0G service URL; normalized to `/v1/proxy` |

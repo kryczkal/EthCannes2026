@@ -2,6 +2,7 @@
 
 import asyncio
 import sys
+from urllib.parse import urlparse
 
 import structlog
 from temporalio.client import Client
@@ -29,6 +30,15 @@ async def main() -> None:
     settings = Settings()
 
     log.info("starting_engine", temporal_address=settings.temporal_address)
+    llm_log_payload = {
+        "backend": settings.llm_backend.value,
+        "model": settings.effective_llm_model,
+    }
+    if settings.effective_llm_base_url is not None:
+        llm_log_payload["base_url_host"] = urlparse(settings.effective_llm_base_url).netloc
+    if settings.llm_backend.value == "zero_g":
+        llm_log_payload["zero_g_network"] = settings.zero_g_network.value
+    log.info("llm_backend_configured", **llm_log_payload)
 
     from temporalio.contrib.pydantic import pydantic_data_converter
 
