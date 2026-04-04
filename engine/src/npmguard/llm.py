@@ -19,8 +19,8 @@ log = structlog.get_logger()
 def make_model() -> AnthropicModel | OpenAIModel:
     """Build a PydanticAI model from current settings.
 
-    OpenAI-compatible providers are configured through explicit backend
-    selection. 0G Compute is treated as a named OpenAI-compatible backend.
+    OpenAI-compatible providers are configured through the explicit backend
+    selection. 0G Compute is treated as a specialized OpenAI-compatible setup.
     """
     settings = Settings()
     if settings.llm_backend == LLMBackend.ANTHROPIC:
@@ -43,7 +43,7 @@ def make_model() -> AnthropicModel | OpenAIModel:
         "model": settings.effective_llm_model,
         "base_url_host": urlparse(base_url).netloc,
     }
-    if settings.llm_backend == LLMBackend.ZERO_G:
+    if settings.zero_g_service_url is not None:
         log_payload["zero_g_network"] = settings.zero_g_network.value
 
     log.info("llm_backend_selected", **log_payload)

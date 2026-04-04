@@ -43,48 +43,38 @@ class TestSettingsValidation:
 
         with pytest.raises(
             ValidationError,
-            match="NPMGUARD_LLM_BASE_URL is required when NPMGUARD_LLM_BACKEND=openai_compatible.",
-        ):
-            Settings()
-
-    def test_zero_g_requires_api_key(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("NPMGUARD_LLM_BACKEND", "zero_g")
-        monkeypatch.setenv("NPMGUARD_ZERO_G_SERVICE_URL", "https://compute.example")
-
-        with pytest.raises(
-            ValidationError,
-            match="NPMGUARD_LLM_API_KEY is required when NPMGUARD_LLM_BACKEND=zero_g.",
-        ):
-            Settings()
-
-    def test_zero_g_requires_service_url(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("NPMGUARD_LLM_BACKEND", "zero_g")
-        monkeypatch.setenv("NPMGUARD_LLM_API_KEY", "app-sk-test")
-
-        with pytest.raises(
-            ValidationError,
             match=(
-                "NPMGUARD_ZERO_G_SERVICE_URL or NPMGUARD_LLM_BASE_URL is required when "
-                "NPMGUARD_LLM_BACKEND=zero_g."
+                "NPMGUARD_LLM_BASE_URL or NPMGUARD_ZERO_G_SERVICE_URL is required when "
+                "NPMGUARD_LLM_BACKEND=openai_compatible."
             ),
         ):
             Settings()
 
+    def test_zero_g_requires_api_key(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setenv("NPMGUARD_LLM_BACKEND", "openai_compatible")
+        monkeypatch.setenv("NPMGUARD_ZERO_G_SERVICE_URL", "https://compute.example")
+
+        with pytest.raises(
+            ValidationError,
+            match="NPMGUARD_LLM_API_KEY is required when NPMGUARD_ZERO_G_SERVICE_URL is set.",
+        ):
+            Settings()
+
     def test_zero_g_normalizes_service_url(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("NPMGUARD_LLM_BACKEND", "zero_g")
+        monkeypatch.setenv("NPMGUARD_LLM_BACKEND", "openai_compatible")
         monkeypatch.setenv("NPMGUARD_LLM_API_KEY", "app-sk-test")
         monkeypatch.setenv("NPMGUARD_ZERO_G_SERVICE_URL", "https://compute-network.example")
         monkeypatch.setenv("NPMGUARD_ZERO_G_NETWORK", "mainnet")
 
         settings = Settings()
 
-        assert settings.llm_backend == LLMBackend.ZERO_G
+        assert settings.llm_backend == LLMBackend.OPENAI_COMPATIBLE
         assert settings.zero_g_network == ZeroGNetwork.MAINNET
         assert settings.effective_llm_model == ZERO_G_MODEL
         assert settings.effective_llm_base_url == "https://compute-network.example/v1/proxy"
 
     def test_zero_g_keeps_existing_proxy_path(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("NPMGUARD_LLM_BACKEND", "zero_g")
+        monkeypatch.setenv("NPMGUARD_LLM_BACKEND", "openai_compatible")
         monkeypatch.setenv("NPMGUARD_LLM_API_KEY", "app-sk-test")
         monkeypatch.setenv(
             "NPMGUARD_ZERO_G_SERVICE_URL", "https://compute-network.example/custom/v1/proxy"
@@ -95,7 +85,7 @@ class TestSettingsValidation:
         assert settings.effective_llm_base_url == "https://compute-network.example/custom/v1/proxy"
 
     def test_zero_g_rejects_malformed_service_url(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("NPMGUARD_LLM_BACKEND", "zero_g")
+        monkeypatch.setenv("NPMGUARD_LLM_BACKEND", "openai_compatible")
         monkeypatch.setenv("NPMGUARD_LLM_API_KEY", "app-sk-test")
         monkeypatch.setenv("NPMGUARD_ZERO_G_SERVICE_URL", "not-a-url")
 
@@ -103,7 +93,7 @@ class TestSettingsValidation:
             Settings()
 
     def test_api_key_is_masked_in_repr(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("NPMGUARD_LLM_BACKEND", "zero_g")
+        monkeypatch.setenv("NPMGUARD_LLM_BACKEND", "openai_compatible")
         monkeypatch.setenv("NPMGUARD_LLM_API_KEY", "app-sk-super-secret")
         monkeypatch.setenv("NPMGUARD_ZERO_G_SERVICE_URL", "https://compute-network.example")
 
@@ -141,8 +131,8 @@ class TestMakeModel:
         model_cls.assert_called_once_with("gpt-4o-mini", provider=provider_cls.return_value)
         assert model is model_cls.return_value
 
-    def test_make_model_uses_zero_g_backend(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("NPMGUARD_LLM_BACKEND", "zero_g")
+    def test_make_model_uses_zero_g_preset(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setenv("NPMGUARD_LLM_BACKEND", "openai_compatible")
         monkeypatch.setenv("NPMGUARD_LLM_API_KEY", "app-sk-test")
         monkeypatch.setenv("NPMGUARD_ZERO_G_SERVICE_URL", "https://compute-network.example")
 

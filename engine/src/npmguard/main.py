@@ -36,7 +36,7 @@ async def main() -> None:
     }
     if settings.effective_llm_base_url is not None:
         llm_log_payload["base_url_host"] = urlparse(settings.effective_llm_base_url).netloc
-    if settings.llm_backend.value == "zero_g":
+    if settings.zero_g_service_url is not None:
         llm_log_payload["zero_g_network"] = settings.zero_g_network.value
     log.info("llm_backend_configured", **llm_log_payload)
 

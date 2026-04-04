@@ -25,7 +25,6 @@ class LLMBackend(str, Enum):
 
     ANTHROPIC = "anthropic"
     OPENAI_COMPATIBLE = "openai_compatible"
-    ZERO_G = "zero_g"
 
 
 class ZeroGNetwork(str, Enum):
@@ -69,7 +68,7 @@ class Settings(BaseSettings):
 
     @property
     def effective_llm_model(self) -> str:
-        if self.llm_backend == LLMBackend.ZERO_G:
+        if self.zero_g_service_url is not None:
             return ZERO_G_MODEL
         return self.llm_model
 
@@ -92,13 +91,9 @@ class Settings(BaseSettings):
 
     @property
     def effective_llm_base_url(self) -> str | None:
-        if self.llm_backend == LLMBackend.ZERO_G:
-            raw_url = self.zero_g_service_url or self.llm_base_url
-            if raw_url is None:
-                return None
-            return self._normalize_zero_g_url(raw_url)
-
         if self.llm_backend == LLMBackend.OPENAI_COMPATIBLE:
+            if self.zero_g_service_url is not None:
+                return self._normalize_zero_g_url(self.zero_g_service_url)
             if self.llm_base_url is None:
                 return None
             return self._validate_url(self.llm_base_url, "NPMGUARD_LLM_BASE_URL")
@@ -108,23 +103,19 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_llm_settings(self) -> "Settings":
         if self.llm_backend == LLMBackend.OPENAI_COMPATIBLE:
-            if self.llm_base_url is None:
-                raise ValueError(
-                    "NPMGUARD_LLM_BASE_URL is required when NPMGUARD_LLM_BACKEND=openai_compatible."
-                )
-            self._validate_url(self.llm_base_url, "NPMGUARD_LLM_BASE_URL")
-            return self
-
-        if self.llm_backend == LLMBackend.ZERO_G:
             if self.zero_g_service_url is None and self.llm_base_url is None:
                 raise ValueError(
-                    "NPMGUARD_ZERO_G_SERVICE_URL or NPMGUARD_LLM_BASE_URL is required when "
-                    "NPMGUARD_LLM_BACKEND=zero_g."
+                    "NPMGUARD_LLM_BASE_URL or NPMGUARD_ZERO_G_SERVICE_URL is required when "
+                    "NPMGUARD_LLM_BACKEND=openai_compatible."
                 )
-            if self.llm_api_key is None:
+            if self.zero_g_service_url is not None:
+                _ = self.effective_llm_base_url
+            elif self.llm_base_url is not None:
+                self._validate_url(self.llm_base_url, "NPMGUARD_LLM_BASE_URL")
+
+            if self.zero_g_service_url is not None and self.llm_api_key is None:
                 raise ValueError(
-                    "NPMGUARD_LLM_API_KEY is required when NPMGUARD_LLM_BACKEND=zero_g."
+                    "NPMGUARD_LLM_API_KEY is required when NPMGUARD_ZERO_G_SERVICE_URL is set."
                 )
-            _ = self.effective_llm_base_url
 
         return self
