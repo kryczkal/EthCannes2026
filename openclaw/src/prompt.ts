@@ -34,7 +34,7 @@ export function buildTurnPrompt(
     '{"type":"tool_call","tool":"read_file","input":{"filePath":"lib/telemetry.js"},"reason":"Explain why"}',
     '',
     'When you are done, respond with JSON:',
-    '{"type":"final","results":[...]}',
+    '{"type":"final","results":[{"id":"cand-001","status":"confirmed","confidence":"high","normalized_capability":"network_exfiltration","evidence":["fact 1","fact 2"],"rationale":"Explain the decision"}]}',
     '',
     'Conversation so far:',
     JSON.stringify(conversation, null, 2),
