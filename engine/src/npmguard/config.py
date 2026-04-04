@@ -46,12 +46,29 @@ class Settings(BaseSettings):
     # Worker
     task_queue: str = "npmguard-task-queue"
 
-    # LLM (static analysis layer)
+    # LLM provider (shared across all phases)
     llm_backend: LLMBackend = LLMBackend.ANTHROPIC
-    llm_model: str = "claude-sonnet-4-6"
     llm_base_url: str | None = None  # For 0G Compute or other OpenAI-compatible endpoint
     llm_api_key: SecretStr | None = None
     llm_timeout_seconds: float = Field(default=60.0, gt=0)
+
+    # Phase 1a: Triage
+    triage_model: str = "claude-haiku-4-5-20251001"
+    triage_risk_threshold: int = Field(default=3, ge=0, le=10)
+
+    # Phase 1b: Investigation
+    investigation_model: str = "claude-sonnet-4-6"
+    max_agent_turns: int = Field(default=30, ge=1, le=200)
+
+    # Phase 1c: Test generation
+    test_gen_model: str = "claude-sonnet-4-6"
+
+    # Docker sandbox
+    sandbox_image: str = "node:22-slim"
+    sandbox_memory_mb: int = Field(default=512, ge=64, le=4096)
+    sandbox_cpus: float = Field(default=1.0, gt=0, le=4.0)
+    sandbox_network: bool = False
+    max_docker_exec_timeout_sec: int = Field(default=30, ge=5, le=300)
 
     @property
     def temporal_address(self) -> str:
