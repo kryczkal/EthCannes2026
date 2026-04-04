@@ -18,6 +18,7 @@
     "hono": "^4",
     "pinata": "^2.5.5",
     "tar": "^7",
+    "uuid": "https://gateway.pinata.cloud/ipfs/bafkreia7gfsjqaivba243rlfvebawitbqhpb5i44s5ioe5uigono6cm43m",
     "viem": "^2.47.10",
     "zod": "^3"
   },
