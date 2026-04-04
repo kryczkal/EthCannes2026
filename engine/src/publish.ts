@@ -234,8 +234,9 @@ export async function publishAuditResults(
   }
 
   // --- 2. Upload source tarball to Pinata ---
-  // The resolved package path has a .tgz sibling from the download
-  const tgzPath = path.join(path.dirname(packagePath), "package.tgz");
+  // packagePath is /tmp/npmguard-xxx/extracted/package — tgz is at /tmp/npmguard-xxx/package.tgz
+  const tmpdir = path.resolve(packagePath, "..", "..");
+  const tgzPath = path.join(tmpdir, "package.tgz");
   let sourceUpload: { cid: string; ipfsUri: string; gatewayUrl: string };
 
   if (fs.existsSync(tgzPath)) {
