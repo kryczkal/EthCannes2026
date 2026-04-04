@@ -43,10 +43,11 @@ class AntiAiPromptCheck(BaseCheck):
                     if match:
                         proofs.append(
                             Proof(
+                                capability=CapabilityEnum.ANTI_AI_PROMPT,
                                 file_line=f"{rel_path}:{line_num}",
                                 problem=f"Anti-AI prompt injection detected: /{pattern.pattern}/",
-                                proof_data=line.strip()[:300],
-                                kind=ProofKind.STATIC_REGEX,
+                                evidence=line.strip()[:300],
+                                kind=ProofKind.STRUCTURAL,
                                 content_hash=content_hash,
                             )
                         )

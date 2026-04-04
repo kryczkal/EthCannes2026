@@ -52,10 +52,11 @@ class WormPropagationCheck(BaseCheck):
                         categories_seen.add(category)
                         proofs.append(
                             Proof(
+                                capability=CapabilityEnum.WORM_PROPAGATION,
                                 file_line=f"{rel_path}:{line_num}",
                                 problem=f"Worm propagation pattern: {desc}",
-                                proof_data=line.strip()[:300],
-                                kind=ProofKind.STATIC_REGEX,
+                                evidence=line.strip()[:300],
+                                kind=ProofKind.STRUCTURAL,
                                 content_hash=content_hash,
                                 attack_pathway=AttackPathway.WORM_PROPAGATION,
                             )

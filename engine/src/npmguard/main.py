@@ -15,6 +15,7 @@ from npmguard.activities import (
     analyze_static,
     cleanup_package,
     fuzz_adversarial,
+    investigate_package,
     resolve_package,
     verify_proofs,
 )
@@ -76,7 +77,7 @@ async def main() -> None:
         client,
         task_queue=settings.task_queue,
         workflows=[NpmGuardOrchestrator],
-        activities=[resolve_package, analyze_inventory, analyze_static, analyze_sandbox, fuzz_adversarial, verify_proofs, cleanup_package],
+        activities=[resolve_package, analyze_inventory, analyze_static, analyze_sandbox, investigate_package, fuzz_adversarial, verify_proofs, cleanup_package],
         workflow_runner=sandbox_runner,
     )
 

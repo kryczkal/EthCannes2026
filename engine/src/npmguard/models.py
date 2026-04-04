@@ -220,7 +220,7 @@ class Proof(BaseModel):
     """
 
     # What was found
-    capability: CapabilityEnum            # REQUIRED — no default
+    capability: CapabilityEnum | None = None  # None for multi-capability proofs (sandbox, dealbreaker)
     attack_pathway: AttackPathway | str = ""  # empty = unclassified
     confidence: Confidence = Confidence.SUSPECTED
 

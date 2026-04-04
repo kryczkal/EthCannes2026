@@ -12,7 +12,7 @@ from npmguard.llm import make_model
 
 LLM_ENV_KEYS = (
     "NPMGUARD_LLM_BACKEND",
-    "NPMGUARD_LLM_MODEL",
+    "NPMGUARD_INVESTIGATION_MODEL",
     "NPMGUARD_LLM_BASE_URL",
     "NPMGUARD_LLM_API_KEY",
 )
@@ -22,9 +22,10 @@ LLM_ENV_KEYS = (
 def reset_llm_env(monkeypatch: pytest.MonkeyPatch):
     for key in LLM_ENV_KEYS:
         monkeypatch.delenv(key, raising=False)
-    make_model.cache_clear()
+    from npmguard.llm import _model_cache
+    _model_cache.clear()
     yield
-    make_model.cache_clear()
+    _model_cache.clear()
 
 
 class TestSettingsValidation:
@@ -32,7 +33,7 @@ class TestSettingsValidation:
         settings = Settings()
 
         assert settings.llm_backend == LLMBackend.ANTHROPIC
-        assert settings.llm_model == "claude-sonnet-4-6"
+        assert settings.investigation_model == "claude-sonnet-4-6"
         assert settings.effective_llm_base_url is None
 
     def test_openai_compatible_requires_base_url(self, monkeypatch: pytest.MonkeyPatch):
@@ -73,7 +74,7 @@ class TestMakeModel:
 
     def test_make_model_uses_openai_compatible_backend(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setenv("NPMGUARD_LLM_BACKEND", "openai_compatible")
-        monkeypatch.setenv("NPMGUARD_LLM_MODEL", "qwen/qwen-2.5-7b-instruct")
+        monkeypatch.setenv("NPMGUARD_INVESTIGATION_MODEL", "qwen/qwen-2.5-7b-instruct")
         monkeypatch.setenv(
             "NPMGUARD_LLM_BASE_URL", "https://compute-network-6.integratenetwork.work/v1/proxy"
         )

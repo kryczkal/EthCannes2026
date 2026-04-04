@@ -44,10 +44,11 @@ class ClipboardHijackCheck(BaseCheck):
                     if pattern.search(line):
                         proofs.append(
                             Proof(
+                                capability=CapabilityEnum.CLIPBOARD_HIJACK,
                                 file_line=f"{rel_path}:{line_num}",
                                 problem=f"Clipboard hijack pattern: {desc}",
-                                proof_data=line.strip()[:300],
-                                kind=ProofKind.STATIC_REGEX,
+                                evidence=line.strip()[:300],
+                                kind=ProofKind.STRUCTURAL,
                                 content_hash=content_hash,
                                 attack_pathway=AttackPathway.ACCOUNT_TAKEOVER_CRYPTO,
                             )

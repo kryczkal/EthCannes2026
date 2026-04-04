@@ -67,10 +67,11 @@ class BuildPluginExfilCheck(BaseCheck):
                         has_ci_token_access = True
                         proofs.append(
                             Proof(
+                                capability=CapabilityEnum.BUILD_PLUGIN_EXFIL,
                                 file_line=f"{rel_path}:{line_num}",
                                 problem=f"CI/CD credential access: {desc}",
-                                proof_data=line.strip()[:300],
-                                kind=ProofKind.STATIC_REGEX,
+                                evidence=line.strip()[:300],
+                                kind=ProofKind.STRUCTURAL,
                                 content_hash=content_hash,
                                 attack_pathway=AttackPathway.BUILD_PLUGIN_EXFIL,
                             )
@@ -81,10 +82,11 @@ class BuildPluginExfilCheck(BaseCheck):
                     if pattern.search(line):
                         proofs.append(
                             Proof(
+                                capability=CapabilityEnum.BUILD_PLUGIN_EXFIL,
                                 file_line=f"{rel_path}:{line_num}",
                                 problem=f"Build tool integration: {desc}",
-                                proof_data=line.strip()[:300],
-                                kind=ProofKind.STATIC_REGEX,
+                                evidence=line.strip()[:300],
+                                kind=ProofKind.STRUCTURAL,
                                 content_hash=content_hash,
                                 attack_pathway=AttackPathway.BUILD_PLUGIN_EXFIL,
                             )

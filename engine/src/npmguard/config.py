@@ -64,11 +64,15 @@ class Settings(BaseSettings):
     test_gen_model: str = "claude-sonnet-4-6"
 
     # Docker sandbox
+    sandbox_backend: str = "docker"  # "docker" | "ebpf" (future)
     sandbox_image: str = "node:22-slim"
     sandbox_memory_mb: int = Field(default=512, ge=64, le=4096)
     sandbox_cpus: float = Field(default=1.0, gt=0, le=4.0)
-    sandbox_network: bool = False
+    sandbox_network: str = "none"  # "none" | "intercepted" (future mitmproxy)
     max_docker_exec_timeout_sec: int = Field(default=30, ge=5, le=300)
+
+    # Investigation agent toggle
+    investigation_enabled: bool = True
 
     @property
     def temporal_address(self) -> str:

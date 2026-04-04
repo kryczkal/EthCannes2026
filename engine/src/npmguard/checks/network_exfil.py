@@ -192,10 +192,11 @@ class NetworkExfilCheck(BaseCheck):
 
         proofs = [
             Proof(
+                capability=CapabilityEnum.NETWORK,
                 file_line=f.file_line,
                 problem=f.problem,
-                proof_data=f.proof_data[:300],
-                kind=ProofKind.STATIC_LLM,
+                evidence=f.proof_data[:300],
+                kind=ProofKind.AI_STATIC,
                 content_hash=ctx.file_hashes.get(f.file_line.rsplit(":", 1)[0]),
             )
             for f in analysis.findings

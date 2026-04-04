@@ -12,6 +12,8 @@ with workflow.unsafe.imports_passed_through():
     from npmguard.activities.static_analysis import analyze_static
     from npmguard.activities.verify_proofs import verify_proofs
     from npmguard.inventory import InventoryReport, analyze_inventory
+    from npmguard.investigation.activity import investigate_package
+    from npmguard.investigation.models import InvestigationInput
     from npmguard.models import AuditReport, CapabilityEnum, Proof, ResolvedPackage, VerdictEnum
 
 
@@ -44,7 +46,7 @@ class NpmGuardOrchestrator:
                         Proof(
                             file_line="package.json",
                             problem=f"Dealbreaker: {inventory.dealbreaker.check}",
-                            proof_data=inventory.dealbreaker.detail,
+                            evidence=inventory.dealbreaker.detail,
                         )
                     ],
                 )
@@ -70,6 +72,24 @@ class NpmGuardOrchestrator:
             capabilities.update(sandbox_caps)
             proofs.extend(static_proofs)
             proofs.extend(sandbox_proofs)
+
+            # Phase 1b: Agentic investigation (only if signals found)
+            if proofs or inventory.flags:
+                inv_input = InvestigationInput(
+                    package_path=resolved.path,
+                    package_name=inventory.name if hasattr(inventory, "name") else "",
+                    version=inventory.version if hasattr(inventory, "version") else "",
+                    flags=[f.check for f in inventory.flags] if inventory.flags else [],
+                    static_caps=[c.value for c in capabilities],
+                    static_proof_summaries=[p.problem for p in proofs[:10]],
+                )
+                inv_caps, inv_proofs = await workflow.execute_activity(
+                    investigate_package,
+                    inv_input,
+                    schedule_to_close_timeout=timedelta(minutes=10),
+                )
+                capabilities.update(inv_caps)
+                proofs.extend(inv_proofs)
 
             # Layer 3: Adversarial fuzzing (sequential)
             fuzzing_proofs = await workflow.execute_activity(

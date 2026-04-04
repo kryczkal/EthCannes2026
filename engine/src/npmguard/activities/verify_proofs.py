@@ -27,13 +27,12 @@ async def verify_proofs(proofs_and_path: tuple[list[Proof], str]) -> list[Proof]
 
     for proof in proofs:
         if proof.kind in (
-            ProofKind.STATIC_REGEX,
-            ProofKind.STATIC_AST,
-            ProofKind.STATIC_LLM,
+            ProofKind.STRUCTURAL,
+            ProofKind.AI_STATIC,
         ):
             if proof.content_hash and _verify_hash(package_path, proof.file_line, proof.content_hash):
                 proof = proof.model_copy(update={"reproducible": True})
-        elif proof.kind == ProofKind.DYNAMIC_SANDBOX:
+        elif proof.kind in (ProofKind.AI_DYNAMIC, ProofKind.TEST_CONFIRMED):
             # Dynamic sandbox proofs are reproducible if they have a reproduction command
             if proof.reproduction_cmd:
                 proof = proof.model_copy(update={"reproducible": True})

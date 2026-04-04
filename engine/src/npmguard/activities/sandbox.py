@@ -164,11 +164,11 @@ async def analyze_sandbox(package_name: str) -> tuple[list[CapabilityEnum], list
                     Proof(
                         file_line=test_file,
                         problem=f"Dynamic exploit confirmed: {test_title}",
-                        proof_data=(
+                        evidence=(
                             f"Vitest exploit harness passed in {duration_ms:.0f}ms. "
                             f"Test: {full_name!r}"
                         ),
-                        kind=ProofKind.DYNAMIC_SANDBOX,
+                        kind=ProofKind.AI_DYNAMIC,
                         reproducible=True,
                         reproduction_cmd=f"npx vitest run {test_file}",
                     )

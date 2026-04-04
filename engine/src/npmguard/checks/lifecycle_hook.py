@@ -21,10 +21,11 @@ class LifecycleHookCheck(BaseCheck):
         pkg_hash = ctx.file_hashes.get("package.json")
         proofs = [
             Proof(
+                capability=CapabilityEnum.LIFECYCLE_HOOK,
                 file_line=f"package.json:scripts.{hook_name}",
                 problem=f"Lifecycle hook '{hook_name}' executes on install",
-                proof_data=command[:300],
-                kind=ProofKind.STATIC_REGEX,
+                evidence=command[:300],
+                kind=ProofKind.STRUCTURAL,
                 content_hash=pkg_hash,
                 attack_pathway=AttackPathway.LIFECYCLE_BINARY_DROP,
             )
