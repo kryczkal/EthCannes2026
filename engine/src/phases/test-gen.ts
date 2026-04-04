@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdtempSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, basename, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { generateText } from "ai";
@@ -29,7 +29,6 @@ function readExampleTest(capability: string): string {
 }
 
 function readPackageSource(packagePath: string): string {
-  const { readdirSync, statSync } = await_free_fs();
   const files: string[] = [];
 
   function walk(dir: string, prefix: string) {
@@ -55,13 +54,6 @@ function readPackageSource(packagePath: string): string {
 
   walk(packagePath, "");
   return files.join("\n\n");
-}
-
-/** Sync fs helpers that don't conflict with mocked fs in tests */
-function await_free_fs() {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const fs = require("node:fs");
-  return { readdirSync: fs.readdirSync, statSync: fs.statSync };
 }
 
 async function generateTestDirect(
