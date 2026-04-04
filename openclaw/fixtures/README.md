@@ -14,6 +14,15 @@ OPENCLAW_ARGS="--json --agent verifier" \
 npm run dev -- --input ./fixtures/axios-1.8.0.candidates.json --output ./fixtures/axios-1.8.0.output.json
 ```
 
+The verifier resets `agent:verifier:main` before each run by default so old package-analysis context does not leak into the next run. Disable that per invocation if you want to keep the current verifier thread state:
+
+```bash
+OPENCLAW_RESET_BEFORE_RUN=0 \
+OPENCLAW_CMD=/Users/piotrtyrakowski/repos/EthCannes2026/openclaw/docker-openclaw.sh \
+OPENCLAW_ARGS="--json --agent verifier" \
+npm run dev -- --input ./fixtures/axios-1.8.0.candidates.json --output ./fixtures/axios-1.8.0.output.json
+```
+
 Prerequisites:
 
 - the Docker gateway is running

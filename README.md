@@ -104,6 +104,10 @@ cd .. && cre workflow simulate npm-monitor -T staging-settings --trigger-index 0
 cd engine && ./start.sh
 ```
 
+### OpenClaw Verifier
+
+The Dockerized OpenClaw verifier prototype, model-switching commands, and manual fixture commands are documented in [openclaw/README.md](/Users/piotrtyrakowski/repos/EthCannes2026/openclaw/README.md).
+
 ## Tech Stack
 
 | Component | Technology |

@@ -28,6 +28,27 @@ After that, the default `OPENCLAW_ARGS` above should work.
 npm run dev -- --input ./candidates.json --output ./verified.json
 ```
 
+## Terminal access
+
+Open the OpenClaw terminal UI against the Dockerized gateway:
+
+```bash
+source /Users/piotrtyrakowski/repos/EthCannes2026/openclaw/.env.gateway
+docker compose \
+  -f /Users/piotrtyrakowski/repos/EthCannes2026/openclaw/docker-compose.gateway.yml \
+  --env-file /Users/piotrtyrakowski/repos/EthCannes2026/openclaw/.env.gateway \
+  exec gateway openclaw tui \
+    --url ws://127.0.0.1:18789 \
+    --token "$OPENCLAW_GATEWAY_TOKEN"
+```
+
+Run a one-shot agent call from the terminal:
+
+```bash
+/Users/piotrtyrakowski/repos/EthCannes2026/openclaw/docker-openclaw.sh \
+  agent --agent verifier --json --message "hello"
+```
+
 ## Docker gateway
 
 If you want a long-running OpenClaw instance in Docker that the host CLI can connect to, use the compose file in this folder.
@@ -104,6 +125,61 @@ Notes:
 - The published port is pinned to `127.0.0.1` by default, matching the OpenClaw container docs for local browser access.
 - The dashboard URL uses `#token=...` because token-auth gateways need the browser UI to receive the gateway token explicitly.
 - The helper script [`docker-openclaw.sh`](/Users/piotrtyrakowski/repos/EthCannes2026/openclaw/docker-openclaw.sh) forwards `openclaw ...` commands into the running Docker container.
+
+## Switching models
+
+Check the current model for the verifier agent:
+
+```bash
+/Users/piotrtyrakowski/repos/EthCannes2026/openclaw/docker-openclaw.sh \
+  models status --agent verifier --json
+```
+
+Set the verifier agent to Haiku:
+
+```bash
+/Users/piotrtyrakowski/repos/EthCannes2026/openclaw/docker-openclaw.sh \
+  models --agent verifier set anthropic/claude-haiku-4-5
+```
+
+Set the verifier agent back to Opus:
+
+```bash
+/Users/piotrtyrakowski/repos/EthCannes2026/openclaw/docker-openclaw.sh \
+  models --agent verifier set anthropic/claude-opus-4-6
+```
+
+You can list or probe model availability from the same wrapper:
+
+```bash
+/Users/piotrtyrakowski/repos/EthCannes2026/openclaw/docker-openclaw.sh \
+  models status --agent verifier --probe --probe-provider anthropic
+```
+
+## Verifier session reset
+
+The verifier CLI now resets `agent:verifier:main` before each run when you use the gateway-backed Docker setup. This keeps the visible verifier session the same in the UI while clearing prior model context before a new package analysis.
+
+Disable that behavior for a run:
+
+```bash
+OPENCLAW_RESET_BEFORE_RUN=0
+```
+
+Override the session key to reset:
+
+```bash
+OPENCLAW_RESET_SESSION_KEY=agent:verifier:main
+```
+
+Reset the verifier session manually from the terminal:
+
+```bash
+/Users/piotrtyrakowski/repos/EthCannes2026/openclaw/docker-openclaw.sh \
+  gateway call sessions.reset \
+  --params '{"key":"agent:verifier:main"}' \
+  --json
+```
 
 ## Manual verifier test
 
