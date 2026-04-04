@@ -15,6 +15,6 @@ cleanup() {
 }
 trap cleanup INT TERM EXIT
 
-npx vite &
+npx vite --host 0.0.0.0 &
 PID=$!
 wait "$PID"
