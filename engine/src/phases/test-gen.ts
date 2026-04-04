@@ -105,6 +105,21 @@ async function generateTestDirect(
       return null;
     }
 
+    // Reject tests that don't use runPackage() — they'll fail at runtime
+    if (!code.includes("runPackage(") && !code.includes("runInChildProcess(")) {
+      console.error(`[test-gen] generated code doesn't use runPackage() or runInChildProcess() for ${finding.fileLine}, skipping`);
+      return null;
+    }
+
+    // Reject tests that call server.listen/close (harness handles this)
+    if (code.includes("server.listen(") || code.includes("server.close(")) {
+      // Auto-fix: strip those lines rather than rejecting
+      code = code.replace(/^\s*server\.listen\(.*\);?\s*$/gm, "");
+      code = code.replace(/^\s*server\.close\(.*\);?\s*$/gm, "");
+      code = code.replace(/^\s*(before|after)(All|Each)\(\(\)\s*=>\s*\{\s*\}\);?\s*$/gm, "");
+      console.log(`[test-gen] auto-fixed: removed server.listen/close calls for ${finding.fileLine}`);
+    }
+
     return code;
   } catch (err) {
     console.error(`[test-gen] LLM call failed for finding ${finding.fileLine}: ${err}`);
