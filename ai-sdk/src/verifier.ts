@@ -1,4 +1,4 @@
-import { generateText, tool } from 'ai';
+import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 
 import { DockerSandbox } from './docker.js';
@@ -16,9 +16,7 @@ export async function runAISDKVerifier(input: VerificationInput) {
     baseURL: env.baseURL,
   });
 
-  const sandbox = new DockerSandbox({
-    input.package_dir,
-  });
+  const sandbox = new DockerSandbox(input.package_dir);
 
   await sandbox.start();
 
