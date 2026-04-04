@@ -1,3 +1,4 @@
 FROM node:22-slim
+RUN mkdir -p /opt/verify && cd /opt/verify && npm init -y > /dev/null 2>&1 && npm install vitest msw && rm -rf /root/.npm
+ENV NODE_PATH=/opt/verify/node_modules
 WORKDIR /workspace
-RUN npm init -y > /dev/null 2>&1 && npm install --no-save vitest msw && rm -rf /root/.npm

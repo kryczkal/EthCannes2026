@@ -258,8 +258,14 @@ export async function verifyProofs(
     console.log(`[verify] container started`);
 
     try {
-      // 3. Install vitest + msw (skip if using pre-built image)
-      if (!hasVerifyImage) {
+      // 3. Make vitest + msw available in the workspace
+      if (hasVerifyImage) {
+        // Symlink so Vite's resolver finds deps relative to /workspace
+        await dockerExec(
+          ["exec", containerName, "ln", "-s", "/opt/verify/node_modules", "/workspace/node_modules"],
+          10_000,
+        );
+      } else {
         console.log("[verify] installing vitest and msw (no pre-built image)...");
         const installResult = await dockerExec(
           ["exec", containerName, "sh", "-c", "cd /workspace && npm init -y > /dev/null 2>&1 && npm install --no-save vitest msw 2>&1 | tail -5"],
@@ -276,10 +282,13 @@ export async function verifyProofs(
       console.log("[verify] dependencies ready");
 
       // 4. Run vitest — write JSON results to a file, then read it back
+      //    NODE_PATH=/opt/verify/node_modules is baked into the image env;
+      //    for fallback (no image), node_modules are in /workspace.
+      const npxPath = hasVerifyImage ? "/opt/verify/node_modules/.bin/vitest" : "npx vitest";
       console.log("[verify] running vitest...");
       const vitestResult = await dockerExec(
         ["exec", containerName, "sh", "-c",
-          "cd /workspace && npx vitest run --reporter=json --outputFile.json=/workspace/vitest-results.json 2>&1; echo VITEST_EXIT=$?"],
+          `cd /workspace && ${npxPath} run --reporter=json --outputFile.json=/workspace/vitest-results.json 2>&1; echo VITEST_EXIT=$?`],
         timeoutMs,
       );
 
