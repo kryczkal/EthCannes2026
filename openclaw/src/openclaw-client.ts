@@ -13,7 +13,15 @@ function extractResponseText(stdout: string): string {
 
   try {
     const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+    const payloadText =
+      Array.isArray(parsed.payloads) &&
+      typeof parsed.payloads[0] === 'object' &&
+      parsed.payloads[0] !== null &&
+      typeof (parsed.payloads[0] as { text?: unknown }).text === 'string'
+        ? (parsed.payloads[0] as { text: string }).text
+        : null;
     const text =
+      payloadText ||
       (typeof parsed.output === 'string' && parsed.output) ||
       (typeof parsed.text === 'string' && parsed.text) ||
       (typeof parsed.message === 'string' && parsed.message) ||
