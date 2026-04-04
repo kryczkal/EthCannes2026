@@ -7,7 +7,7 @@ legitimate packages rarely need them.  Pure data check, no LLM.
 from __future__ import annotations
 
 from npmguard.checks.base import BaseCheck, CheckResult, PackageContext
-from npmguard.models import CapabilityEnum, Proof
+from npmguard.models import AttackPathway, CapabilityEnum, Proof, ProofKind
 
 
 class LifecycleHookCheck(BaseCheck):
@@ -18,11 +18,15 @@ class LifecycleHookCheck(BaseCheck):
         if not ctx.lifecycle_hooks:
             return CheckResult()
 
+        pkg_hash = ctx.file_hashes.get("package.json")
         proofs = [
             Proof(
                 file_line=f"package.json:scripts.{hook_name}",
                 problem=f"Lifecycle hook '{hook_name}' executes on install",
                 proof_data=command[:300],
+                kind=ProofKind.STATIC_REGEX,
+                content_hash=pkg_hash,
+                attack_pathway=AttackPathway.LIFECYCLE_BINARY_DROP,
             )
             for hook_name, command in ctx.lifecycle_hooks.items()
         ]

@@ -16,7 +16,7 @@ import structlog
 from temporalio import activity
 
 from npmguard.config import REPO_ROOT
-from npmguard.models import CapabilityEnum, Proof
+from npmguard.models import CapabilityEnum, Proof, ProofKind
 
 log = structlog.get_logger()
 
@@ -95,6 +95,30 @@ _TEST_PKG_MAP: dict[str, _TestPkgEntry] = {
             CapabilityEnum.NETWORK,
         ],
     },
+    "clipboard-hijack": {
+        "test_file": "exploits/clipboard-hijack.test.js",
+        "capabilities": [
+            CapabilityEnum.CLIPBOARD_HIJACK,
+            CapabilityEnum.NETWORK,
+        ],
+    },
+    "telemetry-rat": {
+        "test_file": "exploits/telemetry-rat.test.js",
+        "capabilities": [
+            CapabilityEnum.TELEMETRY_RAT,
+            CapabilityEnum.PROCESS_SPAWN,
+            CapabilityEnum.NETWORK,
+        ],
+    },
+    "build-plugin-exfil": {
+        "test_file": "exploits/build-plugin-exfil.test.js",
+        "capabilities": [
+            CapabilityEnum.BUILD_PLUGIN_EXFIL,
+            CapabilityEnum.ENV_VARS,
+            CapabilityEnum.CREDENTIAL_THEFT,
+            CapabilityEnum.NETWORK,
+        ],
+    },
 }
 
 
@@ -144,6 +168,9 @@ async def analyze_sandbox(package_name: str) -> tuple[list[CapabilityEnum], list
                             f"Vitest exploit harness passed in {duration_ms:.0f}ms. "
                             f"Test: {full_name!r}"
                         ),
+                        kind=ProofKind.DYNAMIC_SANDBOX,
+                        reproducible=True,
+                        reproduction_cmd=f"npx vitest run {test_file}",
                     )
                 )
             elif assertion.get("status") == "failed":

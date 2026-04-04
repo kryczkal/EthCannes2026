@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 
 from npmguard.checks.base import BaseCheck, CheckResult, PackageContext
-from npmguard.models import CapabilityEnum, Proof
+from npmguard.models import CapabilityEnum, Proof, ProofKind
 
 ANTI_AI_PATTERNS: list[re.Pattern[str]] = [
     re.compile(p, re.IGNORECASE)
@@ -36,6 +36,7 @@ class AntiAiPromptCheck(BaseCheck):
         proofs: list[Proof] = []
 
         for rel_path, content in ctx.files.items():
+            content_hash = ctx.file_hashes.get(rel_path)
             for line_num, line in enumerate(content.splitlines(), start=1):
                 for pattern in ANTI_AI_PATTERNS:
                     match = pattern.search(line)
@@ -45,6 +46,8 @@ class AntiAiPromptCheck(BaseCheck):
                                 file_line=f"{rel_path}:{line_num}",
                                 problem=f"Anti-AI prompt injection detected: /{pattern.pattern}/",
                                 proof_data=line.strip()[:300],
+                                kind=ProofKind.STATIC_REGEX,
+                                content_hash=content_hash,
                             )
                         )
                         break  # one proof per line is enough

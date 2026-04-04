@@ -11,7 +11,7 @@ from pydantic_ai import Agent, ModelRetry, RunContext
 
 from npmguard.checks.base import BaseCheck, CheckResult, PackageContext
 from npmguard.llm import make_model
-from npmguard.models import CapabilityEnum, Proof
+from npmguard.models import CapabilityEnum, Proof, ProofKind
 
 # ---------------------------------------------------------------------------
 # Regex patterns for initial signal detection
@@ -195,6 +195,8 @@ class NetworkExfilCheck(BaseCheck):
                 file_line=f.file_line,
                 problem=f.problem,
                 proof_data=f.proof_data[:300],
+                kind=ProofKind.STATIC_LLM,
+                content_hash=ctx.file_hashes.get(f.file_line.rsplit(":", 1)[0]),
             )
             for f in analysis.findings
         ]

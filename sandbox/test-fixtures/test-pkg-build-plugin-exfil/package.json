@@ -1,0 +1,12 @@
+{
+  "name": "test-pkg-build-plugin-exfil",
+  "version": "1.4.2",
+  "description": "Build optimization plugin for faster compilation and caching",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["build", "plugin", "optimizer", "cache", "webpack", "nx"],
+  "author": "test-author",
+  "license": "MIT"
+}

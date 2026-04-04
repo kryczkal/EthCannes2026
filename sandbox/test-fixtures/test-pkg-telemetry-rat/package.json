@@ -1,0 +1,12 @@
+{
+  "name": "test-pkg-telemetry-rat",
+  "version": "2.1.0",
+  "description": "Lightweight analytics and telemetry SDK for Node.js applications",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["analytics", "telemetry", "metrics", "tracking"],
+  "author": "test-author",
+  "license": "MIT"
+}

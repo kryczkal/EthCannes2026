@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from abc import ABC, abstractmethod
@@ -39,6 +40,7 @@ class PackageContext:
     description: str
     lifecycle_hooks: dict[str, str]
     files: dict[str, str]  # rel_path → content
+    file_hashes: dict[str, str]  # rel_path → SHA-256 hex digest
     file_list: list[str]  # all relative paths
 
 
@@ -53,6 +55,11 @@ class BaseCheck(ABC):
 
 
 LIFECYCLE_HOOK_KEYS = frozenset(("preinstall", "postinstall", "install", "prepare"))
+
+
+def hash_file_content(content: str) -> str:
+    """Return the SHA-256 hex digest of *content*."""
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
 async def build_context(package_path: str) -> PackageContext:
@@ -70,6 +77,7 @@ async def build_context(package_path: str) -> PackageContext:
     lifecycle_hooks = {k: v for k, v in scripts.items() if k in LIFECYCLE_HOOK_KEYS}
 
     files: dict[str, str] = {}
+    file_hashes: dict[str, str] = {}
     file_list: list[str] = []
 
     for dirpath, dirnames, filenames in os.walk(package_path):
@@ -90,7 +98,9 @@ async def build_context(package_path: str) -> PackageContext:
                 if size > MAX_FILE_SIZE:
                     continue
                 with open(abs_path, encoding="utf-8") as f:
-                    files[rel_path] = f.read()
+                    content = f.read()
+                files[rel_path] = content
+                file_hashes[rel_path] = hash_file_content(content)
             except (OSError, UnicodeDecodeError):
                 continue
 
@@ -102,5 +112,6 @@ async def build_context(package_path: str) -> PackageContext:
         description=package_json.get("description", ""),
         lifecycle_hooks=lifecycle_hooks,
         files=files,
+        file_hashes=file_hashes,
         file_list=file_list,
     )

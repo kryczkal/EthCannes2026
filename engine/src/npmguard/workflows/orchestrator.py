@@ -10,6 +10,7 @@ with workflow.unsafe.imports_passed_through():
     from npmguard.activities.resolve_package import cleanup_package, resolve_package
     from npmguard.activities.sandbox import analyze_sandbox
     from npmguard.activities.static_analysis import analyze_static
+    from npmguard.activities.verify_proofs import verify_proofs
     from npmguard.inventory import InventoryReport, analyze_inventory
     from npmguard.models import AuditReport, CapabilityEnum, Proof, ResolvedPackage, VerdictEnum
 
@@ -77,6 +78,14 @@ class NpmGuardOrchestrator:
                 schedule_to_close_timeout=timedelta(minutes=15),
             )
             proofs.extend(fuzzing_proofs)
+
+            # Phase 4: Proof verification — re-verify each proof
+            if proofs:
+                proofs = await workflow.execute_activity(
+                    verify_proofs,
+                    (proofs, resolved.path),
+                    schedule_to_close_timeout=timedelta(minutes=2),
+                )
         finally:
             # Cleanup temp directory if we fetched a real npm package
             if resolved.needs_cleanup and resolved.tmpdir:

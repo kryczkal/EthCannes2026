@@ -16,6 +16,7 @@ from npmguard.activities import (
     cleanup_package,
     fuzz_adversarial,
     resolve_package,
+    verify_proofs,
 )
 from npmguard.config import Settings
 from npmguard.exceptions import TemporalConnectionError
@@ -75,7 +76,7 @@ async def main() -> None:
         client,
         task_queue=settings.task_queue,
         workflows=[NpmGuardOrchestrator],
-        activities=[resolve_package, analyze_inventory, analyze_static, analyze_sandbox, fuzz_adversarial, cleanup_package],
+        activities=[resolve_package, analyze_inventory, analyze_static, analyze_sandbox, fuzz_adversarial, verify_proofs, cleanup_package],
         workflow_runner=sandbox_runner,
     )
 

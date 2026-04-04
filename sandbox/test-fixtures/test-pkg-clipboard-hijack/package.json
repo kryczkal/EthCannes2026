@@ -1,0 +1,12 @@
+{
+  "name": "test-pkg-clipboard-hijack",
+  "version": "3.0.1",
+  "description": "Enhanced clipboard utility with smart paste formatting",
+  "main": "index.js",
+  "scripts": {
+    "postinstall": "node setup.js"
+  },
+  "keywords": ["clipboard", "copy", "paste", "utility"],
+  "author": "test-author",
+  "license": "MIT"
+}
