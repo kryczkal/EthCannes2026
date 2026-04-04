@@ -17,6 +17,7 @@ const ogGalileo = defineChain({
 });
 import { config } from "./config.js";
 import { runAudit } from "./pipeline.js";
+import { publishAuditResults } from "./publish.js";
 import { createSession, getSession, finalizeSession, createEmitFn, type AuditEvent } from "./events.js";
 import { cleanupPackage } from "./phases/resolve.js";
 
@@ -95,7 +96,18 @@ app.post("/audit", async (c) => {
   }
 
   try {
-    const report = await runAudit(parsed.data.packageName);
+    const { report, packagePath, cleanup } = await runAudit(parsed.data.packageName);
+
+    // Publish to IPFS + ENS in background (don't block the response)
+    if (parsed.data.version && process.env.PINATA_JWT) {
+      publishAuditResults(parsed.data.packageName, parsed.data.version, report, packagePath)
+        .then((pub) => console.log(`[publish] done: report=${pub.reportCid} source=${pub.sourceCid} ens=${pub.ensName ?? "skipped"}`))
+        .catch((err) => console.error("[publish] failed:", err instanceof Error ? err.message : err))
+        .finally(cleanup);
+    } else {
+      cleanup();
+    }
+
     return c.json(report);
   } catch (err) {
     console.error("[api] audit failed:", err);
@@ -127,8 +139,9 @@ app.post("/audit/stream", async (c) => {
 
   // Run audit in background — don't await
   runAudit(parsed.data.packageName, emit, session.auditId)
-    .then((report) => {
+    .then(({ report, cleanup }) => {
       finalizeSession(session.auditId, report);
+      cleanup();
     })
     .catch((err) => {
       console.error("[api] streaming audit failed:", err);

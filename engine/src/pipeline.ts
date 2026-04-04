@@ -49,7 +49,13 @@ async function timedPhase<T>(
   return { result, log };
 }
 
-export async function runAudit(packageName: string, emit?: EmitFn, auditId?: string): Promise<AuditReport> {
+export interface AuditResult {
+  report: AuditReport;
+  packagePath: string;
+  cleanup: () => void;
+}
+
+export async function runAudit(packageName: string, emit?: EmitFn, auditId?: string): Promise<AuditResult> {
   console.log(`[pipeline] starting audit for ${packageName}`);
   startAuditLog(packageName);
   const trace: PhaseLog[] = [];
@@ -114,7 +120,7 @@ export async function runAudit(packageName: string, emit?: EmitFn, auditId?: str
         trace,
       };
       emit?.("verdict_reached", { verdict: report.verdict, capabilities: [], proofCount: report.proofs.length });
-      return report;
+      return { report, packagePath: resolved.path, cleanup: () => cleanupPackage(resolved) };
     }
 
     // Phase 1a: Triage
@@ -159,7 +165,7 @@ export async function runAudit(packageName: string, emit?: EmitFn, auditId?: str
         trace,
       };
       emit?.("verdict_reached", { verdict: "SAFE", capabilities: [], proofCount: 0 });
-      return report;
+      return { report, packagePath: resolved.path, cleanup: () => cleanupPackage(resolved) };
     }
 
     // Phase 1b: Investigation
@@ -239,8 +245,9 @@ export async function runAudit(packageName: string, emit?: EmitFn, auditId?: str
       proofCount: report.proofs.length,
     });
 
-    return report;
-  } finally {
+    return { report, packagePath: resolved.path, cleanup: () => cleanupPackage(resolved) };
+  } catch (err) {
     cleanupPackage(resolved);
+    throw err;
   }
 }
