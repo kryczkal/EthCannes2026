@@ -72,22 +72,27 @@ function TreeNodeComponent({ node, depth }: { node: TreeNode; depth: number }) {
   // For directories, compute aggregate status
   const dirStatus = useMemo(() => {
     if (!node.isDir) return null;
+    const prefix = node.path + "/";
     const childStatuses = Object.entries(fileStatuses)
-      .filter(([path]) => path.startsWith(node.path + "/"))
+      .filter(([path]) => path.startsWith(prefix))
       .map(([, s]) => s);
     if (childStatuses.some((s) => s === "dangerous")) return "dangerous";
     if (childStatuses.some((s) => s === "suspicious")) return "suspicious";
     if (childStatuses.some((s) => s === "analyzing")) return "analyzing";
     if (childStatuses.every((s) => s === "safe")) return "safe";
     return "pending";
-  }, [node, fileStatuses]);
+  }, [node.isDir, node.path, fileStatuses]);
 
   const effectiveStatus = node.isDir ? dirStatus : status;
 
   return (
     <div>
       <div
-        className={`flex items-center gap-1.5 px-2 py-0.5 cursor-pointer hover:bg-[var(--color-bg-secondary)] ${
+        role={node.isDir ? "treeitem" : "treeitem"}
+        aria-expanded={node.isDir ? expanded : undefined}
+        aria-selected={isSelected}
+        tabIndex={0}
+        className={`flex items-center gap-1.5 px-2 py-0.5 cursor-pointer hover:bg-[var(--color-bg-secondary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--color-investigating)] ${
           isSelected ? "bg-[var(--color-bg-secondary)]" : ""
         }`}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
@@ -96,6 +101,16 @@ function TreeNodeComponent({ node, depth }: { node: TreeNode; depth: number }) {
             setExpanded(!expanded);
           } else {
             selectFile(node.path);
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            if (node.isDir) {
+              setExpanded(!expanded);
+            } else {
+              selectFile(node.path);
+            }
           }
         }}
       >
@@ -151,7 +166,7 @@ export function FileTree() {
   }
 
   return (
-    <div className="h-full overflow-y-auto py-1">
+    <div className="h-full overflow-y-auto py-1" role="tree" aria-label="Package files">
       {tree.map((node) => (
         <TreeNodeComponent key={node.path} node={node} depth={0} />
       ))}

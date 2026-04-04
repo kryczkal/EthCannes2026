@@ -54,13 +54,101 @@ export interface AgentStep {
   injectionDetected?: boolean;
 }
 
-// SSE event payloads
-export interface SSEEvent {
-  type: string;
+// SSE event payloads — discriminated union for type safety
+interface BaseEvent {
   auditId: string;
   timestamp: string;
-  [key: string]: unknown;
 }
+
+export interface AuditStartedEvent extends BaseEvent {
+  type: "audit_started";
+}
+
+export interface PhaseStartedEvent extends BaseEvent {
+  type: "phase_started";
+  phase: string;
+}
+
+export interface PhaseCompletedEvent extends BaseEvent {
+  type: "phase_completed";
+  phase: string;
+  durationMs: number;
+}
+
+export interface FileListEvent extends BaseEvent {
+  type: "file_list";
+  files: FileRecord[];
+}
+
+export interface FileAnalyzingEvent extends BaseEvent {
+  type: "file_analyzing";
+  file: string;
+}
+
+export interface FileVerdictEvent extends BaseEvent {
+  type: "file_verdict";
+  verdict: FileVerdict;
+}
+
+export interface TriageCompleteEvent extends BaseEvent {
+  type: "triage_complete";
+  riskScore: number;
+  riskSummary: string;
+  focusAreas: FocusArea[];
+}
+
+export interface AgentToolCallEvent extends BaseEvent {
+  type: "agent_tool_call";
+  tool: string;
+  args: Record<string, unknown>;
+  step: number;
+}
+
+export interface AgentToolResultEvent extends BaseEvent {
+  type: "agent_tool_result";
+  tool: string;
+  resultPreview: string;
+  step: number;
+  injectionDetected: boolean;
+}
+
+export interface AgentReasoningEvent extends BaseEvent {
+  type: "agent_reasoning";
+  text: string;
+  step: number;
+}
+
+export interface FindingDiscoveredEvent extends BaseEvent {
+  type: "finding_discovered";
+  finding: Finding;
+}
+
+export interface VerdictReachedEvent extends BaseEvent {
+  type: "verdict_reached";
+  verdict: "SAFE" | "DANGEROUS";
+  capabilities: string[];
+  proofCount: number;
+}
+
+export interface AuditErrorEvent extends BaseEvent {
+  type: "audit_error";
+  error?: string;
+}
+
+export type SSEEvent =
+  | AuditStartedEvent
+  | PhaseStartedEvent
+  | PhaseCompletedEvent
+  | FileListEvent
+  | FileAnalyzingEvent
+  | FileVerdictEvent
+  | TriageCompleteEvent
+  | AgentToolCallEvent
+  | AgentToolResultEvent
+  | AgentReasoningEvent
+  | FindingDiscoveredEvent
+  | VerdictReachedEvent
+  | AuditErrorEvent;
 
 export const PHASE_ORDER = ["resolve", "inventory", "triage", "investigation", "test-gen", "verify"] as const;
 

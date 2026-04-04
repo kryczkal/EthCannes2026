@@ -8,32 +8,31 @@ import { VerdictBanner } from "./components/VerdictBanner";
 function App() {
   return (
     <div className="h-screen flex flex-col bg-[var(--color-bg)] text-[var(--color-text)]">
-      {/* Top bar */}
-      <AuditForm />
-      <PhaseProgress />
-      <VerdictBanner />
+      <header>
+        <AuditForm />
+        <PhaseProgress />
+        <VerdictBanner />
+      </header>
 
-      {/* Main content */}
       <div className="flex-1 flex min-h-0">
-        {/* File tree */}
-        <div className="w-[250px] border-r border-[var(--color-border)] bg-[var(--color-bg-tertiary)] shrink-0 overflow-hidden">
+        <nav
+          className="w-[250px] border-r border-[var(--color-border)] bg-[var(--color-bg-tertiary)] shrink-0 overflow-hidden"
+          aria-label="Package files"
+        >
           <div className="px-3 py-1.5 border-b border-[var(--color-border)] text-[10px] uppercase tracking-wider text-[var(--color-text-dim)]">
             Files
           </div>
           <div className="h-[calc(100%-28px)]">
             <FileTree />
           </div>
-        </div>
+        </nav>
 
-        {/* Right side: code viewer + activity feed */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Code viewer */}
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <main className="flex-1 min-h-0 overflow-hidden">
             <CodeViewer />
-          </div>
+          </main>
 
-          {/* Activity feed */}
-          <div className="h-[220px] border-t border-[var(--color-border)] shrink-0 overflow-hidden">
+          <aside className="h-[220px] border-t border-[var(--color-border)] shrink-0 overflow-hidden" aria-label="Agent activity">
             <div className="px-3 py-1.5 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-[10px] uppercase tracking-wider text-[var(--color-text-dim)] flex items-center gap-2">
               <span>Agent Activity</span>
               <span className="ml-auto text-[var(--color-pending)]">auto-follow</span>
@@ -41,7 +40,7 @@ function App() {
             <div className="h-[calc(100%-28px)]">
               <ActivityFeed />
             </div>
-          </div>
+          </aside>
         </div>
       </div>
     </div>

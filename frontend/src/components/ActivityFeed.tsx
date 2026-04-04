@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useAuditStore } from "../stores/auditStore";
 import type { AgentStep, Finding } from "../lib/types";
 
@@ -89,17 +89,25 @@ export function ActivityFeed() {
   const findings = useAuditStore((s) => s.findings);
   const phase = useAuditStore((s) => s.phase);
   const riskSummary = useAuditStore((s) => s.riskSummary);
+  const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const isNearBottom = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+  }, []);
 
-  // Auto-scroll to bottom
+  // Auto-scroll only when user is near the bottom
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [agentSteps.length, findings.length]);
+    if (isNearBottom()) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [agentSteps.length, findings.length, isNearBottom]);
 
   const hasContent = agentSteps.length > 0 || findings.length > 0 || riskSummary || phase;
 
   return (
-    <div className="h-full overflow-y-auto bg-[var(--color-bg-secondary)]">
+    <div ref={containerRef} className="h-full overflow-y-auto bg-[var(--color-bg-secondary)]" aria-live="polite" aria-relevant="additions">
       {!hasContent && (
         <div className="flex items-center justify-center h-full text-[var(--color-pending)] text-xs">
           Agent activity will appear here...

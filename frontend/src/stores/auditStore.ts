@@ -46,6 +46,7 @@ interface AuditState {
   selectedFile: string | null;
   selectedFileContent: string | null;
   autoFollow: boolean;
+  error: string | null;
 
   // Actions
   startAudit: (packageName: string) => Promise<void>;
@@ -74,39 +75,64 @@ const initialState = {
   selectedFile: null,
   selectedFileContent: null,
   autoFollow: true,
+  error: null,
 };
+
+let activeEventSource: EventSource | null = null;
 
 export const useAuditStore = create<AuditState>((set, get) => ({
   ...initialState,
 
-  reset: () => set({ ...initialState, phases: PHASE_ORDER.map((name) => ({ name, status: "pending" as const })) }),
+  reset: () => {
+    if (activeEventSource) {
+      activeEventSource.close();
+      activeEventSource = null;
+    }
+    set({ ...initialState, phases: PHASE_ORDER.map((name) => ({ name, status: "pending" as const })) });
+  },
 
   startAudit: async (packageName: string) => {
     get().reset();
     set({ packageName, isRunning: true });
 
-    const res = await fetch(`${API_BASE}/audit/stream`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ packageName }),
-    });
-
-    if (!res.ok) {
-      set({ isRunning: false });
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/audit/stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packageName }),
+      });
+    } catch {
+      set({ isRunning: false, error: "Failed to connect to audit engine" });
       return;
     }
 
-    const { auditId } = await res.json();
+    if (!res.ok) {
+      set({ isRunning: false, error: `Engine returned ${res.status}` });
+      return;
+    }
+
+    let auditId: string;
+    try {
+      const body = await res.json();
+      auditId = body.auditId;
+    } catch {
+      set({ isRunning: false, error: "Invalid response from engine" });
+      return;
+    }
     set({ auditId });
 
     // Connect SSE
     const es = new EventSource(`${API_BASE}/audit/${auditId}/events`);
+    activeEventSource = es;
 
     const handler = (e: MessageEvent) => {
       try {
         const event = JSON.parse(e.data) as SSEEvent;
         get().handleEvent(event);
-      } catch { /* ignore parse errors */ }
+      } catch {
+        // Malformed SSE data — skip this event
+      }
     };
 
     // Listen for all event types
@@ -116,13 +142,14 @@ export const useAuditStore = create<AuditState>((set, get) => ({
       "triage_complete", "agent_tool_call", "agent_tool_result",
       "agent_reasoning", "finding_discovered", "verdict_reached",
       "audit_error",
-    ];
+    ] as const;
     for (const type of eventTypes) {
       es.addEventListener(type, handler);
     }
 
     es.onerror = () => {
       es.close();
+      activeEventSource = null;
       set({ isRunning: false });
     };
   },
@@ -132,47 +159,42 @@ export const useAuditStore = create<AuditState>((set, get) => ({
 
     switch (event.type) {
       case "phase_started": {
-        const phase = event.phase as string;
         set({
-          phase,
+          phase: event.phase,
           phases: state.phases.map((p) =>
-            p.name === phase ? { ...p, status: "active" } : p
+            p.name === event.phase ? { ...p, status: "active" } : p
           ),
         });
         break;
       }
 
       case "phase_completed": {
-        const phase = event.phase as string;
-        const durationMs = event.durationMs as number;
         set({
           phases: state.phases.map((p) =>
-            p.name === phase ? { ...p, status: "done", durationMs } : p
+            p.name === event.phase ? { ...p, status: "done", durationMs: event.durationMs } : p
           ),
         });
         break;
       }
 
       case "file_list": {
-        const files = event.files as FileRecord[];
         const statuses: Record<string, FileStatus> = {};
-        for (const f of files) {
+        for (const f of event.files) {
           statuses[f.path] = "pending";
         }
-        set({ files, fileStatuses: statuses });
+        set({ files: event.files, fileStatuses: statuses });
         break;
       }
 
       case "file_analyzing": {
-        const file = event.file as string;
         set({
-          fileStatuses: { ...state.fileStatuses, [file]: "analyzing" },
+          fileStatuses: { ...state.fileStatuses, [event.file]: "analyzing" },
         });
         break;
       }
 
       case "file_verdict": {
-        const verdict = event.verdict as FileVerdict;
+        const { verdict } = event;
         const status: FileStatus =
           verdict.riskContribution >= 5 ? "dangerous" :
           verdict.riskContribution >= 3 ? "suspicious" : "safe";
@@ -185,9 +207,9 @@ export const useAuditStore = create<AuditState>((set, get) => ({
 
       case "triage_complete": {
         set({
-          riskScore: event.riskScore as number,
-          riskSummary: event.riskSummary as string,
-          focusAreas: event.focusAreas as FocusArea[],
+          riskScore: event.riskScore,
+          riskSummary: event.riskSummary,
+          focusAreas: event.focusAreas,
         });
         break;
       }
@@ -195,9 +217,9 @@ export const useAuditStore = create<AuditState>((set, get) => ({
       case "agent_tool_call": {
         const step: AgentStep = {
           type: "tool_call",
-          tool: event.tool as string,
-          args: event.args as Record<string, unknown>,
-          step: event.step as number,
+          tool: event.tool,
+          args: event.args,
+          step: event.step,
           timestamp: event.timestamp,
         };
         set({ agentSteps: [...state.agentSteps, step] });
@@ -213,11 +235,11 @@ export const useAuditStore = create<AuditState>((set, get) => ({
       case "agent_tool_result": {
         const step: AgentStep = {
           type: "tool_result",
-          tool: event.tool as string,
-          resultPreview: event.resultPreview as string,
-          step: event.step as number,
+          tool: event.tool,
+          resultPreview: event.resultPreview,
+          step: event.step,
           timestamp: event.timestamp,
-          injectionDetected: event.injectionDetected as boolean,
+          injectionDetected: event.injectionDetected,
         };
         set({ agentSteps: [...state.agentSteps, step] });
         break;
@@ -226,8 +248,8 @@ export const useAuditStore = create<AuditState>((set, get) => ({
       case "agent_reasoning": {
         const step: AgentStep = {
           type: "reasoning",
-          text: event.text as string,
-          step: event.step as number,
+          text: event.text,
+          step: event.step,
           timestamp: event.timestamp,
         };
         set({ agentSteps: [...state.agentSteps, step] });
@@ -235,23 +257,22 @@ export const useAuditStore = create<AuditState>((set, get) => ({
       }
 
       case "finding_discovered": {
-        const finding = event.finding as Finding;
-        set({ findings: [...state.findings, finding] });
+        set({ findings: [...state.findings, event.finding] });
         break;
       }
 
       case "verdict_reached": {
         set({
-          verdict: event.verdict as "SAFE" | "DANGEROUS",
-          capabilities: event.capabilities as string[],
-          proofCount: event.proofCount as number,
+          verdict: event.verdict,
+          capabilities: event.capabilities,
+          proofCount: event.proofCount,
           isRunning: false,
         });
         break;
       }
 
       case "audit_error": {
-        set({ isRunning: false });
+        set({ isRunning: false, error: event.error ?? "Audit failed" });
         break;
       }
     }

@@ -2,37 +2,25 @@ import { useMemo } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { javascript } from "@codemirror/lang-javascript";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { EditorView, Decoration, type DecorationSet, ViewPlugin } from "@codemirror/view";
+import { EditorView, Decoration } from "@codemirror/view";
 import { RangeSetBuilder } from "@codemirror/state";
 import { useAuditStore } from "../stores/auditStore";
 import { parseLineRanges } from "../lib/types";
 
-function createHighlightPlugin(ranges: Array<[number, number]>) {
+function createHighlightExtension(ranges: Array<[number, number]>) {
   const lineDeco = Decoration.line({ class: "cm-suspicious-line" });
 
-  return ViewPlugin.define(
-    () => ({
-      decorations: Decoration.none as DecorationSet,
-      update(update: ViewUpdate) {
-        // Rebuild on doc change
-      },
-    }),
-    {
-      decorations: (instance) => instance.decorations,
-      provide: () =>
-        EditorView.decorations.compute(["doc"], (state) => {
-          if (ranges.length === 0) return Decoration.none;
-          const builder = new RangeSetBuilder<Decoration>();
-          for (const [startLine, endLine] of ranges) {
-            for (let line = startLine; line <= endLine && line <= state.doc.lines; line++) {
-              const lineObj = state.doc.line(line);
-              builder.add(lineObj.from, lineObj.from, lineDeco);
-            }
-          }
-          return builder.finish();
-        }),
+  return EditorView.decorations.compute(["doc"], (state) => {
+    if (ranges.length === 0) return Decoration.none;
+    const builder = new RangeSetBuilder<Decoration>();
+    for (const [startLine, endLine] of ranges) {
+      for (let line = startLine; line <= endLine && line <= state.doc.lines; line++) {
+        const lineObj = state.doc.line(line);
+        builder.add(lineObj.from, lineObj.from, lineDeco);
+      }
     }
-  );
+    return builder.finish();
+  });
 }
 
 const suspiciousLineTheme = EditorView.baseTheme({
@@ -59,7 +47,7 @@ export function CodeViewer() {
       javascript({ jsx: true, typescript: true }),
       EditorView.editable.of(false),
       suspiciousLineTheme,
-      createHighlightPlugin(suspiciousRanges),
+      createHighlightExtension(suspiciousRanges),
     ],
     [suspiciousRanges]
   );
