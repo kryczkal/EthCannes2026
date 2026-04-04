@@ -92,55 +92,7 @@ uv run pytest tests/test_0g_integration.py -m integration -v
 
 ## Analysis Pipeline
 
-The engine runs four phases in sequence. Phases 1 and 2 run in parallel.
-
-### Phase 0 — Inventory (`inventory/`)
-
-Fast deterministic structural triage. No JS execution, no LLM.
-
-| Check | What it detects |
-|---|---|
-| Shell pipe dealbreaker | `curl … | sh` / `wget … | bash` in lifecycle scripts |
-| Missing install file | `postinstall` references a file not present in the package |
-| Binary files | ELF / PE / Mach-O binaries shipped in the package |
-| Executable permissions | Files with `+x` outside `bin/` |
-| Unusual extensions | `.enc`, `.bin`, `.exe`, etc. |
-| Encoded content | Long base64/hex blobs in non-JS files |
-| Minified install scripts | Lifecycle scripts with lines > 500 chars |
-| Hidden dotfiles | Non-standard dotfiles (`.hidden-config`, etc.) |
-
-A *dealbreaker* finding short-circuits the pipeline immediately and returns `DANGEROUS`.
-
-### Layer 1 — Static Analysis (`activities/static_analysis.py`)
-
-Pure heuristic/AST scanning. No code execution.
-
-| Check | What it detects |
-|---|---|
-| Anti-AI prompt detection | Strings designed to hijack LLM-based analysis (tier-0 gate) |
-| Lifecycle hook analysis | Malicious `preinstall`/`postinstall` scripts |
-| Network exfiltration | Regex signals confirmed by LLM — `fetch`, DNS lookups, IMDS probes, etc. |
-
-### Layer 2 — Sandbox Execution (`activities/sandbox.py`)
-
-Runs the package in a controlled environment using pre-written Vitest exploit harnesses.
-
-For `test-pkg-*` packages the harness lives in `sandbox/exploits/`. For real npm packages a Docker-based harness would be wired here.
-
-| Signal | What it proves |
-|---|---|
-| Lifecycle hook + binary download | `LIFECYCLE_HOOK`, `BINARY_DOWNLOAD`, `PROCESS_SPAWN`, `NETWORK` |
-| Env/credential exfiltration | `ENV_VARS`, `CREDENTIAL_THEFT`, `NETWORK` |
-| Encrypted payload | `ENCRYPTED_PAYLOAD`, `NETWORK` |
-| Filesystem wiper | `FILESYSTEM`, `NETWORK`, `GEO_GATING` |
-| Infinite loop | `DOS_LOOP` |
-| Obfuscated dropper | `OBFUSCATION`, `BINARY_DOWNLOAD`, `NETWORK` |
-| DNS exfiltration | `DNS_EXFIL`, `ENV_VARS`, `CREDENTIAL_THEFT`, `ANTI_AI_PROMPT`, `ENCRYPTED_PAYLOAD` |
-| DOM injection | `DOM_INJECT`, `NETWORK` |
-
-### Layer 3 — Adversarial Fuzzing (`activities/fuzzing.py`)
-
-Simulates a malicious environment (mitmproxy-style response injection, time-bomb emulation) to trigger conditional payloads. Currently a placeholder.
+See [`docs/architecture-v2.md`](../docs/architecture-v2.md) for the full pipeline design.
 
 ## Configuration
 
