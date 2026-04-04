@@ -3,7 +3,7 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "dev": "trap 'kill 0' SIGINT SIGTERM; cd engine && npx tsx watch src/index.ts & cd frontend && npx vite & wait",
+    "dev": "./run.sh",
     "dev:engine": "cd engine && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
     "test": "vitest run",
