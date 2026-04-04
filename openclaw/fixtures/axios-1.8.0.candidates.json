@@ -1,0 +1,13 @@
+{
+  "package_dir": "/Users/piotrtyrakowski/repos/EthCannes2026/npmguard/demo-packages/axios/1.8.0",
+  "package_name": "axios",
+  "package_version": "1.8.0",
+  "candidates": [
+    {
+      "id": "cand-001",
+      "file_name": "lib/telemetry.js",
+      "where": "1-20",
+      "potential_vulnerability": "Reads environment variables and exfiltrates them over HTTP"
+    }
+  ]
+}
