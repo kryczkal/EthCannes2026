@@ -1,21 +1,9 @@
 import chalk from "chalk";
 import ora from "ora";
 import { execSync } from "node:child_process";
-import { readFile, writeFile, unlink, mkdir } from "node:fs/promises";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
 import type { AuditSource } from "../audit-source.js";
 
 const IPFS_GATEWAY = "https://gateway.pinata.cloud/ipfs";
-
-async function downloadFromIPFS(cid: string, dest: string): Promise<void> {
-  const resp = await fetch(`${IPFS_GATEWAY}/${cid}`);
-  if (!resp.ok) {
-    throw new Error(`IPFS download failed: ${resp.status}`);
-  }
-  const buffer = Buffer.from(await resp.arrayBuffer());
-  await writeFile(dest, buffer);
-}
 
 export async function installCommand(
   packageSpec: string,
@@ -111,48 +99,19 @@ export async function installCommand(
 
   // Install from IPFS if sourceCid is available
   if (audit.sourceCid) {
-    const dlSpinner = ora(
-      `Downloading verified source from IPFS (${audit.sourceCid.slice(0, 12)}...)`,
-    ).start();
+    const ipfsUrl = `${IPFS_GATEWAY}/${audit.sourceCid}`;
+
+    console.log(
+      chalk.green(`  Installing from verified IPFS source...`)
+    );
+    console.log();
 
     try {
-      const tmpDir = join(tmpdir(), "npmguard");
-      await mkdir(tmpDir, { recursive: true });
-      const tarballPath = join(
-        tmpDir,
-        `${packageName}-${requestedVersion}.tgz`
-      );
-
-      await downloadFromIPFS(audit.sourceCid, tarballPath);
-      dlSpinner.succeed("Downloaded from IPFS");
-
+      execSync(`npm install ${ipfsUrl}`, { stdio: "inherit" });
+    } catch {
       console.log(
-        chalk.green(`  Installing from verified IPFS source...`)
+        chalk.yellow("  IPFS install failed, falling back to npm...")
       );
-      console.log();
-      execSync(`npm install ${tarballPath}`, { stdio: "inherit" });
-
-      // Fix package.json — replace the file: path with the real version
-      try {
-        const pkgPath = join(process.cwd(), "package.json");
-        const pkgRaw = await readFile(pkgPath, "utf-8");
-        const pkg = JSON.parse(pkgRaw);
-        if (pkg.dependencies?.[packageName]?.startsWith("file:")) {
-          pkg.dependencies[packageName] = `^${requestedVersion}`;
-          await writeFile(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
-        }
-      } catch {
-        // Not critical if this fails
-      }
-
-      // Cleanup tarball
-      await unlink(tarballPath).catch(() => {});
-    } catch (err) {
-      dlSpinner.fail("IPFS download failed");
-      console.log(
-        chalk.yellow("  Falling back to npm install...")
-      );
-      console.log();
       execSync(`npm install ${packageSpec}`, { stdio: "inherit" });
     }
   } else {

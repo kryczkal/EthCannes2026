@@ -7,23 +7,33 @@ const client = createPublicClient({
   transport: http("https://ethereum-sepolia-rpc.publicnode.com"),
 });
 
+async function getText(ensName: string, key: string): Promise<string | null> {
+  try {
+    return await client.getEnsText({ name: ensName, key });
+  } catch {
+    return null;
+  }
+}
+
 export class ENSAuditSource implements AuditSource {
   async getAudit(
     packageName: string,
     version: string
   ): Promise<AuditResult | null> {
-    // 1.14.0 → 1-14-0
-    const versionSlug = version.replace(/\./g, "-");
+    const versionSlug = version
+      .replace(/[^a-z0-9]+/gi, "-")
+      .replace(/^-+|-+$/g, "")
+      .toLowerCase();
     const ensName = `${versionSlug}.${packageName}.npmguard.eth`;
 
     try {
       const [verdict, score, capabilities, reportCid, sourceCid] =
         await Promise.all([
-          client.getEnsText({ name: ensName, key: "verdict" }),
-          client.getEnsText({ name: ensName, key: "score" }),
-          client.getEnsText({ name: ensName, key: "capabilities" }),
-          client.getEnsText({ name: ensName, key: "reportCid" }),
-          client.getEnsText({ name: ensName, key: "sourceCid" }),
+          getText(ensName, "npmguard.verdict"),
+          getText(ensName, "npmguard.score"),
+          getText(ensName, "npmguard.capabilities"),
+          getText(ensName, "npmguard.report_cid"),
+          getText(ensName, "npmguard.source_cid"),
         ]);
 
       if (!verdict) return null;
@@ -31,9 +41,11 @@ export class ENSAuditSource implements AuditSource {
       return {
         packageName,
         version,
-        verdict: verdict as "SAFE" | "WARNING" | "CRITICAL",
+        verdict: verdict.toUpperCase() as "SAFE" | "WARNING" | "CRITICAL",
         score: score ? parseInt(score, 10) : 0,
-        capabilities: capabilities ? capabilities.split(",") : [],
+        capabilities: capabilities
+          ? capabilities.split(",").map((c) => c.trim()).filter(Boolean)
+          : [],
         reportCid: reportCid ?? undefined,
         sourceCid: sourceCid ?? undefined,
       };

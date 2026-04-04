@@ -1,6 +1,6 @@
 {
   "name": "npmguard-cli",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "type": "module",
   "description": "Check npm packages against NpmGuard security audits on ENS before installing",
   "bin": "./dist/index.js",
