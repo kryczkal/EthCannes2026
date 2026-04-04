@@ -68,11 +68,12 @@ flowchart LR
 
 ## Live Services
 
-| Service | URL | Status |
-|---------|-----|--------|
-| Audit Engine API | `http://209.38.42.28:8000` | DigitalOcean Droplet (Amsterdam) |
-| Health check | `http://209.38.42.28:8000/health` | `{"status":"ok"}` |
-| CLI (npm) | `npx npmguard-cli@0.5.0` | [npmjs.com/package/npmguard-cli](https://www.npmjs.com/package/npmguard-cli) |
+| Service | URL | Description |
+|---------|-----|-------------|
+| Frontend Dashboard | [`http://209.38.42.28:3000`](http://209.38.42.28:3000) | Live audit viewer with real-time SSE streaming |
+| Audit Engine API | [`http://209.38.42.28:8000`](http://209.38.42.28:8000) | DigitalOcean Droplet (Amsterdam) |
+| Health check | [`http://209.38.42.28:8000/health`](http://209.38.42.28:8000/health) | `{"status":"ok"}` |
+| CLI (npm) | `npx npmguard-cli` | [npmjs.com/package/npmguard-cli](https://www.npmjs.com/package/npmguard-cli) |
 | 0G Contract | `0x1201...d0de` | [Explorer](https://chainscan-galileo.0g.ai/address/0x1201448ae5f00e1783036439569e71ab3757d0de) |
 
 ## ENS Registry
@@ -99,17 +100,16 @@ npmguard.eth
 
 | Directory | Description |
 |-----------|-------------|
-| `chainlink/` | CRE workflow — monitors npm, reads ENS on-chain, triggers audits |
+| `frontend/` | React + Vite dashboard — live audit streaming with SSE |
 | `engine/` | TypeScript audit pipeline — inventory, static analysis, sandbox |
+| `cli/` | `npmguard-cli` — check/install packages with ENS audit + on-chain payment |
+| `contracts/` | Solidity smart contract + multi-chain deploy/verify scripts |
+| `chainlink/` | CRE workflow — monitors npm, reads ENS on-chain, triggers audits |
+| `npmguard/` | ENS/IPFS publisher, demo packages, `sginstall` |
+| `sandbox/` | Dynamic exploitation harness (Vitest) |
 | `ai-sdk/` | AI SDK-based vulnerability verifier prototype |
 | `openclaw/` | OpenClaw-based verifier prototype and Dockerized reasoning runtime |
-| `cli/` | `npmguard-cli` — check/install packages with ENS audit + on-chain payment |
-| `contracts/` | Solidity smart contract + deploy/verify scripts |
-| `sandbox/` | Dynamic exploitation harness (Vitest) |
-| `npmguard/` | ENS/IPFS demo publisher, demo packages, `sginstall` |
 | `docs/` | Architecture docs, research notes, production guides |
-| `artifacts/` | Cached tarballs, reports, npm-cache |
-| `test-package-install/` | Minimal workspace for testing package installation |
 
 ## Quick Start
 
@@ -137,13 +137,21 @@ curl -X POST http://209.38.42.28:8000/audit \
   -d '{"packageName": "express", "version": "5.2.1"}'
 ```
 
-### Run Engine locally (dev)
+### Run locally (engine + frontend)
 
 ```bash
-cd engine && npm install && npx tsx src/index.ts
+bash run.sh
+# Engine on :8000, Frontend on :3000
 ```
 
-### Deploy Engine (DigitalOcean)
+Or individually:
+
+```bash
+cd engine && npm install && npx tsx src/index.ts   # API on :8000
+cd frontend && npm install && npm run dev           # UI on :3000
+```
+
+### Deploy (DigitalOcean)
 
 See [engine/README.md](engine/README.md#deploy-to-digitalocean) for full instructions.
 
@@ -176,9 +184,10 @@ The Dockerized OpenClaw verifier prototype, model-switching commands, and manual
 
 | Component | Technology |
 |-----------|------------|
-| Monitoring | [Chainlink CRE](https://docs.chain.link/cre) — Cron + HTTP + EVMClient |
+| Frontend | [React](https://react.dev/) + [Vite](https://vite.dev/) + [Tailwind CSS](https://tailwindcss.com/) — real-time SSE audit dashboard |
 | Audit Pipeline | TypeScript + [Hono](https://hono.dev/) — inventory, LLM static analysis, Docker sandbox |
 | LLM | [Gemini 2.5 Flash](https://ai.google.dev/) via OpenAI-compatible API (switchable to Anthropic) |
+| Monitoring | [Chainlink CRE](https://docs.chain.link/cre) — Cron + HTTP + EVMClient |
 | Payment | Solidity smart contract on [0G Galileo Testnet](https://chainscan-galileo.0g.ai) + WalletConnect v2 |
 | On-chain Registry | [ENS](https://docs.ens.domains/) subnames on Sepolia |
 | Storage | [IPFS](https://pinata.cloud/) via Pinata |
