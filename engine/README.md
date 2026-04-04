@@ -82,6 +82,14 @@ uv run python smoke_test.py test-pkg-dns-exfil  # single package
 uv run pytest tests/ -v
 ```
 
+Live OpenAI-compatible / 0G connectivity check:
+
+```bash
+cp .env.test.example .env.test
+# fill in real values in .env.test
+uv run pytest tests/test_0g_integration.py -m integration -v
+```
+
 ## Analysis Pipeline
 
 The engine runs four phases in sequence. Phases 1 and 2 run in parallel.
