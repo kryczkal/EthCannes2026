@@ -10,13 +10,13 @@ from typing import Any
 
 import structlog
 
+from npmguard.config import SKIP_DIRS
 from npmguard.models import CapabilityEnum, Proof  # noqa: TC001
 
 log = structlog.get_logger()
 
 MAX_FILE_SIZE = 100_000  # 100 KB per file
 SCANNABLE_EXTENSIONS = frozenset((".js", ".mjs", ".cjs", ".json", ".ts", ".mts"))
-_SKIP_DIRS = frozenset(("node_modules", ".git", ".svn"))
 
 
 @dataclass(frozen=True)
@@ -74,7 +74,7 @@ async def build_context(package_path: str) -> PackageContext:
 
     for dirpath, dirnames, filenames in os.walk(package_path):
         # Prune skipped dirs in-place so os.walk doesn't descend into them
-        dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
+        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
 
         for fname in filenames:
             abs_path = os.path.join(dirpath, fname)

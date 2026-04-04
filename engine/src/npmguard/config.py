@@ -4,8 +4,16 @@ NpmGuard configuration via pydantic-settings.
 Validates all configuration at startup. Load precedence: env vars > .env file > defaults.
 """
 
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Root of the monorepo (engine/ is one level down from repo root)
+REPO_ROOT = Path(__file__).parent.parent.parent.parent
+
+# Directories to skip when walking package trees
+SKIP_DIRS = frozenset(("node_modules", ".git", ".svn"))
 
 
 class Settings(BaseSettings):

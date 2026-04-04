@@ -8,19 +8,18 @@ For real npm packages: fetches from the registry and extracts into a temp direct
 from __future__ import annotations
 
 import shutil
-from pathlib import Path
 
 import structlog
 from temporalio import activity
 
+from npmguard.config import REPO_ROOT
 from npmguard.exceptions import AnalysisError
 from npmguard.models import ResolvedPackage
 from npmguard.npm_fetcher import fetch_package
 
 log = structlog.get_logger()
 
-_REPO_ROOT = Path(__file__).parent.parent.parent.parent.parent
-_TEST_FIXTURES_DIR = _REPO_ROOT / "sandbox" / "test-fixtures"
+_TEST_FIXTURES_DIR = REPO_ROOT / "sandbox" / "test-fixtures"
 
 
 @activity.defn

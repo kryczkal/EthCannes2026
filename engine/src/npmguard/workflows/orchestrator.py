@@ -10,6 +10,7 @@ with workflow.unsafe.imports_passed_through():
     from npmguard.activities.resolve_package import cleanup_package, resolve_package
     from npmguard.activities.sandbox import analyze_sandbox
     from npmguard.activities.static_analysis import analyze_static
+    from npmguard.inventory import InventoryReport, analyze_inventory
     from npmguard.models import AuditReport, CapabilityEnum, Proof, ResolvedPackage, VerdictEnum
 
 
@@ -28,6 +29,25 @@ class NpmGuardOrchestrator:
         )
 
         try:
+            # Phase 0: Inventory — structural triage
+            inventory: InventoryReport = await workflow.execute_activity(
+                analyze_inventory,
+                resolved.path,
+                schedule_to_close_timeout=timedelta(seconds=30),
+            )
+            if inventory.dealbreaker:
+                return AuditReport(
+                    verdict=VerdictEnum.DANGEROUS,
+                    capabilities=[],
+                    proofs=[
+                        Proof(
+                            file_line="package.json",
+                            problem=f"Dealbreaker: {inventory.dealbreaker.check}",
+                            proof_data=inventory.dealbreaker.detail,
+                        )
+                    ],
+                )
+
             # Layer 1 & 2: Run in parallel
             # Static analysis gets the resolved path; sandbox resolves names internally
             static_future = workflow.execute_activity(
@@ -66,8 +86,6 @@ class NpmGuardOrchestrator:
                     schedule_to_close_timeout=timedelta(seconds=30),
                 )
 
-        verdict = VerdictEnum.SAFE
-        if len(proofs) > 0:
-            verdict = VerdictEnum.DANGEROUS
+        verdict = VerdictEnum.DANGEROUS if proofs else VerdictEnum.SAFE
 
         return AuditReport(verdict=verdict, capabilities=list(capabilities), proofs=proofs)

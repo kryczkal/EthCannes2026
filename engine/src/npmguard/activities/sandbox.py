@@ -10,23 +10,28 @@ For real npm packages: placeholder — Docker-based dynamic analysis would be wi
 import asyncio
 import json
 import os
-from pathlib import Path
+from typing import Any, TypedDict
 
 import structlog
 from temporalio import activity
 
+from npmguard.config import REPO_ROOT
 from npmguard.models import CapabilityEnum, Proof
 
 log = structlog.get_logger()
 
-# Root of the repository (two levels up from this file's package)
-_REPO_ROOT = Path(__file__).parent.parent.parent.parent.parent
-_SANDBOX_DIR = _REPO_ROOT / "sandbox"
+_SANDBOX_DIR = REPO_ROOT / "sandbox"
+
+
+class _TestPkgEntry(TypedDict):
+    test_file: str
+    capabilities: list[CapabilityEnum]
+
 
 # Maps the package name fragment (after "test-pkg-") to:
 #   - the exploit test file to run
 #   - the CapabilityEnums that a passing test proves
-_TEST_PKG_MAP: dict[str, dict] = {
+_TEST_PKG_MAP: dict[str, _TestPkgEntry] = {
     "lifecycle-hook": {
         "test_file": "exploits/lifecycle-hook.test.js",
         "capabilities": [
@@ -120,18 +125,16 @@ async def analyze_sandbox(package_name: str) -> tuple[list[CapabilityEnum], list
     log.info("sandbox_running_exploit_harness", package=package_name, test_file=test_file)
     results = await _run_vitest(test_file)
 
-    capabilities: list[CapabilityEnum] = []
     proofs: list[Proof] = []
+    has_passing = False
 
     for suite in results.get("testResults", []):
         for assertion in suite.get("assertionResults", []):
             if assertion.get("status") == "passed":
+                has_passing = True
                 full_name = assertion.get("fullName", "")
                 test_title = assertion.get("title", full_name)
                 duration_ms = assertion.get("duration", 0)
-
-                # All capabilities expected for this test file are confirmed
-                capabilities.extend(expected_caps)
 
                 proofs.append(
                     Proof(
@@ -151,8 +154,8 @@ async def analyze_sandbox(package_name: str) -> tuple[list[CapabilityEnum], list
                     reason=failure_msgs[:1],
                 )
 
-    # Deduplicate capabilities
-    capabilities = list(dict.fromkeys(capabilities))
+    # Capabilities confirmed if at least one exploit test passed
+    capabilities = list(expected_caps) if has_passing else []
 
     log.info(
         "sandbox_analysis_complete",
@@ -174,7 +177,7 @@ def _get_test_pkg_fragment(package_name: str) -> str | None:
     return None
 
 
-async def _run_vitest(test_file: str) -> dict:
+async def _run_vitest(test_file: str) -> dict[str, Any]:
     """Run vitest with JSON reporter on *test_file* (relative to sandbox dir)."""
     if not _SANDBOX_DIR.is_dir():
         log.error("sandbox_dir_missing", path=str(_SANDBOX_DIR))
@@ -209,7 +212,8 @@ async def _run_vitest(test_file: str) -> dict:
         return {}
 
     try:
-        return json.loads(raw[json_start:])
+        result: dict[str, Any] = json.loads(raw[json_start:])
+        return result
     except json.JSONDecodeError as exc:
         log.warning("vitest_json_parse_error", error=str(exc), raw=raw[:200])
         return {}
@@ -217,7 +221,7 @@ async def _run_vitest(test_file: str) -> dict:
 
 def _find_npx() -> str:
     """Return the path to npx, preferring the project-local node_modules/.bin."""
-    local = _REPO_ROOT / "node_modules" / ".bin" / "npx"
+    local = REPO_ROOT / "node_modules" / ".bin" / "npx"
     if local.is_file():
         return str(local)
     return "npx"

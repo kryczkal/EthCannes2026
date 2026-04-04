@@ -105,8 +105,8 @@ def _get_agent() -> Agent[_Deps, NetworkAnalysis]:
 
     @agent.output_validator
     def _validate(
-        ctx: RunContext[_Deps],
-        output: NetworkAnalysis,  # noqa: ARG001
+        ctx: RunContext[_Deps],  # noqa: ARG001
+        output: NetworkAnalysis,
     ) -> NetworkAnalysis:
         for f in output.findings:
             parts = f.file_line.split(":")

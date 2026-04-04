@@ -18,6 +18,7 @@ from npmguard.activities import (
 )
 from npmguard.config import Settings
 from npmguard.exceptions import TemporalConnectionError
+from npmguard.inventory import analyze_inventory
 from npmguard.workflows import NpmGuardOrchestrator
 
 log = structlog.get_logger()
@@ -66,7 +67,7 @@ async def main() -> None:
         client,
         task_queue=settings.task_queue,
         workflows=[NpmGuardOrchestrator],
-        activities=[resolve_package, analyze_static, analyze_sandbox, fuzz_adversarial, cleanup_package],
+        activities=[resolve_package, analyze_inventory, analyze_static, analyze_sandbox, fuzz_adversarial, cleanup_package],
         workflow_runner=sandbox_runner,
     )
 

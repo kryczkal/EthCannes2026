@@ -10,9 +10,9 @@ from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from temporalio.client import Client
 
+from npmguard._logging import configure_logging
 from npmguard.config import Settings
 from npmguard.exceptions import TemporalConnectionError
-from npmguard._logging import configure_logging
 from npmguard.models import AuditReport
 from npmguard.workflows.orchestrator import NpmGuardOrchestrator
 
@@ -26,6 +26,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     from temporalio.contrib.pydantic import pydantic_data_converter
 
+    app.state.settings = settings
     try:
         app.state.temporal_client = await Client.connect(
             settings.temporal_address, data_converter=pydantic_data_converter
@@ -60,12 +61,12 @@ async def trigger_audit(request: AuditRequest, http_request: Request) -> AuditRe
     if not temporal_client:
         raise HTTPException(status_code=503, detail="Temporal client not connected")
 
-    settings = Settings()
+    settings: Settings = http_request.app.state.settings
     workflow_id = f"npmguard-{request.package_name}-{uuid.uuid4().hex[:8]}"
 
     log.info("triggering_audit", package=request.package_name, workflow_id=workflow_id)
 
-    return await temporal_client.execute_workflow(  # type: ignore[return-value]
+    return await temporal_client.execute_workflow(
         NpmGuardOrchestrator.run,
         request.package_name,
         id=workflow_id,

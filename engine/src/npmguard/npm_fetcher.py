@@ -14,7 +14,7 @@ import tarfile
 import tempfile
 import urllib.request
 from pathlib import Path
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import structlog
 
@@ -73,18 +73,19 @@ async def _resolve_tarball_url(package_name: str, version: str) -> tuple[str, st
     return resolved, tarball_url
 
 
-async def _fetch_json(url: str) -> dict:
-    loop = asyncio.get_event_loop()
+async def _fetch_json(url: str) -> dict[str, Any]:
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, _sync_fetch_json, url)
 
 
-def _sync_fetch_json(url: str) -> dict:
+def _sync_fetch_json(url: str) -> dict[str, Any]:
     with urllib.request.urlopen(url, timeout=30) as resp:  # noqa: S310
-        return json.loads(resp.read())
+        raw: dict[str, Any] = json.loads(resp.read())
+        return raw
 
 
 async def _download(url: str, dest: Path) -> None:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, _sync_download, url, dest)
 
 
@@ -98,14 +99,13 @@ def _extract(tgz_path: Path, tmpdir: Path) -> Path:
     extract_dir = tmpdir / "extracted"
     extract_dir.mkdir()
 
-    with gzip.open(tgz_path, "rb") as gz_file:
-        with tarfile.open(fileobj=gz_file) as tar:
-            # Security: only extract safe members (no absolute paths, no ..)
-            safe_members = [
-                m for m in tar.getmembers()
-                if not m.name.startswith("/") and ".." not in m.name
-            ]
-            tar.extractall(path=extract_dir, members=safe_members)  # noqa: S202
+    with gzip.open(tgz_path, "rb") as gz_file, tarfile.open(fileobj=gz_file) as tar:
+        # Security: only extract safe members (no absolute paths, no ..)
+        safe_members = [
+            m for m in tar.getmembers()
+            if not m.name.startswith("/") and ".." not in m.name
+        ]
+        tar.extractall(path=extract_dir, members=safe_members)  # noqa: S202
 
     # npm tarballs always extract into a "package/" subdirectory
     package_dir = extract_dir / "package"

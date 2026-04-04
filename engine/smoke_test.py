@@ -13,13 +13,16 @@ from __future__ import annotations
 import asyncio
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 # Ensure src/ is importable
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from npmguard.checks import CHECKS  # noqa: E402
-from npmguard.checks.base import BaseCheck, CheckResult, build_context  # noqa: E402
-from npmguard.models import CapabilityEnum, Proof  # noqa: E402
+from npmguard.checks import CHECKS
+from npmguard.checks.base import BaseCheck, CheckResult, build_context
+
+if TYPE_CHECKING:
+    from npmguard.models import CapabilityEnum, Proof
 
 FIXTURES_DIR = Path(__file__).parent.parent / "sandbox" / "test-fixtures"
 
