@@ -83,11 +83,15 @@ npmguard.eth
 |-----------|-------------|
 | `chainlink/` | CRE workflow — monitors npm, reads ENS on-chain, triggers audits |
 | `engine/` | TypeScript audit pipeline — inventory, static analysis, sandbox |
+| `ai-sdk/` | AI SDK–based vulnerability verifier prototype |
+| `openclaw/` | OpenClaw-based verifier prototype and Dockerized reasoning runtime |
 | `cli/` | `npmguard-cli` — check/install packages with ENS audit + on-chain payment |
 | `contracts/` | Solidity smart contract + deploy/verify scripts |
 | `sandbox/` | Dynamic exploitation harness (Vitest) |
-| `npmguard/` | ENS/IPFS publisher, demo packages |
-| `docs/` | Architecture docs, research notes |
+| `npmguard/` | ENS/IPFS demo publisher, demo packages, `sginstall` |
+| `docs/` | Architecture docs, research notes, production guides |
+| `artifacts/` | Cached tarballs, reports, npm-cache |
+| `test-package-install/` | Minimal workspace for testing package installation |
 
 ## Quick Start
 
