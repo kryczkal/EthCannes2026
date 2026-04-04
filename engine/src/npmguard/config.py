@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="NPMGUARD_",
         case_sensitive=False,
+        env_file=".env",
+        env_file_encoding="utf-8",
     )
 
     # Temporal
