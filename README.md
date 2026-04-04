@@ -149,11 +149,21 @@ See [engine/README.md](engine/README.md#deploy-to-digitalocean) for full instruc
 
 ### Chainlink CRE Workflow
 
+Automated npm monitoring via Chainlink CRE — cron every 5 min, checks ENS on-chain, triggers audit if needed.
+
+**Cron monitoring** (checks all configured packages every 5 min):
 ```bash
 cd chainlink/npm-monitor && bun install
+cre workflow simulate npm-monitor -T staging-settings --trigger-index 1 --non-interactive
+```
+
+**HTTP trigger** (check a single package on demand):
+```bash
 cre workflow simulate npm-monitor -T staging-settings --trigger-index 0 \
   --http-payload '{"package":"axios"}' --non-interactive
 ```
+
+Flow: `Cron/HTTP trigger → Fetch npm latest version → Read ENS on-chain → Already audited? Skip : POST /audit to engine`
 
 ### Deploy Contract
 

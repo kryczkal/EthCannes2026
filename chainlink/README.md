@@ -36,7 +36,7 @@ What happens step by step:
 ```json
 {
   "packages": ["code-formatter", "axios", "lodash", "express", "chalk"],
-  "auditApiUrl": "https://<ngrok-or-production-url>/audit",
+  "auditApiUrl": "http://209.38.42.28:8000/audit",
   "schedule": "0 */5 * * * *"
 }
 ```
@@ -67,18 +67,11 @@ Cron trigger (all packages — needs custom limits):
 cre workflow simulate npm-monitor -T staging-settings --trigger-index 1 --non-interactive --limits /path/to/npm-monitor/limits.json
 ```
 
-## Simulate with audit engine
+## Audit Engine
 
-The CRE simulator runs in a WASM sandbox that cannot access `localhost`. To connect to the audit engine during simulation, expose it via [ngrok](https://ngrok.com):
+The audit engine is live at `http://209.38.42.28:8000`. The `config.staging.json` already points to it.
 
-```bash
-ngrok http 8000
-```
-
-Then update `auditApiUrl` in `npm-monitor/config.staging.json` with the ngrok URL and run the simulation.
-
-> See `engine/README.md` for how to start the audit engine.
-> In production on the DON, the workflow calls the engine API directly — no ngrok needed.
+> See [engine/README.md](../engine/README.md) for deployment details.
 
 ## On-chain ENS read
 

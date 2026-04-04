@@ -1,6 +1,6 @@
 {
   "packages": ["code-formatter", "axios", "lodash", "express", "chalk"],
-  "auditApiUrl": "https://79d2-83-144-21-99.ngrok-free.app/audit",
-  "creApiKey": "npmguard-cre-secret-key",
+  "auditApiUrl": "http://209.38.42.28:8000/audit",
+  "creApiKey": "npmguard",
   "schedule": "0 */5 * * * *"
 }

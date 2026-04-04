@@ -9,6 +9,7 @@ import { onHttpTrigger, onCronTrigger } from "./workflow";
 type Config = {
   packages: string[];
   auditApiUrl: string;
+  creApiKey: string;
   schedule: string;
 };
 
