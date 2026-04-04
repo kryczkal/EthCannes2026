@@ -1,4 +1,4 @@
-import { config } from "./config.js";
+import { config, SOURCE_FILE_TYPES } from "./config.js";
 import { Proof, type AuditReport, type PhaseLog } from "./models.js";
 import { resolvePackage, cleanupPackage } from "./phases/resolve.js";
 import { analyzeInventory } from "./phases/inventory.js";
@@ -66,7 +66,7 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
       { packagePath: resolved.path },
       (inv) => ({
         fileCount: inv.files.length,
-        sourceFiles: inv.files.filter((f) => ["js", "ts"].includes(f.fileType)).length,
+        sourceFiles: inv.files.filter((f) => SOURCE_FILE_TYPES.has(f.fileType)).length,
         flagCount: inv.flags.length,
         flags: inv.flags.map((f) => `[${f.severity}] ${f.check}: ${f.detail}`),
         hasDealbreaker: !!inv.dealbreaker,
@@ -103,7 +103,7 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
       2 * 60_000,
       {
         sourceFiles: inventory.files
-          .filter((f) => ["js", "ts"].includes(f.fileType) && !f.isBinary)
+          .filter((f) => SOURCE_FILE_TYPES.has(f.fileType) && !f.isBinary)
           .map((f) => ({ path: f.path, sizeBytes: f.sizeBytes })),
         flagCount: inventory.flags.length,
         packageName: inventory.metadata.name,

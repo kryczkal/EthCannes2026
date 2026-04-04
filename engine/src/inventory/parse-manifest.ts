@@ -8,6 +8,19 @@ export const LIFECYCLE_SCRIPTS = new Set([
   "prepublish",
 ]);
 
+function asStringOrNull(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function asStringRecord(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const result: Record<string, string> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (typeof v === "string") result[k] = v;
+  }
+  return result;
+}
+
 export function extractScriptFileRef(scriptValue: string): string | null {
   const parts = scriptValue.trim().split(/\s+/);
   if (!parts.length || parts[0] !== "node") return null;
@@ -46,15 +59,15 @@ export function parsePackageJson(
   dependencies: Record<string, Record<string, string>>;
 } {
   const metadata: PackageMetadata = {
-    name: (pkg.name as string) ?? null,
-    version: (pkg.version as string) ?? null,
-    description: (pkg.description as string) ?? null,
-    license: (pkg.license as string) ?? null,
-    homepage: (pkg.homepage as string) ?? null,
+    name: asStringOrNull(pkg.name),
+    version: asStringOrNull(pkg.version),
+    description: asStringOrNull(pkg.description),
+    license: asStringOrNull(pkg.license),
+    homepage: asStringOrNull(pkg.homepage),
     repository: pkg.repository ?? null,
   };
 
-  const scripts = (pkg.scripts as Record<string, string>) ?? {};
+  const scripts = asStringRecord(pkg.scripts);
 
   const installEntries: string[] = [];
   for (const hook of LIFECYCLE_SCRIPTS) {
@@ -65,8 +78,9 @@ export function parsePackageJson(
     }
   }
 
-  let runtimeEntries: string[] = [(pkg.main as string) ?? "index.js"];
-  if (pkg.module) runtimeEntries.push(pkg.module as string);
+  let runtimeEntries: string[] = [asStringOrNull(pkg.main) ?? "index.js"];
+  const moduleEntry = asStringOrNull(pkg.module);
+  if (moduleEntry) runtimeEntries.push(moduleEntry);
   runtimeEntries.push(...extractExportsEntries(pkg.exports));
   runtimeEntries = [...new Set(runtimeEntries)]; // dedup
 
@@ -77,10 +91,10 @@ export function parsePackageJson(
   };
 
   const dependencies: Record<string, Record<string, string>> = {
-    prod: (pkg.dependencies as Record<string, string>) ?? {},
-    dev: (pkg.devDependencies as Record<string, string>) ?? {},
-    optional: (pkg.optionalDependencies as Record<string, string>) ?? {},
-    peer: (pkg.peerDependencies as Record<string, string>) ?? {},
+    prod: asStringRecord(pkg.dependencies),
+    dev: asStringRecord(pkg.devDependencies),
+    optional: asStringRecord(pkg.optionalDependencies),
+    peer: asStringRecord(pkg.peerDependencies),
   };
 
   return { metadata, scripts, entryPoints, dependencies };

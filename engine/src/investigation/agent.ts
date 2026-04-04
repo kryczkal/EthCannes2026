@@ -82,13 +82,30 @@ export async function runInvestigationAgent(
 
   console.log(`[agent] investigation complete — ${result.steps.length} steps, extracting findings`);
 
+  // Build a concise log of tool calls so the extraction LLM sees what the agent observed
+  const toolCallLog: string[] = [];
+  for (const step of result.steps) {
+    for (const tc of step.toolCalls) {
+      const tr = step.toolResults.find(
+        (r: { toolCallId: string }) => r.toolCallId === tc.toolCallId,
+      );
+      const preview = tr
+        ? String(tr.result).slice(0, 300)
+        : "(no result)";
+      toolCallLog.push(`[${tc.toolName}](${JSON.stringify(tc.args).slice(0, 200)}) → ${preview}`);
+    }
+  }
+  const toolContext = toolCallLog.length > 0
+    ? `\n\nTool call log (${toolCallLog.length} calls):\n${toolCallLog.join("\n")}`
+    : "";
+
   // Step 2: Extract structured findings from the conversation
   const extraction = await generateObject({
     model,
     schema: InvestigationOutput,
     prompt:
-      "Based on the investigation above, extract all findings as structured data.\n\n" +
-      `Investigation result:\n${result.text}`,
+      "Based on the investigation below, extract all findings as structured data.\n\n" +
+      `Investigation result:\n${result.text}${toolContext}`,
   });
 
   return extraction.object;

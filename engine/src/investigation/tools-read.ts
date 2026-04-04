@@ -17,15 +17,20 @@ function safePath(packagePath: string, relPath: string): string | null {
 export function readFileImpl(packagePath: string, relPath: string): string {
   const abs = safePath(packagePath, relPath);
   if (!abs) return `ERROR: path traversal blocked: ${relPath}`;
-  if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
+
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(abs);
+  } catch {
     return `ERROR: file not found: ${relPath}`;
   }
+  if (!stat.isFile()) return `ERROR: not a file: ${relPath}`;
+  if (stat.size > MAX_FILE_READ) return `ERROR: file too large (${stat.size} bytes, max ${MAX_FILE_READ})`;
+
   try {
-    const size = fs.statSync(abs).size;
-    if (size > MAX_FILE_READ) return `ERROR: file too large (${size} bytes, max ${MAX_FILE_READ})`;
     return fs.readFileSync(abs, "utf-8");
   } catch (err) {
-    return `ERROR: ${err}`;
+    return `ERROR: ${err instanceof Error ? err.message : String(err)}`;
   }
 }
 

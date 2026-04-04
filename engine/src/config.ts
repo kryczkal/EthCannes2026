@@ -14,7 +14,7 @@ const ConfigSchema = z.object({
 
   // Payment verification
   creApiKey: z.string().optional(),
-  contractAddress: z.string().optional(),
+  contractAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/, "Must be a valid 0x-prefixed Ethereum address").optional(),
   baseSepoliaRpcUrl: z.string().default("https://sepolia.base.org"),
 
   triageModel: z.string().default("claude-haiku-4-5-20251001"),
@@ -83,3 +83,6 @@ export const config = loadConfig();
 export type Config = z.infer<typeof ConfigSchema>;
 
 export const SKIP_DIRS = new Set(["node_modules", ".git", ".svn"]);
+
+/** File types (from classify.ts) that the LLM analyzes in triage. */
+export const SOURCE_FILE_TYPES = new Set(["js", "ts"]);

@@ -42,7 +42,7 @@ export async function requireAndTraceImpl(sandbox: DockerSandboxController, entr
 
   const result = await sandbox.exec([
     "node", "--require", "/tmp/_instrument.js", "-e",
-    `require('./${entrypoint}')`,
+    `require(${JSON.stringify("./" + entrypoint)})`,
   ]);
 
   return appendDiagnostics(

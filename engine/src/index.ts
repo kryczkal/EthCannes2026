@@ -29,14 +29,14 @@ async function checkPaymentOnChain(packageName: string, version: string): Promis
 
   try {
     const paid = await client.readContract({
-      address: config.contractAddress as `0x${string}`,
+      address: config.contractAddress as `0x${string}`, // validated by config schema regex
       abi: AUDIT_REQUEST_ABI,
       functionName: "isRequested",
       args: [packageName, version],
     });
     return paid;
   } catch (err) {
-    console.warn("[payment] on-chain check failed:", err);
+    console.warn("[payment] on-chain check failed:", err instanceof Error ? err.message : "unknown error");
     return false;
   }
 }

@@ -10,8 +10,8 @@ export async function analyzeInventory(packagePath: string): Promise<InventoryRe
   let pkg: Record<string, unknown> = {};
   try {
     pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf-8"));
-  } catch {
-    // Missing or invalid package.json — continue with empty
+  } catch (err) {
+    console.warn(`[inventory] Failed to parse package.json: ${err instanceof Error ? err.message : "unknown error"}`);
   }
 
   const { metadata, scripts, entryPoints, dependencies } = parsePackageJson(pkg);

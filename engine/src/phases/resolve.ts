@@ -63,14 +63,14 @@ async function resolveTarballUrl(
       : `${NPM_REGISTRY}/${packageName}/${version}`;
 
   const resp = await fetch(url, { signal: AbortSignal.timeout(30_000) });
-  if (!resp.ok) throw new Error(`npm registry returned ${resp.status} for ${url}`);
+  if (!resp.ok) throw new Error(`npm registry returned ${resp.status} for ${packageName}@${version}`);
   const data = NpmVersionResponse.parse(await resp.json());
   return { resolvedVersion: data.version, tarballUrl: data.dist.tarball };
 }
 
 async function downloadFile(url: string, dest: string): Promise<void> {
   const resp = await fetch(url, { signal: AbortSignal.timeout(60_000) });
-  if (!resp.ok) throw new Error(`Download failed: ${resp.status} for ${url}`);
+  if (!resp.ok) throw new Error(`Tarball download failed: HTTP ${resp.status}`);
   const body = resp.body;
   if (!body) throw new Error("No response body");
   // ReadableStream type mismatch between DOM and Node.js stream/web — safe to cast

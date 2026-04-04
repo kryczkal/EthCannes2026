@@ -23,7 +23,8 @@ const STANDARD_DOTFILES = new Set([
 ]);
 const STANDARD_DOTFILE_PREFIXES = [".eslintrc", ".prettierrc", ".babelrc"];
 
-const JS_EXTENSIONS = new Set([".js", ".mjs", ".cjs"]);
+/** Extensions analyzed by the LLM triage — skip from structural encoded-content check. */
+const SOURCE_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".mts"]);
 const MINIFIED_LINE_THRESHOLD = 500;
 
 // ---------------------------------------------------------------------------
@@ -136,7 +137,7 @@ function flagEncodedContent(files: FileRecord[], packagePath: string): Inventory
   const flags: InventoryFlag[] = [];
   for (const f of files) {
     const ext = path.extname(f.path);
-    if (JS_EXTENSIONS.has(ext) || f.isBinary || f.sizeBytes === 0) continue;
+    if (SOURCE_EXTENSIONS.has(ext) || f.isBinary || f.sizeBytes === 0) continue;
     const absPath = path.join(packagePath, f.path);
     let content: string;
     try {

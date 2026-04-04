@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { generateObject } from "ai";
-import { config } from "../config.js";
+import { config, SOURCE_FILE_TYPES } from "../config.js";
 import { getModel } from "../llm.js";
 import { FileVerdict, TriageResult, type InventoryReport } from "../models.js";
 import { z } from "zod";
@@ -198,7 +198,7 @@ export async function runTriage(
   inventory: InventoryReport,
 ): Promise<TriagePhaseOutput> {
   const sourceFiles = inventory.files.filter(
-    (f) => ["js", "ts"].includes(f.fileType) && !f.isBinary,
+    (f) => SOURCE_FILE_TYPES.has(f.fileType) && !f.isBinary,
   );
 
   console.log(

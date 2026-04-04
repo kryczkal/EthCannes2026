@@ -107,6 +107,8 @@ process.on('exit', () => {
 
 /** Timer-advancing wrapper using @sinonjs/fake-timers. */
 export function buildTimerAdvanceJs(entrypoint: string, advanceMs: number): string {
+  const safeEntrypoint = JSON.stringify("./" + entrypoint);
+  const safeMs = Number(advanceMs);
   return `
 'use strict';
 const { createClock } = require('@sinonjs/fake-timers');
@@ -118,9 +120,9 @@ global.clearTimeout = clock.clearTimeout;
 global.clearInterval = clock.clearInterval;
 global.Date = clock.Date;
 
-require('./${entrypoint.replace(/'/g, "\\'")}');
+require(${safeEntrypoint});
 
-clock.tick(${advanceMs});
+clock.tick(${safeMs});
 
 setTimeout(() => process.exit(0), 100);
 `;
