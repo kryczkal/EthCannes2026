@@ -1,7 +1,7 @@
 export interface AuditResult {
   packageName: string;
   version: string;
-  verdict: "SAFE" | "WARNING" | "CRITICAL";
+  verdict: "SAFE" | "WARNING" | "CRITICAL" | "DANGEROUS";
   score: number;
   capabilities: string[];
   reportCid?: string;

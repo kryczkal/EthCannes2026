@@ -433,8 +433,8 @@ export async function installCommand(
     console.log(chalk.green(`  SAFE (score: ${audit.score})`));
   } else if (audit.verdict === "WARNING") {
     console.log(chalk.yellow(`  WARNING (score: ${audit.score})`));
-  } else if (audit.verdict === "CRITICAL") {
-    console.log(chalk.red(`  CRITICAL (score: ${audit.score})`));
+  } else if (audit.verdict === "CRITICAL" || audit.verdict === "DANGEROUS") {
+    console.log(chalk.red(`  DANGEROUS (score: ${audit.score})`));
   }
 
   if (audit.capabilities.length > 0) {
@@ -451,8 +451,8 @@ export async function installCommand(
 
   console.log();
 
-  // Block CRITICAL unless --force
-  if (audit.verdict === "CRITICAL" && !force) {
+  // Block CRITICAL/DANGEROUS unless --force
+  if ((audit.verdict === "CRITICAL" || audit.verdict === "DANGEROUS") && !force) {
     console.log(
       chalk.red.bold(
         "  Installation blocked. This package has critical security issues."
