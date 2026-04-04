@@ -8,11 +8,13 @@ import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt.js";
 import { readFileImpl, listFilesImpl, searchFilesImpl } from "./tools-read.js";
 import { evalJsImpl, requireAndTraceImpl, runLifecycleHookImpl, fastForwardTimersImpl } from "./tools-execute.js";
 import type { DockerSandboxController } from "../sandbox/controller.js";
+import type { EmitFn } from "../events.js";
 
 export async function runInvestigationAgent(
   input: InvestigationInput,
   sandbox: DockerSandboxController,
   lifecycleHooks: Record<string, string>,
+  emit?: EmitFn,
 ): Promise<InvestigationAgentOutput> {
   const model = getModel(config.investigationModel);
   const packagePath = input.packagePath;
@@ -95,6 +97,8 @@ export async function runInvestigationAgent(
         const argsStr = JSON.stringify(tc.args).slice(0, 200);
         console.log(`[agent]   → ${tc.toolName}(${argsStr})`);
 
+        emit?.("agent_tool_call", { tool: tc.toolName, args: tc.args as Record<string, unknown>, step: stepIndex });
+
         const tr = toolResults.find(
           (r: { toolCallId: string }) => r.toolCallId === tc.toolCallId,
         );
@@ -111,6 +115,8 @@ export async function runInvestigationAgent(
         if (resultStr.length > 500) {
           console.log(`[agent]     ... (${resultStr.length - 500} more bytes)`);
         }
+
+        emit?.("agent_tool_result", { tool: tc.toolName, resultPreview: preview, step: stepIndex, injectionDetected });
 
         toolCallRecords.push({
           tool: tc.toolName,
@@ -135,6 +141,7 @@ export async function runInvestigationAgent(
         if (text.length > 500) {
           console.log(`[agent]   ... (${text.length - 500} more chars)`);
         }
+        emit?.("agent_reasoning", { text: text.slice(0, 2000), step: stepIndex });
       }
     },
   });

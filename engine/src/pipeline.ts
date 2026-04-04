@@ -7,6 +7,8 @@ import { investigate } from "./phases/investigate.js";
 import { generateTests } from "./phases/test-gen.js";
 import { verifyProofs } from "./phases/verify.js";
 import { startAuditLog, writeLog, getRunDir } from "./audit-log.js";
+import type { EmitFn } from "./events.js";
+import { setSessionPackagePath } from "./events.js";
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
@@ -23,7 +25,9 @@ async function timedPhase<T>(
   timeoutMs: number,
   inputSummary: Record<string, unknown>,
   outputSummary: (result: T) => Record<string, unknown>,
+  emit?: EmitFn,
 ): Promise<{ result: T; log: PhaseLog }> {
+  emit?.("phase_started", { phase: name });
   const start = Date.now();
   const result = await withTimeout(fn(), timeoutMs, name);
   const durationMs = Date.now() - start;
@@ -41,13 +45,16 @@ async function timedPhase<T>(
   console.log(`[${name}] OUTPUT:`);
   console.log(JSON.stringify(log.output, null, 2));
   console.log(`${"=".repeat(60)}\n`);
+  emit?.("phase_completed", { phase: name, durationMs });
   return { result, log };
 }
 
-export async function runAudit(packageName: string): Promise<AuditReport> {
+export async function runAudit(packageName: string, emit?: EmitFn, auditId?: string): Promise<AuditReport> {
   console.log(`[pipeline] starting audit for ${packageName}`);
   startAuditLog(packageName);
   const trace: PhaseLog[] = [];
+
+  emit?.("audit_started", { packageName });
 
   // Phase 0a: Resolve package
   const { result: resolved, log: resolveLog } = await timedPhase(
@@ -56,9 +63,13 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
     2 * 60_000,
     { packageName },
     (r) => ({ path: r.path, needsCleanup: r.needsCleanup }),
+    emit,
   );
   trace.push(resolveLog);
   writeLog("resolve.json", resolved);
+
+  // Store package path on session so file-serving endpoint works
+  if (auditId) setSessionPackagePath(auditId, resolved.path);
 
   try {
     // Phase 0b: Inventory
@@ -77,13 +88,17 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
         metadata: inv.metadata,
         entryPoints: inv.entryPoints,
       }),
+      emit,
     );
     trace.push(inventoryLog);
     writeLog("inventory.json", inventory);
 
-    // Dealbreaker → immediate DANGEROUS
+    // Emit file list for frontend visualization
+    emit?.("file_list", { files: inventory.files });
+
+    // Dealbreaker -> immediate DANGEROUS
     if (inventory.dealbreaker) {
-      return {
+      const report: AuditReport = {
         verdict: "DANGEROUS",
         capabilities: [],
         proofs: [Proof.parse({
@@ -98,12 +113,14 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
         findings: [],
         trace,
       };
+      emit?.("verdict_reached", { verdict: report.verdict, capabilities: [], proofCount: report.proofs.length });
+      return report;
     }
 
     // Phase 1a: Triage
     const { result: triageOutput, log: triageLog } = await timedPhase(
       "triage",
-      () => runTriage(resolved.path, inventory),
+      () => runTriage(resolved.path, inventory, emit),
       2 * 60_000,
       {
         sourceFiles: inventory.files
@@ -118,14 +135,22 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
         focusAreas: t.result.focusAreas,
         fileVerdicts: t.fileVerdicts,
       }),
+      emit,
     );
     trace.push(triageLog);
     writeLog("triage.json", triageOutput);
     const triage = triageOutput.result;
 
+    // Emit triage complete for frontend
+    emit?.("triage_complete", {
+      riskScore: triage.riskScore,
+      riskSummary: triage.riskSummary,
+      focusAreas: triage.focusAreas,
+    });
+
     if (triage.riskScore < config.triageRiskThreshold) {
       console.log(`[pipeline] low risk (${triage.riskScore}) — returning SAFE`);
-      return {
+      const report: AuditReport = {
         verdict: "SAFE",
         capabilities: [],
         proofs: [],
@@ -133,12 +158,14 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
         findings: [],
         trace,
       };
+      emit?.("verdict_reached", { verdict: "SAFE", capabilities: [], proofCount: 0 });
+      return report;
     }
 
     // Phase 1b: Investigation
     const { result: investigationResult, log: investigateLog } = await timedPhase(
       "investigation",
-      () => investigate(resolved.path, inventory, triage, triageOutput.fileVerdicts),
+      () => investigate(resolved.path, inventory, triage, triageOutput.fileVerdicts, emit),
       5 * 60_000,
       {
         riskScore: triage.riskScore,
@@ -165,6 +192,7 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
         })),
         agentText: inv.agentText.slice(0, 2000),
       }),
+      emit,
     );
     trace.push(investigateLog);
     writeLog("investigation.json", investigationResult);
@@ -176,6 +204,7 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
       2 * 60_000,
       { proofCount: investigationResult.proofs.length },
       (p) => ({ proofCount: p.length }),
+      emit,
     );
     trace.push(testGenLog);
 
@@ -186,6 +215,7 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
       5 * 60_000,
       { proofCount: proofs.length },
       (p) => ({ verifiedCount: p.length }),
+      emit,
     );
     trace.push(verifyLog);
 
@@ -202,6 +232,13 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
     };
     writeLog("report.json", report);
     console.log(`[pipeline] full logs saved to ${getRunDir()}`);
+
+    emit?.("verdict_reached", {
+      verdict: report.verdict,
+      capabilities: report.capabilities,
+      proofCount: report.proofs.length,
+    });
+
     return report;
   } finally {
     cleanupPackage(resolved);

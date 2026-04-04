@@ -1,7 +1,11 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
+import { cors } from "hono/cors";
 import { z } from "zod";
 import { createPublicClient, http, defineChain } from "viem";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 const ogGalileo = defineChain({
   id: 16602,
@@ -13,6 +17,8 @@ const ogGalileo = defineChain({
 });
 import { config } from "./config.js";
 import { runAudit } from "./pipeline.js";
+import { createSession, getSession, finalizeSession, createEmitFn, type AuditEvent } from "./events.js";
+import { cleanupPackage } from "./phases/resolve.js";
 
 const AUDIT_REQUEST_ABI = [
   {
@@ -51,11 +57,15 @@ async function checkPaymentOnChain(packageName: string, version: string): Promis
 
 const app = new Hono();
 
+// Enable CORS for frontend dev server
+app.use("/*", cors({ origin: "*" }));
+
 const AuditRequest = z.object({
   packageName: z.string().min(1),
   version: z.string().optional(),
 });
 
+// Original synchronous audit endpoint (backward compatible)
 app.post("/audit", async (c) => {
   let body: unknown;
   try {
@@ -92,6 +102,151 @@ app.post("/audit", async (c) => {
     const message = err instanceof Error ? err.message : "Unknown error";
     return c.json({ error: "Audit failed", message }, 500);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Streaming audit endpoints
+// ---------------------------------------------------------------------------
+
+// Start audit asynchronously, returns auditId for SSE streaming
+app.post("/audit/stream", async (c) => {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
+
+  const parsed = AuditRequest.safeParse(body);
+  if (!parsed.success) {
+    return c.json({ error: "Invalid request", details: parsed.error.format() }, 400);
+  }
+
+  const session = createSession(parsed.data.packageName);
+  const emit = createEmitFn(session.auditId, session.emitter);
+
+  // Run audit in background — don't await
+  runAudit(parsed.data.packageName, emit, session.auditId)
+    .then((report) => {
+      finalizeSession(session.auditId, report);
+    })
+    .catch((err) => {
+      console.error("[api] streaming audit failed:", err);
+      const message = err instanceof Error ? err.message : "Unknown error";
+      emit("audit_error", { error: message });
+      finalizeSession(session.auditId, null, message);
+    });
+
+  return c.json({ auditId: session.auditId });
+});
+
+// SSE event stream for a running audit
+app.get("/audit/:id/events", (c) => {
+  const auditId = c.req.param("id");
+  const session = getSession(auditId);
+  if (!session) {
+    return c.json({ error: "Audit session not found" }, 404);
+  }
+
+  return streamSSE(c, async (stream) => {
+    let eventId = 0;
+
+    // Replay all buffered events so late-connecting clients catch up
+    for (const event of session.eventBuffer) {
+      try {
+        await stream.writeSSE({
+          event: event.type,
+          data: JSON.stringify(event),
+          id: String(eventId++),
+        });
+      } catch { break; }
+    }
+
+    // If audit already finished, we're done after replay
+    if (session.status !== "running") {
+      return;
+    }
+
+    const handler = async (event: AuditEvent) => {
+      try {
+        await stream.writeSSE({
+          event: event.type,
+          data: JSON.stringify(event),
+          id: String(eventId++),
+        });
+      } catch {
+        // Client disconnected
+      }
+    };
+
+    session.emitter.on("event", handler);
+
+    // Wait until audit completes or client disconnects
+    await new Promise<void>((resolve) => {
+      const done = () => {
+        session.emitter.off("event", handler);
+        resolve();
+      };
+
+      // Listen for terminal events
+      const terminalHandler = (event: AuditEvent) => {
+        if (event.type === "verdict_reached" || event.type === "audit_error") {
+          // Give a moment for the event to be sent
+          setTimeout(done, 100);
+        }
+      };
+      session.emitter.on("event", terminalHandler);
+
+      stream.onAbort(() => {
+        session.emitter.off("event", terminalHandler);
+        done();
+      });
+    });
+  });
+});
+
+// Serve raw file content from a running audit's package
+app.get("/audit/:id/file/*", (c) => {
+  const auditId = c.req.param("id");
+  const session = getSession(auditId);
+  if (!session) {
+    return c.json({ error: "Audit session not found" }, 404);
+  }
+  if (!session.packagePath) {
+    return c.json({ error: "Package not yet resolved" }, 404);
+  }
+
+  const filePath = c.req.path.replace(`/audit/${auditId}/file/`, "");
+  const absPath = path.join(session.packagePath, filePath);
+
+  // Security: ensure path stays within package directory
+  const resolved = path.resolve(absPath);
+  if (!resolved.startsWith(path.resolve(session.packagePath))) {
+    return c.json({ error: "Path traversal denied" }, 403);
+  }
+
+  try {
+    const content = fs.readFileSync(resolved, "utf-8");
+    return c.text(content);
+  } catch {
+    return c.json({ error: "File not found" }, 404);
+  }
+});
+
+// Get final report for a completed audit
+app.get("/audit/:id/report", (c) => {
+  const auditId = c.req.param("id");
+  const session = getSession(auditId);
+  if (!session) {
+    return c.json({ error: "Audit session not found" }, 404);
+  }
+  if (session.status === "running") {
+    return c.json({ status: "running" }, 202);
+  }
+  if (session.report) {
+    return c.json(session.report);
+  }
+  return c.json({ error: "Audit failed" }, 500);
 });
 
 app.get("/health", (c) => c.json({ status: "ok" }));

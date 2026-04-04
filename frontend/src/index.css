@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0d1117;
+  --color-bg-secondary: #161b22;
+  --color-bg-tertiary: #010409;
+  --color-border: #30363d;
+  --color-text: #e6edf3;
+  --color-text-dim: #8b949e;
+  --color-safe: #3fb950;
+  --color-danger: #f85149;
+  --color-investigating: #58a6ff;
+  --color-suspected: #d29922;
+  --color-pending: #484f58;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, Consolas, monospace;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+/* Pulsing animation for investigating state */
+@keyframes pulse-blue {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.animate-pulse-blue {
+  animation: pulse-blue 1.5s ease-in-out infinite;
+}
+
+/* Verdict banner glow */
+@keyframes glow-red {
+  0%, 100% { box-shadow: 0 0 20px rgba(248, 81, 73, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(248, 81, 73, 0.6); }
+}
+@keyframes glow-green {
+  0%, 100% { box-shadow: 0 0 20px rgba(63, 185, 80, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(63, 185, 80, 0.6); }
+}
+.glow-danger { animation: glow-red 2s ease-in-out infinite; }
+.glow-safe { animation: glow-green 2s ease-in-out infinite; }
+
+/* Slide-in animation */
+@keyframes slide-down {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.animate-slide-down {
+  animation: slide-down 0.5s ease-out;
+}

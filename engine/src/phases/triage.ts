@@ -5,6 +5,7 @@ import { config, SOURCE_FILE_TYPES } from "../config.js";
 import { getModel } from "../llm.js";
 import { FileVerdict, TriageResult, type InventoryReport } from "../models.js";
 import { z } from "zod";
+import type { EmitFn } from "../events.js";
 
 const MAX_FILE_SIZE = 500_000; // 500KB — files larger than this skip LLM
 
@@ -113,6 +114,7 @@ async function analyzeFile(
   packagePath: string,
   filePath: string,
   fileFlags: string[],
+  emit?: EmitFn,
 ): Promise<FileVerdict> {
   const absPath = path.join(packagePath, filePath);
   let contents: string;
@@ -153,6 +155,8 @@ async function analyzeFile(
     };
   }
 
+  emit?.("file_analyzing", { file: filePath });
+
   const model = getModel(config.triageModel);
   const result = await generateObject({
     model,
@@ -163,6 +167,7 @@ async function analyzeFile(
 
   const verdict = { ...result.object, file: filePath };
   console.log(`[triage:map] ${filePath} → risk=${verdict.riskContribution}/10 caps=[${verdict.capabilities.join(", ")}] suspicious=[${verdict.suspiciousPatterns.join("; ")}]`);
+  emit?.("file_verdict", { verdict });
   return verdict;
 }
 
@@ -196,6 +201,7 @@ export interface TriagePhaseOutput {
 export async function runTriage(
   packagePath: string,
   inventory: InventoryReport,
+  emit?: EmitFn,
 ): Promise<TriagePhaseOutput> {
   const sourceFiles = inventory.files.filter(
     (f) => SOURCE_FILE_TYPES.has(f.fileType) && !f.isBinary,
@@ -218,7 +224,7 @@ export async function runTriage(
   // MAP: analyze each file in parallel
   const fileVerdicts = await Promise.all(
     sourceFiles.map((f) =>
-      analyzeFile(packagePath, f.path, flagsByFile.get(f.path) ?? []),
+      analyzeFile(packagePath, f.path, flagsByFile.get(f.path) ?? [], emit),
     ),
   );
 

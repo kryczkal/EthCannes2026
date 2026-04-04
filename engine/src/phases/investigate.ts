@@ -3,6 +3,7 @@ import { CapabilityEnum, type FileVerdict, type Finding, type InvestigationInput
 import { DockerSandboxController } from "../sandbox/controller.js";
 import { runInvestigationAgent } from "../investigation/agent.js";
 import { LIFECYCLE_SCRIPTS } from "../inventory/parse-manifest.js";
+import type { EmitFn } from "../events.js";
 
 export interface InvestigationResult {
   capabilities: CapabilityEnum[];
@@ -17,6 +18,7 @@ export async function investigate(
   inventory: InventoryReport,
   triage: TriageResult,
   fileVerdicts: FileVerdict[],
+  emit?: EmitFn,
 ): Promise<InvestigationResult> {
   if (!config.investigationEnabled) {
     console.log("[investigate] skipped — investigation disabled");
@@ -58,7 +60,12 @@ export async function investigate(
   try {
     await sandbox.start(packagePath);
 
-    const output = await runInvestigationAgent(input, sandbox, lifecycleHooks);
+    const output = await runInvestigationAgent(input, sandbox, lifecycleHooks, emit);
+
+    // Emit findings for frontend visualization
+    for (const finding of output.findings) {
+      emit?.("finding_discovered", { finding });
+    }
 
     // Convert findings to proofs
     const capabilities = new Set<CapabilityEnum>();
