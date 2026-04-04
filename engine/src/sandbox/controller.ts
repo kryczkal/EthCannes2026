@@ -54,8 +54,19 @@ function dockerExec(args: string[], timeoutMs: number): Promise<{ stdout: string
       encoding: "utf-8",
     }, (error, stdout, stderr) => {
       const timedOut = error?.killed === true;
-      const exitCode = timedOut ? -1 : (error ? (error as NodeJS.ErrnoException & { code?: number | string }).code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER" ? -1 : (child.exitCode ?? 1) : 0);
-      resolve({ stdout: stdout ?? "", stderr: stderr ?? "", exitCode: typeof exitCode === "number" ? exitCode : 1, timedOut });
+
+      let exitCode: number;
+      if (timedOut) {
+        exitCode = -1;
+      } else if (!error) {
+        exitCode = 0;
+      } else if ((error as NodeJS.ErrnoException).code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
+        exitCode = -1;
+      } else {
+        exitCode = child.exitCode ?? 1;
+      }
+
+      resolve({ stdout: stdout ?? "", stderr: stderr ?? "", exitCode, timedOut });
     });
   });
 }

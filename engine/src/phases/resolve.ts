@@ -4,7 +4,13 @@ import * as path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import * as tar from "tar";
+import { z } from "zod";
 import type { ResolvedPackage } from "../models.js";
+
+const NpmVersionResponse = z.object({
+  version: z.string(),
+  dist: z.object({ tarball: z.string().url() }),
+});
 
 const NPM_REGISTRY = "https://registry.npmjs.org";
 
@@ -58,7 +64,7 @@ async function resolveTarballUrl(
 
   const resp = await fetch(url, { signal: AbortSignal.timeout(30_000) });
   if (!resp.ok) throw new Error(`npm registry returned ${resp.status} for ${url}`);
-  const data = (await resp.json()) as { version: string; dist: { tarball: string } };
+  const data = NpmVersionResponse.parse(await resp.json());
   return { resolvedVersion: data.version, tarballUrl: data.dist.tarball };
 }
 
@@ -67,7 +73,8 @@ async function downloadFile(url: string, dest: string): Promise<void> {
   if (!resp.ok) throw new Error(`Download failed: ${resp.status} for ${url}`);
   const body = resp.body;
   if (!body) throw new Error("No response body");
-  await pipeline(Readable.fromWeb(body as never), fs.createWriteStream(dest));
+  // ReadableStream type mismatch between DOM and Node.js stream/web — safe to cast
+  await pipeline(Readable.fromWeb(body as import("node:stream/web").ReadableStream), fs.createWriteStream(dest));
 }
 
 async function extractTarball(tgzPath: string, tmpdir: string): Promise<string> {

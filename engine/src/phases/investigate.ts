@@ -1,17 +1,23 @@
 import { config } from "../config.js";
-import type { CapabilityEnum, InvestigationInput, InventoryReport, Proof, TriageResult } from "../models.js";
+import { CapabilityEnum, type Finding, type InvestigationInput, type InventoryReport, type Proof, type TriageResult } from "../models.js";
 import { DockerSandboxController } from "../sandbox/controller.js";
 import { runInvestigationAgent } from "../investigation/agent.js";
 import { LIFECYCLE_SCRIPTS } from "../inventory/parse-manifest.js";
+
+export interface InvestigationResult {
+  capabilities: CapabilityEnum[];
+  proofs: Proof[];
+  findings: Finding[];
+}
 
 export async function investigate(
   packagePath: string,
   inventory: InventoryReport,
   triage: TriageResult,
-): Promise<{ capabilities: CapabilityEnum[]; proofs: Proof[] }> {
+): Promise<InvestigationResult> {
   if (!config.investigationEnabled) {
     console.log("[investigate] skipped — investigation disabled");
-    return { capabilities: [], proofs: [] };
+    return { capabilities: [], proofs: [], findings: [] };
   }
 
   // Build investigation input
@@ -48,8 +54,9 @@ export async function investigate(
     const proofs: Proof[] = [];
 
     for (const finding of output.findings) {
-      const cap = finding.capability as CapabilityEnum;
-      capabilities.add(cap);
+      const capParsed = CapabilityEnum.safeParse(finding.capability);
+      const cap = capParsed.success ? capParsed.data : null;
+      if (cap) capabilities.add(cap);
 
       proofs.push({
         capability: cap,
@@ -69,7 +76,7 @@ export async function investigate(
       });
     }
 
-    return { capabilities: [...capabilities], proofs };
+    return { capabilities: [...capabilities], proofs, findings: output.findings };
   } finally {
     await sandbox.stop();
   }

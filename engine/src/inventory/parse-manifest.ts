@@ -58,8 +58,9 @@ export function parsePackageJson(
 
   const installEntries: string[] = [];
   for (const hook of LIFECYCLE_SCRIPTS) {
-    if (hook in scripts) {
-      const ref = extractScriptFileRef(scripts[hook]);
+    const scriptValue = scripts[hook];
+    if (scriptValue) {
+      const ref = extractScriptFileRef(scriptValue);
       if (ref) installEntries.push(ref);
     }
   }

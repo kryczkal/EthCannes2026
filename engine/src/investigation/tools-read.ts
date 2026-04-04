@@ -1,10 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { SKIP_DIRS } from "../config.js";
 
 const MAX_FILE_READ = 100_000; // 100 KB
 const MAX_SEARCH_RESULTS = 50;
 const CONTEXT_LINES = 3;
-const SKIP_DIRS = new Set(["node_modules", ".git", ".svn"]);
 const TEXT_EXTS = new Set([".js", ".mjs", ".cjs", ".ts", ".mts", ".json", ".md", ".txt", ".yml", ".yaml"]);
 
 function safePath(packagePath: string, relPath: string): string | null {
@@ -93,7 +93,7 @@ export function searchFilesImpl(packagePath: string, pattern: string): string {
 
       const rel = path.relative(packagePath, abs);
       for (let i = 0; i < lines.length; i++) {
-        if (regex.test(lines[i])) {
+        if (regex.test(lines[i] ?? "")) {
           const start = Math.max(0, i - CONTEXT_LINES);
           const end = Math.min(lines.length, i + CONTEXT_LINES + 1);
           const snippet = lines

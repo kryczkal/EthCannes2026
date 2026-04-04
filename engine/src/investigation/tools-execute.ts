@@ -24,10 +24,9 @@ async function writeInstrumentation(sandbox: DockerSandboxController): Promise<s
   return null;
 }
 
-function appendDiagnostics(output: string, result: { timed_out?: boolean; timedOut?: boolean; stderr?: string }, timeoutMsg: string): string {
+function appendDiagnostics(output: string, result: { timedOut: boolean; stderr: string }, timeoutMsg: string): string {
   let out = output;
-  const timedOut = result.timedOut ?? result.timed_out;
-  if (timedOut) out += `\n[TIMEOUT — ${timeoutMsg}]`;
+  if (result.timedOut) out += `\n[TIMEOUT — ${timeoutMsg}]`;
   if (result.stderr) out += `\nSTDERR: ${result.stderr.slice(0, 2000)}`;
   return out;
 }
@@ -61,11 +60,11 @@ export async function runLifecycleHookImpl(
   if (!ALLOWED_HOOKS.has(hookName)) {
     return `ERROR: hook '${hookName}' not in allowlist: ${[...ALLOWED_HOOKS].sort().join(", ")}`;
   }
-  if (!(hookName in scripts)) {
+  const scriptCmd = scripts[hookName];
+  if (!scriptCmd) {
     return `ERROR: no '${hookName}' script defined in package.json`;
   }
 
-  const scriptCmd = scripts[hookName];
   const err = await writeInstrumentation(sandbox);
   if (err) return err;
 

@@ -1,5 +1,5 @@
 import { config } from "./config.js";
-import type { AuditReport } from "./models.js";
+import { Proof, type AuditReport } from "./models.js";
 import { resolvePackage, cleanupPackage } from "./phases/resolve.js";
 import { analyzeInventory } from "./phases/inventory.js";
 import { runTriage } from "./phases/triage.js";
@@ -43,22 +43,14 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
       return {
         verdict: "DANGEROUS",
         capabilities: [],
-        proofs: [{
-          capability: null,
-          attackPathway: "",
+        proofs: [Proof.parse({
           confidence: "CONFIRMED",
           fileLine: "",
           problem: inventory.dealbreaker.detail,
           evidence: `Dealbreaker: ${inventory.dealbreaker.check}`,
           kind: "STRUCTURAL",
-          contentHash: null,
           reproducible: true,
-          reproductionCmd: null,
-          testFile: null,
-          testHash: null,
-          reasoningHash: null,
-          teeAttestationId: null,
-        }],
+        })],
         triage: null,
         findings: [],
       };
@@ -111,7 +103,7 @@ export async function runAudit(packageName: string): Promise<AuditReport> {
       capabilities: investigationResult.capabilities,
       proofs: verifiedProofs,
       triage,
-      findings: [],
+      findings: investigationResult.findings,
     };
   } finally {
     cleanupPackage(resolved);

@@ -60,14 +60,12 @@ function loadConfig() {
 
   const result = ConfigSchema.safeParse(cleaned);
   if (!result.success) {
-    console.error("Invalid configuration:", result.error.format());
-    process.exit(1);
+    throw new Error(`Invalid configuration:\n${JSON.stringify(result.error.format(), null, 2)}`);
   }
 
   // Validate: openai_compatible requires base URL
   if (result.data.llmBackend === "openai_compatible" && !result.data.llmBaseUrl) {
-    console.error("NPMGUARD_LLM_BASE_URL is required when NPMGUARD_LLM_BACKEND=openai_compatible");
-    process.exit(1);
+    throw new Error("NPMGUARD_LLM_BASE_URL is required when NPMGUARD_LLM_BACKEND=openai_compatible");
   }
 
   return result.data;

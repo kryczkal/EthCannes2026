@@ -1,10 +1,11 @@
-import type { CapabilityEnum, Proof } from "../models.js";
+import type { Proof } from "../models.js";
+import type { InvestigationResult } from "./investigate.js";
 
 /** Phase 1c: Auto-generate tests from findings. STUB — returns proofs unchanged. */
 export async function generateTests(
-  findings: { capabilities: CapabilityEnum[]; proofs: Proof[] },
+  investigation: InvestigationResult,
   _packagePath: string,
 ): Promise<Proof[]> {
-  console.log(`[STUB] test-gen: ${findings.proofs.length} proofs, no tests generated`);
-  return findings.proofs;
+  console.log(`[STUB] test-gen: ${investigation.proofs.length} proofs, no tests generated`);
+  return investigation.proofs;
 }

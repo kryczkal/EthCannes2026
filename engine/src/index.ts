@@ -11,7 +11,13 @@ const AuditRequest = z.object({
 });
 
 app.post("/audit", async (c) => {
-  const body = await c.req.json();
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
+
   const parsed = AuditRequest.safeParse(body);
   if (!parsed.success) {
     return c.json({ error: "Invalid request", details: parsed.error.format() }, 400);
@@ -22,7 +28,8 @@ app.post("/audit", async (c) => {
     return c.json(report);
   } catch (err) {
     console.error("[api] audit failed:", err);
-    return c.json({ error: "Audit failed", message: String(err) }, 500);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return c.json({ error: "Audit failed", message }, 500);
   }
 });
 
