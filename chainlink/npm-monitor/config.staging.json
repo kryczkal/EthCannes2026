@@ -1,5 +1,5 @@
 {
   "packages": ["axios", "lodash", "express", "chalk"],
-  "auditApiUrl": "https://a50c-83-144-21-99.ngrok-free.app/audit",
+  "auditApiUrl": "https://79d2-83-144-21-99.ngrok-free.app/audit",
   "schedule": "0 */5 * * * *"
 }
