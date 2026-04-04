@@ -75,4 +75,55 @@ Settings are loaded from environment variables with the `NPMGUARD_` prefix (or a
 | `NPMGUARD_SANDBOX_NETWORK` | `none` | Sandbox network mode |
 | `NPMGUARD_CRE_API_KEY` | _(unset)_ | API key for Chainlink CRE (bypasses payment) |
 | `NPMGUARD_CONTRACT_ADDRESS` | _(unset)_ | NpmGuardAuditRequest contract address |
-| `NPMGUARD_BASE_SEPOLIA_RPC_URL` | `https://sepolia.base.org` | Base Sepolia RPC endpoint |
+| `NPMGUARD_OG_RPC_URL` | `https://evmrpc-testnet.0g.ai` | 0G Galileo Testnet RPC endpoint |
+
+## Deploy to DigitalOcean
+
+### 1. Create a Droplet
+
+- Image: **Docker on Ubuntu** (Marketplace)
+- Size: **$16/mo** (2GB / 1 CPU) or higher
+- Region: **Amsterdam**
+- Auth: Password or SSH key
+
+### 2. Setup
+
+```bash
+ssh root@<DROPLET_IP>
+git clone https://github.com/kryczkal/EthCannes2026.git
+cd EthCannes2026/engine
+bash setup-droplet.sh
+```
+
+### 3. Configure
+
+```bash
+nano .env
+# Set ANTHROPIC_API_KEY=sk-ant-...
+```
+
+### 4. Run
+
+```bash
+npx tsx src/index.ts
+```
+
+### 5. Verify
+
+```bash
+curl http://<DROPLET_IP>:8000/health
+# {"status":"ok"}
+```
+
+If the port is blocked:
+```bash
+ufw allow 8000
+```
+
+### Production (keep running after SSH disconnect)
+
+```bash
+nohup npx tsx src/index.ts > engine.log 2>&1 &
+```
+
+Check logs: `tail -f engine.log`
