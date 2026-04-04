@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { DockerSandbox } from './docker.js';
 import { readOpenClawEnv } from './env.js';
 import { buildConversation, buildTurnPrompt } from './prompt.js';
@@ -37,9 +39,11 @@ async function executeToolStep(runtime: OpenClawToolRuntime, step: Extract<ToolL
 
 export async function runOpenClawVerifier(input: VerificationInput) {
   const env = readOpenClawEnv();
+  const sessionId = env.sessionId ?? randomUUID();
   const client = new OpenClawClient({
     command: env.command,
     args: env.args,
+    sessionId,
   });
 
   const sandbox = new DockerSandbox(input.package_dir);

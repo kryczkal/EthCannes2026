@@ -76,6 +76,7 @@ npmguard.eth
 | `cli/` | `npmguard-cli` — check packages against ENS audits |
 | `contracts/` | ENS registry management scripts |
 | `sandbox/` | Dynamic exploitation harness |
+| `openclaw/` | OpenClaw-based verifier prototype and Dockerized reasoning runtime |
 | `npmguard/` | ENS/IPFS demo publisher, demo packages, `sginstall` |
 | `docs/` | Architecture docs, research notes, production guides |
 | `artifacts/` | Cached tarballs, reports, npm-cache |

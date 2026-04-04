@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 export interface OpenClawClientOptions {
   command: string;
   args: string[];
+  sessionId?: string;
 }
 
 function getPayloadText(value: unknown): string | null {
@@ -56,7 +57,13 @@ export class OpenClawClient {
 
   async complete(prompt: string): Promise<string> {
     return await new Promise((resolve, reject) => {
-      const child = spawn(this.options.command, ['agent', ...this.options.args, '--message', prompt], {
+      const commandArgs = ['agent', ...this.options.args];
+      if (this.options.sessionId) {
+        commandArgs.push('--session-id', this.options.sessionId);
+      }
+      commandArgs.push('--message', prompt);
+
+      const child = spawn(this.options.command, commandArgs, {
         stdio: ['ignore', 'pipe', 'pipe'],
       });
 
