@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 
-import { loadVerificationInput, writeVerificationOutput } from '../../verifier-core/src/index.js';
+import { loadVerificationInput, writeVerificationOutput } from './io.js';
 import { runOpenClawVerifier } from './verifier.js';
 
 const program = new Command();

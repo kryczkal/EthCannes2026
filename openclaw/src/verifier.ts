@@ -1,34 +1,32 @@
-import {
-  buildInitialConversation,
-  buildOpenClawTurnPrompt,
-  CandidateResult,
-  DockerSandbox,
-  extractJsonObject,
-  ToolLoopResponse,
-  toolLoopResponseSchema,
-  type VerificationInput,
-  verificationOutputSchema,
-  VerifierToolRuntime,
-} from '../../verifier-core/src/index.js';
+import { DockerSandbox } from './docker.js';
 import { readOpenClawEnv } from './env.js';
+import { buildConversation, buildTurnPrompt } from './prompt.js';
+import {
+  type ToolLoopResponse,
+  type VerificationInput,
+  toolLoopResponseSchema,
+  verificationOutputSchema,
+} from './schemas.js';
+import { extractJsonObject } from './text.js';
+import { OpenClawToolRuntime } from './tools.js';
 import { OpenClawClient } from './openclaw-client.js';
 
-async function executeToolStep(runtime: VerifierToolRuntime, step: Extract<ToolLoopResponse, { type: 'tool_call' }>): Promise<string> {
+async function executeToolStep(runtime: OpenClawToolRuntime, step: Extract<ToolLoopResponse, { type: 'tool_call' }>): Promise<string> {
   switch (step.tool) {
     case 'list_files':
-      return await runtime.list_files();
+      return await runtime.listFiles();
     case 'read_file':
-      return await runtime.read_file(String(step.input.filePath));
+      return await runtime.readFile(String(step.input.filePath));
     case 'search_in_files':
-      return await runtime.search_in_files(String(step.input.pattern));
+      return await runtime.searchInFiles(String(step.input.pattern));
     case 'eval_js':
-      return await runtime.eval_js(String(step.input.code));
+      return await runtime.evalJs(String(step.input.code));
     case 'require_and_trace':
-      return await runtime.require_and_trace(String(step.input.entrypointOrFile));
+      return await runtime.requireAndTrace(String(step.input.entrypointOrFile));
     case 'run_npm_script':
-      return await runtime.run_npm_script(String(step.input.scriptName));
+      return await runtime.runNpmScript(String(step.input.scriptName));
     case 'fast_forward_timers':
-      return await runtime.fast_forward_timers(
+      return await runtime.fastForwardTimers(
         String(step.input.entrypointOrFile),
         Number(step.input.advanceMs ?? 0),
       );
@@ -44,22 +42,17 @@ export async function runOpenClawVerifier(input: VerificationInput) {
     args: env.args,
   });
 
-  const sandbox = new DockerSandbox({
-    packageDir: input.package_dir,
-  });
+  const sandbox = new DockerSandbox(input.package_dir);
 
   await sandbox.start();
 
   try {
-    const runtime = new VerifierToolRuntime({
-      input,
-      sandbox,
-    });
+    const runtime = new OpenClawToolRuntime(input, sandbox);
 
-    const conversation: Array<{ role: 'system' | 'user' | 'tool'; content: string }> = buildInitialConversation(input);
+    const conversation: Array<{ role: 'system' | 'user' | 'tool'; content: string }> = buildConversation(input);
 
     for (let turn = 0; turn < env.maxTurns; turn += 1) {
-      const prompt = buildOpenClawTurnPrompt(input, conversation);
+      const prompt = buildTurnPrompt(input, conversation);
       const raw = await client.complete(prompt);
       const step = toolLoopResponseSchema.parse(JSON.parse(extractJsonObject(raw))) as ToolLoopResponse;
 
@@ -71,14 +64,12 @@ export async function runOpenClawVerifier(input: VerificationInput) {
           results: step.results,
         });
 
-        const results: CandidateResult[] = parsed.results.map((entry) => ({
-          ...entry,
-          tool_trace: entry.tool_trace.length > 0 ? entry.tool_trace : runtime.snapshotTrace(),
-        }));
-
         return {
           ...parsed,
-          results,
+          results: parsed.results.map((entry) => ({
+            ...entry,
+            tool_trace: entry.tool_trace.length > 0 ? entry.tool_trace : [...runtime.toolTrace],
+          })),
         };
       }
 
