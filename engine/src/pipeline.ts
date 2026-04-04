@@ -102,6 +102,19 @@ export async function runAudit(packageName: string, emit?: EmitFn, auditId?: str
     // Emit file list for frontend visualization
     emit?.("file_list", { files: inventory.files });
 
+    // Scale phase timeouts by file count: base timeout for ≤20 files,
+    // +50% per 20 extra files, clamped at 4× base.
+    const sourceFileCount = inventory.files.filter(
+      (f) => SOURCE_FILE_TYPES.has(f.fileType) && !f.isBinary,
+    ).length;
+    const timeoutScale = Math.min(
+      4,
+      1 + Math.max(0, sourceFileCount - 20) * 0.025,
+    );
+    console.log(
+      `[pipeline] ${sourceFileCount} source files → timeout scale ${timeoutScale.toFixed(2)}×`,
+    );
+
     // Dealbreaker -> immediate DANGEROUS
     if (inventory.dealbreaker) {
       const report: AuditReport = {
@@ -127,7 +140,7 @@ export async function runAudit(packageName: string, emit?: EmitFn, auditId?: str
     const { result: triageOutput, log: triageLog } = await timedPhase(
       "triage",
       () => runTriage(resolved.path, inventory, emit),
-      2 * 60_000,
+      2 * 60_000 * timeoutScale,
       {
         sourceFiles: inventory.files
           .filter((f) => SOURCE_FILE_TYPES.has(f.fileType) && !f.isBinary)
@@ -172,7 +185,7 @@ export async function runAudit(packageName: string, emit?: EmitFn, auditId?: str
     const { result: investigationResult, log: investigateLog } = await timedPhase(
       "investigation",
       () => investigate(resolved.path, inventory, triage, triageOutput.fileVerdicts, emit),
-      5 * 60_000,
+      5 * 60_000 * timeoutScale,
       {
         riskScore: triage.riskScore,
         focusAreas: triage.focusAreas,
@@ -207,7 +220,7 @@ export async function runAudit(packageName: string, emit?: EmitFn, auditId?: str
     const { result: proofs, log: testGenLog } = await timedPhase(
       "test-gen",
       () => generateTests(investigationResult, resolved.path),
-      5 * 60_000,
+      5 * 60_000 * timeoutScale,
       { proofCount: investigationResult.proofs.length, findingCount: investigationResult.findings.length },
       (p) => ({
         proofCount: p.length,
@@ -221,7 +234,7 @@ export async function runAudit(packageName: string, emit?: EmitFn, auditId?: str
     const { result: verifiedProofs, log: verifyLog } = await timedPhase(
       "verify",
       () => verifyProofs(proofs, resolved.path),
-      5 * 60_000,
+      5 * 60_000 * timeoutScale,
       { proofCount: proofs.length, withTests: proofs.filter((x) => x.testFile).length },
       (p) => ({
         verifiedCount: p.length,
