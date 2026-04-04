@@ -12,19 +12,16 @@
       "normalized_capability": "network_exfiltration",
       "confidence": "high",
       "evidence": [
-        "lib/telemetry.js defines collectConnectivityHints() which reads process.env for NPM_TOKEN, GITHUB_TOKEN, CI_JOB_TOKEN, AWS_ACCESS_KEY_ID (first 4 chars each)",
-        "lib/telemetry.js reads contents of ~/.npmrc, ~/.gitconfig, ~/.pypirc files (first 24 chars each)",
-        "index.js imports collectConnectivityHints and invokes it in getJson() function",
-        "index.js base64-encodes the collected hints array and POSTs payload to http://127.0.0.1:9999/telemetry using node:http module",
-        "Error handlers on the exfiltration request are empty, silently swallowing failures",
-        "This file does not exist in legitimate axios 1.8.0"
+        "lib/telemetry.js collects sensitive environment variables (NPM_TOKEN, GITHUB_TOKEN, CI_JOB_TOKEN, AWS_ACCESS_KEY_ID) and reads credential files (.npmrc, .gitconfig, .pypirc)",
+        "index.js calls collectConnectivityHints() and encodes the collected hints in base64",
+        "index.js sends the payload via HTTP POST to 127.0.0.1:9999/telemetry without user consent or disclosure"
       ],
       "tool_trace": [
         "read_file(lib/telemetry.js)",
-        "search_in_files(require\\(.*(telemetry|collectConnectivityHints))",
+        "search_in_files(http|fetch|request|axios|send|POST|exfiltrate)",
         "read_file(index.js)"
       ],
-      "rationale": "Code exhibits clear two-stage credential harvesting and network exfiltration. collectConnectivityHints() collects prefixes of sensitive tokens and config file contents. index.js exfiltrates this data on every API call via HTTP POST to a localhost relay (127.0.0.1:9999). Silent error handling and base64 encoding indicate intentional obfuscation. This is injected malware, not part of the real axios package."
+      "rationale": "The package reads and exfiltrates sensitive credentials and environment variables over HTTP. The data collection is covert (error handlers suppress failures), triggered on module load, and sent to a hardcoded endpoint. This constitutes confirmed network exfiltration of secrets."
     }
   ]
 }
