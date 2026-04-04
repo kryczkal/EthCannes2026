@@ -1,18 +1,28 @@
-import { createPublicClient, http } from "viem";
+import { createPublicClient, http, type PublicClient } from "viem";
 import { sepolia } from "viem/chains";
 import type { AuditSource, AuditResult } from "./audit-source.js";
 
-const client = createPublicClient({
-  chain: sepolia,
-  transport: http("https://ethereum-sepolia-rpc.publicnode.com"),
-});
+const RPC_URLS = process.env.SEPOLIA_RPC_URL
+  ? [process.env.SEPOLIA_RPC_URL]
+  : [
+      "https://ethereum-sepolia-rpc.publicnode.com",
+      "https://rpc.sepolia.org",
+      "https://sepolia.drpc.org",
+    ];
+
+function makeClient(url: string): PublicClient {
+  return createPublicClient({ chain: sepolia, transport: http(url) }) as PublicClient;
+}
 
 async function getText(ensName: string, key: string): Promise<string | null> {
-  try {
-    return await client.getEnsText({ name: ensName, key });
-  } catch {
-    return null;
+  for (const url of RPC_URLS) {
+    try {
+      return await makeClient(url).getEnsText({ name: ensName, key });
+    } catch {
+      continue;
+    }
   }
+  return null;
 }
 
 export class ENSAuditSource implements AuditSource {

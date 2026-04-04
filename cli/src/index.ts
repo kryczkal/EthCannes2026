@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import "dotenv/config";
 import { Command } from "commander";
 import { resolve } from "node:path";
 import { ENSAuditSource } from "./ens-source.js";
