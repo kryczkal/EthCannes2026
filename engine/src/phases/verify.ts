@@ -228,19 +228,26 @@ export async function verifyProofs(
     //    - tmpfs without noexec (need to run vitest binaries)
     //    - More memory for node_modules
     //    - network=none still (MSW intercepts in-process)
-    console.log(`[verify] starting container ${containerName}`);
+    // Use npmguard-verify image (vitest+msw pre-installed), fall back to base image.
+    // Network=bridge needed only if falling back to npm install.
+    const verifyImage = "npmguard-verify";
+    const hasVerifyImage = (await dockerExec(["image", "inspect", verifyImage], 5000)).exitCode === 0;
+    const image = hasVerifyImage ? verifyImage : config.sandboxImage;
+    const network = hasVerifyImage ? "none" : "bridge"; // pre-built image doesn't need network
+
+    console.log(`[verify] starting container ${containerName} (image=${image})`);
     const startResult = await dockerExec([
       "run", "-d",
       "--name", containerName,
-      `--network=${config.sandboxNetwork}`,
+      `--network=${network}`,
       "--cap-drop=ALL",
       `--memory=${config.sandboxMemoryMb}m`,
       `--cpus=${config.sandboxCpus}`,
-      "--user", "0:0",  // root to allow npm install
+      "--user", "0:0",
       "--pids-limit", "128",
       "-v", `${workDir}:/workspace`,
       "-w", "/workspace",
-      config.sandboxImage,
+      image,
       "sleep", "infinity",
     ], 30_000);
 
@@ -251,38 +258,50 @@ export async function verifyProofs(
     console.log(`[verify] container started`);
 
     try {
-      // 3. Install vitest + msw
-      console.log("[verify] installing vitest and msw...");
-      const installResult = await dockerExec(
-        ["exec", containerName, "sh", "-c", "cd /workspace && npm init -y > /dev/null 2>&1 && npm install --no-save vitest msw 2>&1 | tail -5"],
-        timeoutMs,
-      );
-      if (installResult.exitCode !== 0) {
-        console.error(`[verify] npm install failed (exit=${installResult.exitCode}):`);
-        console.error(installResult.stderr.slice(0, 500));
-        console.error(installResult.stdout.slice(0, 500));
-        return proofs.map((proof) =>
-          proof.testFile ? { ...proof, kind: "TEST_UNCONFIRMED" as const } : proof,
+      // 3. Install vitest + msw (skip if using pre-built image)
+      if (!hasVerifyImage) {
+        console.log("[verify] installing vitest and msw (no pre-built image)...");
+        const installResult = await dockerExec(
+          ["exec", containerName, "sh", "-c", "cd /workspace && npm init -y > /dev/null 2>&1 && npm install --no-save vitest msw 2>&1 | tail -5"],
+          timeoutMs,
         );
+        if (installResult.exitCode !== 0) {
+          console.error(`[verify] npm install failed (exit=${installResult.exitCode}):`);
+          console.error(installResult.stderr.slice(0, 500));
+          return proofs.map((proof) =>
+            proof.testFile ? { ...proof, kind: "TEST_UNCONFIRMED" as const } : proof,
+          );
+        }
       }
-      console.log("[verify] dependencies installed");
+      console.log("[verify] dependencies ready");
 
-      // 4. Run vitest
+      // 4. Run vitest — write JSON results to a file, then read it back
       console.log("[verify] running vitest...");
       const vitestResult = await dockerExec(
-        ["exec", containerName, "sh", "-c", "cd /workspace && npx vitest run --reporter=json 2>/dev/null || true"],
+        ["exec", containerName, "sh", "-c",
+          "cd /workspace && npx vitest run --reporter=json --outputFile.json=/workspace/vitest-results.json 2>&1; echo VITEST_EXIT=$?"],
         timeoutMs,
       );
 
       console.log(`[verify] vitest exited with code ${vitestResult.exitCode}`);
+      // Log vitest output for debugging
+      if (vitestResult.stdout) {
+        console.log(`[verify] vitest stdout: ${vitestResult.stdout.slice(0, 800)}`);
+      }
 
-      // 5. Parse results
-      const parsed = parseVitestOutput(vitestResult.stdout);
+      // 5. Read results from the output file (host-mounted workspace)
+      let parsed: VitestResult | null = null;
+      const resultsPath = join(workDir, "vitest-results.json");
+      try {
+        const resultsJson = readFileSync(resultsPath, "utf-8");
+        parsed = JSON.parse(resultsJson) as VitestResult;
+      } catch {
+        // Fallback: try parsing from stdout
+        parsed = parseVitestOutput(vitestResult.stdout);
+      }
 
       if (!parsed?.testResults) {
-        console.log("[verify] could not parse vitest output, marking all as TEST_UNCONFIRMED");
-        console.log(`[verify] stdout preview: ${vitestResult.stdout.slice(0, 500)}`);
-        console.log(`[verify] stderr preview: ${vitestResult.stderr.slice(0, 500)}`);
+        console.log("[verify] could not parse vitest results, marking all as TEST_UNCONFIRMED");
         return proofs.map((proof) =>
           proof.testFile ? { ...proof, kind: "TEST_UNCONFIRMED" as const } : proof,
         );

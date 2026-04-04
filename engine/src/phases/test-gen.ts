@@ -140,19 +140,15 @@ export async function generateTests(
 
   console.log(`[test-gen] generating tests for ${selectedFindings.length}/${investigation.findings.length} findings (deduplicated by capability)`);
 
-  // Generate tests SEQUENTIALLY to avoid rate limiting
-  const testResults: Array<{ index: number; finding: Finding; testCode: string | null }> = [];
-  for (let j = 0; j < selectedFindings.length; j++) {
-    const { index: i, finding } = selectedFindings[j]!;
-    console.log(`[test-gen] generating test ${j + 1}/${selectedFindings.length}: ${finding.capability} @ ${finding.fileLine}`);
-    const testCode = await generateTestDirect(finding, packageName, packageSource);
-    testResults.push({ index: i, finding, testCode });
-
-    // Delay between LLM calls to respect rate limits (important for Gemini free tier)
-    if (j < selectedFindings.length - 1) {
-      await sleep(5000);
-    }
-  }
+  // Staggered parallel: launch one request per second, run concurrently
+  const testResultPromises = selectedFindings.map(({ index: i, finding }, j) =>
+    sleep(j * 1000).then(async () => {
+      console.log(`[test-gen] generating test ${j + 1}/${selectedFindings.length}: ${finding.capability} @ ${finding.fileLine}`);
+      const testCode = await generateTestDirect(finding, packageName, packageSource);
+      return { index: i, finding, testCode };
+    }),
+  );
+  const testResults = await Promise.all(testResultPromises);
 
   // Write test files and update proofs
   const updatedProofs = investigation.proofs.map((proof, i) => {

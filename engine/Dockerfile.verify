@@ -1,0 +1,3 @@
+FROM node:22-slim
+WORKDIR /workspace
+RUN npm init -y > /dev/null 2>&1 && npm install --no-save vitest msw && rm -rf /root/.npm
