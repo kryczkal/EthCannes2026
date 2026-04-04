@@ -1,6 +1,6 @@
 # openclaw verifier
 
-Prototype vulnerability verifier that uses the OpenClaw CLI as the reasoning runtime and `verifier-core` for Docker/tool execution.
+Prototype vulnerability verifier that uses the OpenClaw CLI as the reasoning runtime and owns its Docker/tool execution stack locally.
 
 ## Env
 
