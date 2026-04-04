@@ -54,6 +54,7 @@ export async function runOpenClawVerifier(input: VerificationInput) {
     for (let turn = 0; turn < env.maxTurns; turn += 1) {
       const prompt = buildTurnPrompt(input, conversation);
       const raw = await client.complete(prompt);
+      process.stderr.write(`\n[openclaw raw turn ${turn + 1}]\n${raw}\n\n`);
       const step = toolLoopResponseSchema.parse(JSON.parse(extractJsonObject(raw))) as ToolLoopResponse;
 
       if (step.type === 'final') {
