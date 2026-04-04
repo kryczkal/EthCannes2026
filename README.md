@@ -128,6 +128,10 @@ cd engine && npm install && npx tsx src/index.ts
 cd contracts && npm install && npm run compile && npm run deploy
 ```
 
+### OpenClaw Verifier
+
+The Dockerized OpenClaw verifier prototype, model-switching commands, and manual fixture commands are documented in [openclaw/README.md](/Users/piotrtyrakowski/repos/EthCannes2026/openclaw/README.md).
+
 ## Tech Stack
 
 | Component | Technology |
