@@ -8,12 +8,13 @@ import { FileExplorer } from "./components/FileExplorer";
 
 function Landing() {
   const [input, setInput] = useState("");
+  const [version, setVersion] = useState("");
   const startAudit = useAuditStore((s) => s.startAudit);
   const error = useAuditStore((s) => s.error);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (input.trim()) startAudit(input.trim());
+    if (input.trim()) startAudit(input.trim(), version.trim() || undefined);
   };
 
   return (
@@ -60,6 +61,27 @@ function Landing() {
             color: "var(--text)",
           }}
         />
+        <label className="sr-only" htmlFor="version-input">
+          Version
+        </label>
+        <input
+          id="version-input"
+          type="text"
+          value={version}
+          onChange={(e) => setVersion(e.target.value)}
+          placeholder="latest"
+          className="outline-none"
+          style={{
+            width: 100,
+            background: "var(--bg-secondary)",
+            border: "1px solid var(--border-strong)",
+            borderRadius: "var(--radius)",
+            padding: "10px 12px",
+            fontFamily: "var(--font-mono)",
+            fontSize: "0.9rem",
+            color: "var(--text)",
+          }}
+        />
         <button
           type="submit"
           disabled={!input.trim()}
@@ -99,6 +121,7 @@ function Landing() {
             style={{ textUnderlineOffset: "2px" }}
             onClick={() => {
               setInput(pkg);
+              setVersion("");
             }}
           >
             {pkg}

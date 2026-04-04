@@ -53,7 +53,7 @@ interface AuditState {
   triageProgress: { current: number; total: number } | null;
 
   // Actions
-  startAudit: (packageName: string) => Promise<void>;
+  startAudit: (packageName: string, version?: string) => Promise<void>;
   handleEvent: (event: SSEEvent) => void;
   selectFile: (path: string) => Promise<void>;
   reset: () => void;
@@ -97,7 +97,7 @@ export const useAuditStore = create<AuditState>((set, get) => ({
     set({ ...initialState, phases: PHASE_ORDER.map((name) => ({ name, status: "pending" as const })) });
   },
 
-  startAudit: async (packageName: string) => {
+  startAudit: async (packageName: string, version?: string) => {
     get().reset();
     set({ packageName, isRunning: true });
 
@@ -106,7 +106,7 @@ export const useAuditStore = create<AuditState>((set, get) => ({
       res = await fetch(`${API_BASE}/audit/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packageName }),
+        body: JSON.stringify({ packageName, ...(version && { version }) }),
       });
     } catch {
       set({ isRunning: false, error: "Failed to connect to audit engine" });
