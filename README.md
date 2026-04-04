@@ -88,13 +88,6 @@ npmguard.eth
               └── npmguard.source_cid   → bafybei...
 ```
 
-## Smart Contracts
-
-| Contract | Network | Address |
-|----------|---------|---------|
-| NpmGuardAuditRequest | 0G Galileo Testnet | [`0x1201...d0de`](https://chainscan-galileo.0g.ai/address/0x1201448ae5f00e1783036439569e71ab3757d0de) |
-| ENS Public Resolver | Sepolia | `0xE996...49b5` |
-
 ## Project Structure
 
 | Directory | Description |
