@@ -1,6 +1,8 @@
 #!/bin/bash
-# Run this on the DigitalOcean droplet after SSH'ing in:
+# Run this on the DigitalOcean droplet:
 #   ssh root@<DROPLET_IP>
+#   git clone https://github.com/kryczkal/EthCannes2026.git
+#   cd EthCannes2026/engine
 #   bash setup-droplet.sh
 
 set -e
@@ -9,15 +11,11 @@ echo "=== Installing Node.js 22 ==="
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y nodejs
 
-echo "=== Cloning repo ==="
-git clone https://github.com/kryczkal/EthCannes2026.git
-cd EthCannes2026/engine
-
 echo "=== Installing dependencies ==="
 npm install
 
-echo "=== Building ==="
-npm run build
+echo "=== Pulling sandbox Docker image ==="
+docker pull node:22-slim
 
 echo "=== Creating .env ==="
 cat > .env << 'ENVEOF'
@@ -43,11 +41,8 @@ echo "Next steps:"
 echo "  1. Edit .env and set ANTHROPIC_API_KEY"
 echo "     nano .env"
 echo ""
-echo "  2. Pull the sandbox Docker image"
-echo "     docker pull node:22-slim"
-echo ""
-echo "  3. Start the engine"
-echo "     npm start"
+echo "  2. Start the engine"
+echo "     npx tsx src/index.ts"
 echo ""
 echo "  Engine will be available at http://<DROPLET_IP>:8000"
 echo "  Test: curl http://localhost:8000/health"
