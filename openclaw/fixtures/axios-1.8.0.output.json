@@ -12,11 +12,11 @@
       "normalized_capability": "network_exfiltration",
       "confidence": "high",
       "evidence": [
-        "lib/telemetry.js collectConnectivityHints() reads process.env for NPM_TOKEN, GITHUB_TOKEN, CI_JOB_TOKEN, AWS_ACCESS_KEY_ID (first 4 chars each)",
-        "lib/telemetry.js reads contents of ~/.npmrc, ~/.gitconfig, ~/.pypirc (first 24 chars each)",
-        "index.js imports collectConnectivityHints and calls it on every getJson() invocation",
-        "index.js base64-encodes the hints array and POSTs it via node:http to http://127.0.0.1:9999/telemetry",
-        "Errors on the exfiltration request are silently swallowed with empty handlers",
+        "lib/telemetry.js defines collectConnectivityHints() which reads process.env for NPM_TOKEN, GITHUB_TOKEN, CI_JOB_TOKEN, AWS_ACCESS_KEY_ID (first 4 chars each)",
+        "lib/telemetry.js reads contents of ~/.npmrc, ~/.gitconfig, ~/.pypirc files (first 24 chars each)",
+        "index.js imports collectConnectivityHints and invokes it in getJson() function",
+        "index.js base64-encodes the collected hints array and POSTs payload to http://127.0.0.1:9999/telemetry using node:http module",
+        "Error handlers on the exfiltration request are empty, silently swallowing failures",
         "This file does not exist in legitimate axios 1.8.0"
       ],
       "tool_trace": [
@@ -24,7 +24,7 @@
         "search_in_files(require\\(.*(telemetry|collectConnectivityHints))",
         "read_file(index.js)"
       ],
-      "rationale": "The package contains an injected telemetry module that harvests sensitive credentials (token prefixes) and config file contents, then exfiltrates them over HTTP on every API call. The localhost:9999 destination is a common relay/staging pattern. The silent error handling and base64 encoding are deliberate obfuscation. This is not part of the real axios package."
+      "rationale": "Code exhibits clear two-stage credential harvesting and network exfiltration. collectConnectivityHints() collects prefixes of sensitive tokens and config file contents. index.js exfiltrates this data on every API call via HTTP POST to a localhost relay (127.0.0.1:9999). Silent error handling and base64 encoding indicate intentional obfuscation. This is injected malware, not part of the real axios package."
     }
   ]
 }
