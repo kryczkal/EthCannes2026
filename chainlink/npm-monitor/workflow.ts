@@ -179,7 +179,7 @@ const triggerAudit = (packageName: string, auditApiUrl: string, creApiKey: strin
     const httpClient = new HTTPClient();
 
     const body = new TextEncoder().encode(
-      JSON.stringify({ package_name: packageName })
+      JSON.stringify({ packageName })
     );
 
     const resp = httpClient

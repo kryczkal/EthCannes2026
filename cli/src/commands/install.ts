@@ -371,7 +371,7 @@ export async function installCommand(
         const resp = await fetch(auditApiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ package_name: packageName, version: requestedVersion }),
+          body: JSON.stringify({ packageName, version: requestedVersion }),
         });
 
         if (!resp.ok) throw new Error(`Audit engine returned ${resp.status}`);

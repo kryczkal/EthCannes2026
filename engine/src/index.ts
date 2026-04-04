@@ -1,13 +1,51 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { z } from "zod";
+import { createPublicClient, http } from "viem";
+import { baseSepolia } from "viem/chains";
 import { config } from "./config.js";
 import { runAudit } from "./pipeline.js";
+
+const AUDIT_REQUEST_ABI = [
+  {
+    inputs: [
+      { name: "packageName", type: "string" },
+      { name: "version", type: "string" },
+    ],
+    name: "isRequested",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+async function checkPaymentOnChain(packageName: string, version: string): Promise<boolean> {
+  if (!config.contractAddress) return true; // No contract configured — skip check
+
+  const client = createPublicClient({
+    chain: baseSepolia,
+    transport: http(config.baseSepoliaRpcUrl),
+  });
+
+  try {
+    const paid = await client.readContract({
+      address: config.contractAddress as `0x${string}`,
+      abi: AUDIT_REQUEST_ABI,
+      functionName: "isRequested",
+      args: [packageName, version],
+    });
+    return paid;
+  } catch (err) {
+    console.warn("[payment] on-chain check failed:", err);
+    return false;
+  }
+}
 
 const app = new Hono();
 
 const AuditRequest = z.object({
   packageName: z.string().min(1),
+  version: z.string().optional(),
 });
 
 app.post("/audit", async (c) => {
@@ -21,6 +59,21 @@ app.post("/audit", async (c) => {
   const parsed = AuditRequest.safeParse(body);
   if (!parsed.success) {
     return c.json({ error: "Invalid request", details: parsed.error.format() }, 400);
+  }
+
+  // Auth check: CRE API key bypasses payment, users must have paid on-chain
+  const apiKey = c.req.header("X-API-Key");
+  if (config.creApiKey && apiKey === config.creApiKey) {
+    console.log(`[auth] CRE authenticated for ${parsed.data.packageName}`);
+  } else if (config.contractAddress) {
+    if (!parsed.data.version) {
+      return c.json({ error: "version is required for paid audits" }, 400);
+    }
+    const paid = await checkPaymentOnChain(parsed.data.packageName, parsed.data.version);
+    if (!paid) {
+      return c.json({ error: "Payment required. Call requestAudit() on the contract first." }, 402);
+    }
+    console.log(`[auth] Payment verified for ${parsed.data.packageName}@${parsed.data.version}`);
   }
 
   try {
