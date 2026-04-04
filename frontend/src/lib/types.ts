@@ -54,6 +54,14 @@ export interface AgentStep {
   injectionDetected?: boolean;
 }
 
+export interface PipelineLogEntry {
+  kind: "phase" | "info" | "file-scan" | "file-flag";
+  text: string;
+  file?: string;
+  risk?: number;
+  timestamp: string;
+}
+
 // SSE event payloads — discriminated union for type safety
 interface BaseEvent {
   auditId: string;

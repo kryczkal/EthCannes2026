@@ -8,6 +8,7 @@ import type {
   Finding,
   FocusArea,
   SSEEvent,
+  PipelineLogEntry,
 } from "../lib/types";
 import { PHASE_ORDER } from "../lib/types";
 
@@ -32,6 +33,9 @@ interface AuditState {
   riskScore: number | null;
   riskSummary: string | null;
   focusAreas: FocusArea[];
+
+  // Pipeline activity (early phases)
+  pipelineLog: PipelineLogEntry[];
 
   // Investigation
   agentSteps: AgentStep[];
@@ -71,6 +75,7 @@ const initialState = {
   riskScore: null,
   riskSummary: null,
   focusAreas: [],
+  pipelineLog: [],
   agentSteps: [],
   findings: [],
   verdict: null,
@@ -166,11 +171,24 @@ export const useAuditStore = create<AuditState>((set, get) => ({
 
     switch (event.type) {
       case "phase_started": {
+        const phaseLabels: Record<string, string> = {
+          resolve: "Resolving package",
+          inventory: "Scanning package structure",
+          triage: "Analyzing source files",
+          investigation: "Starting deep investigation",
+          "test-gen": "Generating exploit tests",
+          verify: "Running verification",
+        };
         set({
           phase: event.phase,
           phases: state.phases.map((p) =>
             p.name === event.phase ? { ...p, status: "active" } : p
           ),
+          pipelineLog: [...state.pipelineLog, {
+            kind: "phase" as const,
+            text: phaseLabels[event.phase] || event.phase,
+            timestamp: event.timestamp,
+          }],
         });
         break;
       }
@@ -189,14 +207,35 @@ export const useAuditStore = create<AuditState>((set, get) => ({
         for (const f of event.files) {
           statuses[f.path] = "pending";
         }
-        set({ files: event.files, fileStatuses: statuses });
+        const dirs = new Set(
+          event.files.map((f) => f.path.split("/").slice(0, -1).join("/")).filter(Boolean)
+        );
+        set({
+          files: event.files,
+          fileStatuses: statuses,
+          pipelineLog: [...state.pipelineLog, {
+            kind: "info" as const,
+            text: `Found ${event.files.length} files${dirs.size > 0 ? ` across ${dirs.size} directories` : ""}`,
+            timestamp: event.timestamp,
+          }],
+        });
         break;
       }
 
       case "file_analyzing": {
         set({
           fileStatuses: { ...state.fileStatuses, [event.file]: "analyzing" },
+          pipelineLog: [...state.pipelineLog, {
+            kind: "file-scan" as const,
+            text: event.file,
+            file: event.file,
+            timestamp: event.timestamp,
+          }],
         });
+        // Auto-follow: open file in viewer during triage
+        if (state.autoFollow && state.phase === "triage") {
+          get().selectFile(event.file);
+        }
         break;
       }
 
@@ -205,9 +244,19 @@ export const useAuditStore = create<AuditState>((set, get) => ({
         const status: FileStatus =
           verdict.riskContribution >= 5 ? "dangerous" :
           verdict.riskContribution >= 3 ? "suspicious" : "safe";
+        const pipelineLog = verdict.riskContribution >= 3
+          ? [...state.pipelineLog, {
+              kind: "file-flag" as const,
+              text: verdict.summary || `Risk ${verdict.riskContribution}/10`,
+              file: verdict.file,
+              risk: verdict.riskContribution,
+              timestamp: event.timestamp,
+            }]
+          : state.pipelineLog;
         set({
           fileStatuses: { ...state.fileStatuses, [verdict.file]: status },
           fileVerdicts: { ...state.fileVerdicts, [verdict.file]: verdict },
+          pipelineLog,
         });
         break;
       }
@@ -309,8 +358,19 @@ export const useAuditStore = create<AuditState>((set, get) => ({
       const res = await fetch(`${API_BASE}/audit/${auditId}/file/${filePath}`);
       if (res.ok) {
         const content = await res.text();
-        set({ selectedFileContent: content });
+        // Guard against stale fetch overwriting a newer selection
+        if (get().selectedFile === filePath) {
+          set({ selectedFileContent: content });
+        }
+      } else {
+        if (get().selectedFile === filePath) {
+          set({ selectedFileContent: `// Failed to load file (${res.status})` });
+        }
       }
-    } catch { /* ignore */ }
+    } catch {
+      if (get().selectedFile === filePath) {
+        set({ selectedFileContent: "// Failed to load file" });
+      }
+    }
   },
 }));

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuditStore } from "../stores/auditStore";
-import type { AgentStep, Finding } from "../lib/types";
+import type { AgentStep, Finding, PipelineLogEntry } from "../lib/types";
 
 // ── Hooks ──
 
@@ -251,6 +251,115 @@ function TriageItem({ summary }: { summary: string }) {
   );
 }
 
+function PipelineLogItem({ entry }: { entry: PipelineLogEntry }) {
+  const selectFile = useAuditStore((s) => s.selectFile);
+
+  switch (entry.kind) {
+    case "phase":
+      return (
+        <div className="feed-item" style={{ opacity: 0.7 }}>
+          <div className="feed-meta">
+            <FeedTag type="phase">phase</FeedTag>
+          </div>
+          <div className="feed-body" style={{ fontWeight: 600 }}>{entry.text}</div>
+        </div>
+      );
+
+    case "info":
+      return (
+        <div className="feed-item" style={{ opacity: 0.7 }}>
+          <div className="feed-body" style={{ color: "var(--text-dim)", fontSize: "0.78rem" }}>
+            {entry.text}
+          </div>
+        </div>
+      );
+
+    case "file-scan":
+      return (
+        <div className="feed-item" style={{ padding: "3px 16px", minHeight: 0 }}>
+          <div style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: "0.72rem",
+            color: "var(--text-muted)",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}>
+            <span style={{
+              display: "inline-block",
+              width: 4,
+              height: 4,
+              borderRadius: "50%",
+              background: "var(--investigating)",
+              flexShrink: 0,
+            }} />
+            {entry.file}
+          </div>
+        </div>
+      );
+
+    case "file-flag":
+      return (
+        <div
+          className="feed-item"
+          style={{
+            borderLeft: `3px solid ${(entry.risk ?? 0) >= 5 ? "var(--danger)" : "var(--suspected)"}`,
+            cursor: entry.file ? "pointer" : undefined,
+          }}
+          onClick={() => entry.file && selectFile(entry.file)}
+        >
+          <div className="feed-meta">
+            <FeedTag type="triage">flagged</FeedTag>
+            {entry.risk !== undefined && (
+              <span style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.65rem",
+                color: entry.risk >= 5 ? "var(--danger)" : "var(--suspected)",
+              }}>
+                risk {entry.risk}
+              </span>
+            )}
+          </div>
+          <div className="feed-body">
+            <code>{entry.file}</code>
+            {entry.text && <span style={{ color: "var(--text-dim)" }}> — {entry.text}</span>}
+          </div>
+        </div>
+      );
+
+    default:
+      return null;
+  }
+}
+
+function CompletionItem({ verdict, proofCount }: { verdict: "SAFE" | "DANGEROUS"; proofCount: number }) {
+  const isSafe = verdict === "SAFE";
+  return (
+    <div
+      className="feed-item"
+      style={{
+        borderLeft: `3px solid ${isSafe ? "var(--safe)" : "var(--danger)"}`,
+        background: isSafe ? "var(--safe-bg)" : "var(--danger-bg)",
+        marginTop: 8,
+      }}
+    >
+      <div style={{
+        fontWeight: 700,
+        fontSize: "0.85rem",
+        color: isSafe ? "var(--safe)" : "var(--danger)",
+        marginBottom: 2,
+      }}>
+        {isSafe ? "\u2713" : "\u2717"} Audit complete
+      </div>
+      <div className="feed-body">
+        {isSafe
+          ? "No malicious behavior detected. Package is safe to install."
+          : `${proofCount} proof${proofCount !== 1 ? "s" : ""} of malicious behavior confirmed.`}
+      </div>
+    </div>
+  );
+}
+
 function ThinkingIndicator() {
   return (
     <div className="feed-item" style={{ opacity: 0.7 }}>
@@ -269,10 +378,13 @@ function ThinkingIndicator() {
 // ── Main ──
 
 export function ActivityFeed() {
+  const pipelineLog = useAuditStore((s) => s.pipelineLog);
   const agentSteps = useAuditStore((s) => s.agentSteps);
   const findings = useAuditStore((s) => s.findings);
   const riskSummary = useAuditStore((s) => s.riskSummary);
   const riskScore = useAuditStore((s) => s.riskScore);
+  const verdict = useAuditStore((s) => s.verdict);
+  const proofCount = useAuditStore((s) => s.proofCount);
   const agentThinking = useAuditStore((s) => s.agentThinking);
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -287,10 +399,10 @@ export function ActivityFeed() {
     if (isNearBottom()) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [agentSteps.length, findings.length, agentThinking, isNearBottom]);
+  }, [pipelineLog.length, agentSteps.length, findings.length, agentThinking, isNearBottom]);
 
   const hasContent =
-    agentSteps.length > 0 || findings.length > 0 || riskSummary;
+    pipelineLog.length > 0 || agentSteps.length > 0 || findings.length > 0 || riskSummary;
 
   // Determine if a tool call is pending (last tool_call with no following tool_result)
   const lastToolCallIndex = (() => {
@@ -327,7 +439,7 @@ export function ActivityFeed() {
           borderBottom: "1px solid var(--border)",
         }}
       >
-        Agent Activity
+        Activity
         {riskScore !== null && (
           <span
             style={{
@@ -368,9 +480,13 @@ export function ActivityFeed() {
             className="flex items-center justify-center h-full"
             style={{ color: "var(--pending)", fontSize: "0.8rem" }}
           >
-            Agent activity will appear here...
+            Activity will appear here...
           </div>
         )}
+
+        {pipelineLog.map((entry, i) => (
+          <PipelineLogItem key={`pl-${i}`} entry={entry} />
+        ))}
 
         {riskSummary && <TriageItem summary={riskSummary} />}
 
@@ -398,6 +514,8 @@ export function ActivityFeed() {
         ))}
 
         {agentThinking && <ThinkingIndicator />}
+
+        {verdict && <CompletionItem verdict={verdict} proofCount={proofCount} />}
 
         <div ref={bottomRef} />
       </div>
