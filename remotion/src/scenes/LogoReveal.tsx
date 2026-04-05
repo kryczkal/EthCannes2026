@@ -93,7 +93,7 @@ export const LogoReveal: React.FC = () => {
             <span
               style={{
                 fontFamily: fonts.mono,
-                fontSize: 80,
+                fontSize: 100,
                 fontWeight: 700,
                 letterSpacing: "-0.02em",
               }}
@@ -109,7 +109,7 @@ export const LogoReveal: React.FC = () => {
             <span
               style={{
                 fontFamily: fonts.mono,
-                fontSize: 80,
+                fontSize: 100,
                 fontWeight: 400,
                 color: colors.accent,
                 opacity: showCursor ? 0.8 : 0,
@@ -124,7 +124,7 @@ export const LogoReveal: React.FC = () => {
           <div
             style={{
               fontFamily: fonts.heading,
-              fontSize: 30,
+              fontSize: 40,
               fontWeight: 400,
               color: "rgba(255,255,255,0.5)",
               opacity: subtitleOpacity,

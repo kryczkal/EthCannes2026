@@ -64,7 +64,7 @@ export const MoneyLost: React.FC = () => {
             width: "100%",
             height: "100%",
             objectFit: "cover",
-            filter: "brightness(0.3) saturate(0.7) contrast(1.1)",
+            filter: "brightness(0.5) saturate(0.8) contrast(1.1)",
           }}
         />
       </AbsoluteFill>
@@ -73,7 +73,7 @@ export const MoneyLost: React.FC = () => {
       <AbsoluteFill
         style={{
           background:
-            "radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.6) 100%)",
+            "radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.4) 100%)",
         }}
       />
 

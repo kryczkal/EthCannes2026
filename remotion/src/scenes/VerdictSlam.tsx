@@ -93,7 +93,7 @@ export const VerdictSlam: React.FC = () => {
             width: "100%",
             height: "100%",
             objectFit: "cover",
-            filter: "brightness(0.25) saturate(0.6) contrast(1.15)",
+            filter: "brightness(0.45) saturate(0.7) contrast(1.1)",
           }}
         />
       </AbsoluteFill>
@@ -102,7 +102,7 @@ export const VerdictSlam: React.FC = () => {
       <AbsoluteFill
         style={{
           background:
-            "radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.7) 100%)",
+            "radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.4) 100%)",
         }}
       />
 
@@ -118,7 +118,7 @@ export const VerdictSlam: React.FC = () => {
           <div
             style={{
               fontFamily: fonts.mono,
-              fontSize: 140,
+              fontSize: 170,
               fontWeight: 700,
               lineHeight: 1,
               color: "#ff4444",
@@ -150,7 +150,7 @@ export const VerdictSlam: React.FC = () => {
             <span
               style={{
                 fontFamily: fonts.mono,
-                fontSize: 22,
+                fontSize: 28,
                 color: "rgba(255,255,255,0.5)",
               }}
             >

@@ -14,10 +14,17 @@ import { colors, fonts, springs } from "../lib/theme";
 const FEATURES = [
   { label: "AI-Powered Audit", src: "feat-ai.mp4", color: "#60a5fa" },
   { label: "On-Chain Verdicts", src: "feat-chain.mp4", color: "#c9a84c" },
-  { label: "IPFS-Verified Installs", src: "feat-ipfs.mp4", color: "#4ade80" },
+  { label: "Verifiable Proofs", src: "feat-ipfs.mp4", color: "#4ade80" },
 ];
 
 const FEAT_DUR = 40; // frames per feature (~1.3s each)
+
+// Proof equations for feature 3
+const PROOF_LINES = [
+  { text: "H(pkg) = SHA256(audit_result)", delay: 0 },
+  { text: "π ← zkProve(statement, witness)", delay: 8 },
+  { text: "Verify(vk, π) → ✓ VALID", delay: 16, isResult: true },
+];
 
 export const ClosingCard: React.FC = () => {
   const frame = useCurrentFrame();
@@ -112,7 +119,7 @@ export const ClosingCard: React.FC = () => {
                     width: "100%",
                     height: "100%",
                     objectFit: "cover",
-                    filter: "brightness(0.3) saturate(0.7) contrast(1.1)",
+                    filter: "brightness(0.5) saturate(0.7) contrast(1.1)",
                   }}
                 />
               </AbsoluteFill>
@@ -123,11 +130,11 @@ export const ClosingCard: React.FC = () => {
           <AbsoluteFill
             style={{
               background:
-                "radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.6) 100%)",
+                "radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.35) 100%)",
             }}
           />
 
-          {/* Feature label */}
+          {/* Feature label + proof equations */}
           <AbsoluteFill
             style={{ justifyContent: "center", alignItems: "center" }}
           >
@@ -136,13 +143,13 @@ export const ClosingCard: React.FC = () => {
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: 16,
+                gap: 20,
               }}
             >
               <div
                 style={{
                   fontFamily: fonts.heading,
-                  fontSize: 62,
+                  fontSize: 82,
                   fontWeight: 700,
                   color: "#ffffff",
                   opacity: featTextOp,
@@ -150,7 +157,7 @@ export const ClosingCard: React.FC = () => {
                   filter: `blur(${featTextBlur}px)`,
                   letterSpacing: "-0.02em",
                   textShadow:
-                    "0 2px 4px rgba(0,0,0,0.5), 0 8px 30px rgba(0,0,0,0.6)",
+                    "0 2px 4px rgba(0,0,0,0.5), 0 8px 30px rgba(0,0,0,0.35)",
                   textAlign: "center",
                 }}
               >
@@ -158,13 +165,63 @@ export const ClosingCard: React.FC = () => {
               </div>
               <div
                 style={{
-                  width: interpolate(featTextOp, [0, 1], [0, 80]),
+                  width: interpolate(featTextOp, [0, 1], [0, 100]),
                   height: 3,
                   backgroundColor: FEATURES[activeFeat].color,
                   borderRadius: 2,
                   boxShadow: `0 0 20px ${FEATURES[activeFeat].color}55`,
                 }}
               />
+
+              {/* Proof equations for feature 3 */}
+              {activeFeat === 2 && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 24,
+                    marginTop: 20,
+                  }}
+                >
+                  {PROOF_LINES.map((line, i) => {
+                    const localF = featLocalFrame - line.delay;
+                    const lineOp = interpolate(localF, [0, 8], [0, 1], {
+                      extrapolateLeft: "clamp",
+                      extrapolateRight: "clamp",
+                    });
+                    const lineY = interpolate(localF, [0, 8], [20, 0], {
+                      extrapolateLeft: "clamp",
+                      extrapolateRight: "clamp",
+                      easing: Easing.out(Easing.quad),
+                    });
+                    const lineBlur = interpolate(localF, [0, 6], [6, 0], {
+                      extrapolateLeft: "clamp",
+                      extrapolateRight: "clamp",
+                    });
+                    return (
+                      <div
+                        key={i}
+                        style={{
+                          fontFamily: fonts.mono,
+                          fontSize: line.isResult ? 48 : 40,
+                          fontWeight: line.isResult ? 700 : 400,
+                          color: line.isResult ? "#4ade80" : "rgba(255,255,255,0.85)",
+                          opacity: lineOp,
+                          transform: `translateY(${lineY}px)`,
+                          filter: `blur(${lineBlur}px)`,
+                          textShadow: line.isResult
+                            ? "0 0 40px rgba(74, 222, 128, 0.5), 0 2px 15px rgba(0,0,0,0.7)"
+                            : "0 2px 15px rgba(0,0,0,0.7)",
+                          letterSpacing: "0.02em",
+                        }}
+                      >
+                        {line.text}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </AbsoluteFill>
 
@@ -193,7 +250,7 @@ export const ClosingCard: React.FC = () => {
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
-                filter: "brightness(0.2) saturate(0.5) contrast(1.1)",
+                filter: "brightness(0.4) saturate(0.5) contrast(1.1)",
               }}
             />
           </AbsoluteFill>
@@ -201,7 +258,7 @@ export const ClosingCard: React.FC = () => {
           <AbsoluteFill
             style={{
               background:
-                "radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.7) 100%)",
+                "radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.4) 100%)",
             }}
           />
 
@@ -227,7 +284,7 @@ export const ClosingCard: React.FC = () => {
                 marginTop: 20,
                 letterSpacing: "-0.03em",
                 textShadow:
-                  "0 2px 4px rgba(0,0,0,0.5), 0 8px 30px rgba(0,0,0,0.6)",
+                  "0 2px 4px rgba(0,0,0,0.5), 0 8px 30px rgba(0,0,0,0.35)",
               }}
             >
               <span style={{ color: "#ffffff" }}>npm</span>
