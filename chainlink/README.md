@@ -58,14 +58,18 @@ cd npm-monitor && bun install
 HTTP trigger (single package):
 
 ```bash
-cre workflow simulate npm-monitor -T staging-settings --trigger-index 0 --http-payload '{"package":"axios"}' --non-interactive
+cre workflow simulate npm-monitor -T staging-settings --trigger-index 0 \
+  --http-payload '{"package":"axios"}' --non-interactive --limits limits.json
 ```
 
-Cron trigger (all packages — needs custom limits):
+Cron trigger (all configured packages):
 
 ```bash
-cre workflow simulate npm-monitor -T staging-settings --trigger-index 1 --non-interactive --limits /path/to/npm-monitor/limits.json
+cre workflow simulate npm-monitor -T staging-settings --trigger-index 1 \
+  --non-interactive --limits limits.json
 ```
+
+> `--limits limits.json` increases HTTP timeouts to 10 min (audits can take 30s–2min).
 
 ## Audit Engine
 

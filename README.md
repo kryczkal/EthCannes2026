@@ -75,6 +75,8 @@ flowchart LR
 
 Both paths end at the same engine (`POST /audit`), which runs the full pipeline and publishes results to IPFS + ENS.
 
+> **Note:** Chainlink CRE reads ENS using `LAST_FINALIZED_BLOCK_NUMBER`. On Sepolia, finality takes ~15 min, so newly published audit records won't be visible to the cron until the block is finalized.
+
 ## Live Services
 
 | Service | URL |
@@ -167,9 +169,8 @@ cd chainlink/npm-monitor && bun install
 
 | Command | What it does |
 |---------|-------------|
-| `cre workflow simulate npm-monitor -T staging-settings --trigger-index 1 --non-interactive` | **Cron** — checks all monitored packages (axios, lodash, express, chalk, code-formatter) every 5 min |
-| `cre workflow simulate npm-monitor -T staging-settings --trigger-index 0 --http-payload '{"package":"axios"}' --non-interactive` | **HTTP trigger** — check a single package on demand |
-| `cre login` | Authenticate with CRE CLI (required before simulate) |
+| `cre workflow simulate npm-monitor -T staging-settings --trigger-index 1 --non-interactive --limits limits.json` | **Cron** — checks all monitored packages every 5 min |
+| `cre workflow simulate npm-monitor -T staging-settings --trigger-index 0 --http-payload '{"package":"axios"}' --non-interactive --limits limits.json` | **HTTP trigger** — check a single package on demand |
 
 ### Deploy Contract
 

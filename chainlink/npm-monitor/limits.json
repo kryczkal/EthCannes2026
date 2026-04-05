@@ -5,10 +5,10 @@
 	"TriggerEventQueueLimit": "50",
 	"TriggerEventQueueTimeout": "10m0s",
 	"CapabilityConcurrencyLimit": "30",
-	"CapabilityCallTimeout": "3m0s",
+	"CapabilityCallTimeout": "10m0s",
 	"SecretsConcurrencyLimit": "5",
 	"ExecutionConcurrencyLimit": "5",
-	"ExecutionTimeout": "5m0s",
+	"ExecutionTimeout": "15m0s",
 	"ExecutionResponseLimit": "100kb",
 	"ExecutionTimestampsEnabled": "false",
 	"WASMMemoryLimit": "100mb",
@@ -53,9 +53,11 @@
 	"HTTPAction": {
 		"CallLimit": "20",
 		"CacheAgeLimit": "10m0s",
-		"ConnectionTimeout": "10s",
+		"ConnectionTimeout": "10m0s",
+		"Timeout": "10m0s",
+		"RequestTimeout": "10m0s",
 		"RequestSizeLimit": "10kb",
-		"ResponseSizeLimit": "100kb"
+		"ResponseSizeLimit": "1mb"
 	},
 	"ConfidentialHTTP": {
 		"CallLimit": "5",

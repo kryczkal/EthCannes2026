@@ -66,7 +66,52 @@ const AuditRequest = z.object({
   version: z.string().optional(),
 });
 
-// Original synchronous audit endpoint (backward compatible)
+// ---------------------------------------------------------------------------
+// Audit queue — one audit at a time, prevents rate limiting & resource exhaustion
+// ---------------------------------------------------------------------------
+
+type QueueItem = { packageName: string; version?: string; resolve: (v: any) => void; reject: (e: any) => void };
+const auditQueue: QueueItem[] = [];
+let auditRunning = false;
+
+async function processQueue() {
+  if (auditRunning || auditQueue.length === 0) return;
+  auditRunning = true;
+  const item = auditQueue.shift()!;
+  console.log(`[queue] starting ${item.packageName} (${auditQueue.length} queued)`);
+
+  try {
+    const { report, packagePath, cleanup } = await runAudit(item.packageName);
+
+    if (item.version && process.env.PINATA_JWT) {
+      publishAuditResults(item.packageName, item.version, report, packagePath)
+        .then((pub) => console.log(`[publish] done: report=${pub.reportCid} source=${pub.sourceCid} ens=${pub.ensName ?? "skipped"}`))
+        .catch((err) => console.error("[publish] failed:", err instanceof Error ? err.message : err))
+        .finally(cleanup);
+    } else {
+      cleanup();
+    }
+
+    item.resolve(report);
+  } catch (err) {
+    item.reject(err);
+  } finally {
+    auditRunning = false;
+    processQueue();
+  }
+}
+
+function enqueueAudit(packageName: string, version?: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    auditQueue.push({ packageName, version, resolve, reject });
+    processQueue();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// POST /audit — sync for CLI, fire-and-forget for CRE
+// ---------------------------------------------------------------------------
+
 app.post("/audit", async (c) => {
   let body: unknown;
   try {
@@ -80,9 +125,10 @@ app.post("/audit", async (c) => {
     return c.json({ error: "Invalid request", details: parsed.error.format() }, 400);
   }
 
-  // Auth check: CRE API key bypasses payment, users must have paid on-chain
   const apiKey = c.req.header("X-API-Key");
-  if (config.creApiKey && apiKey === config.creApiKey) {
+  const isCre = !!(config.creApiKey && apiKey === config.creApiKey);
+
+  if (isCre) {
     console.log(`[auth] CRE authenticated for ${parsed.data.packageName}`);
   } else if (config.contractAddress) {
     if (!parsed.data.version) {
@@ -95,19 +141,23 @@ app.post("/audit", async (c) => {
     console.log(`[auth] Payment verified for ${parsed.data.packageName}@${parsed.data.version}`);
   }
 
+  // CRE: fire-and-forget — return 202 immediately, audit queued in background
+  if (isCre) {
+    enqueueAudit(parsed.data.packageName, parsed.data.version)
+      .then((report) => console.log(`[queue] completed ${parsed.data.packageName}: ${report.verdict}`))
+      .catch((err) => console.error(`[queue] failed ${parsed.data.packageName}:`, err instanceof Error ? err.message : err));
+
+    return c.json({
+      status: "accepted",
+      packageName: parsed.data.packageName,
+      version: parsed.data.version,
+      queuePosition: auditQueue.length,
+    }, 202);
+  }
+
+  // CLI/direct: wait for result (also queued, so only one runs at a time)
   try {
-    const { report, packagePath, cleanup } = await runAudit(parsed.data.packageName);
-
-    // Publish to IPFS + ENS in background (don't block the response)
-    if (parsed.data.version && process.env.PINATA_JWT) {
-      publishAuditResults(parsed.data.packageName, parsed.data.version, report, packagePath)
-        .then((pub) => console.log(`[publish] done: report=${pub.reportCid} source=${pub.sourceCid} ens=${pub.ensName ?? "skipped"}`))
-        .catch((err) => console.error("[publish] failed:", err instanceof Error ? err.message : err))
-        .finally(cleanup);
-    } else {
-      cleanup();
-    }
-
+    const report = await enqueueAudit(parsed.data.packageName, parsed.data.version);
     return c.json(report);
   } catch (err) {
     console.error("[api] audit failed:", err);

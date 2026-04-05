@@ -174,12 +174,12 @@ function checkEnsAudit(
 // Trigger the audit engine API
 // -------------------------------------------------------------------
 
-const triggerAudit = (packageName: string, auditApiUrl: string, creApiKey: string) => {
+const triggerAudit = (packageName: string, version: string, auditApiUrl: string, creApiKey: string) => {
   return (nodeRuntime: NodeRuntime<Config>): AuditResponse => {
     const httpClient = new HTTPClient();
 
     const body = new TextEncoder().encode(
-      JSON.stringify({ packageName })
+      JSON.stringify({ packageName, version })
     );
 
     const resp = httpClient
@@ -269,7 +269,7 @@ export const onHttpTrigger = (
 
   const auditResult = runtime
     .runInNodeMode(
-      triggerAudit(packageName, config.auditApiUrl, config.creApiKey),
+      triggerAudit(packageName, versionInfo.latestVersion, config.auditApiUrl, config.creApiKey),
       consensusIdenticalAggregation<AuditResponse>()
     )()
     .result();
@@ -340,7 +340,7 @@ export const onCronTrigger = (runtime: Runtime<Config>): string => {
 
     const auditResult = runtime
       .runInNodeMode(
-        triggerAudit(packageName, config.auditApiUrl, config.creApiKey),
+        triggerAudit(packageName, versionInfo.latestVersion, config.auditApiUrl, config.creApiKey),
         consensusIdenticalAggregation<AuditResponse>()
       )()
       .result();
