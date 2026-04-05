@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuditStore } from "../stores/auditStore";
 import type { AgentStep, Finding, PipelineLogEntry } from "../lib/types";
 
@@ -169,22 +169,44 @@ function ToolResultItem({ step }: { step: AgentStep }) {
   );
 }
 
+const CONFIDENCE_STYLE: Record<
+  string,
+  { color: string; bg: string; border: string }
+> = {
+  CONFIRMED: {
+    color: "var(--danger)",
+    bg: "var(--danger-bg)",
+    border: "var(--danger)",
+  },
+  LIKELY: {
+    color: "var(--suspected)",
+    bg: "var(--suspected-bg)",
+    border: "var(--suspected)",
+  },
+  SUSPECTED: {
+    color: "var(--text-muted)",
+    bg: "var(--bg-secondary)",
+    border: "var(--text-muted)",
+  },
+};
+
 function FindingItem({ finding }: { finding: Finding }) {
   const selectFile = useAuditStore((s) => s.selectFile);
+  const style = CONFIDENCE_STYLE[finding.confidence] ?? CONFIDENCE_STYLE.SUSPECTED;
 
   return (
     <div
       className="feed-item finding-slam"
       style={{
-        borderLeft: "3px solid var(--danger)",
-        background: "var(--danger-bg)",
+        borderLeft: `3px solid ${style.border}`,
+        background: style.bg,
       }}
     >
       <div
         style={{
           fontWeight: 700,
           fontSize: "0.85rem",
-          color: "var(--danger)",
+          color: style.color,
           marginBottom: 2,
         }}
       >
@@ -193,7 +215,8 @@ function FindingItem({ finding }: { finding: Finding }) {
           style={{
             fontFamily: "var(--font-mono)",
             fontSize: "0.65rem",
-            color: "var(--text-muted)",
+            color: style.color,
+            opacity: 0.8,
             marginLeft: 8,
             fontWeight: 400,
           }}
@@ -202,6 +225,16 @@ function FindingItem({ finding }: { finding: Finding }) {
         </span>
       </div>
       <div className="feed-body">{finding.problem}</div>
+      {finding.evidence && finding.evidence !== finding.problem && (
+        <div
+          className="feed-body"
+          style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}
+        >
+          {finding.evidence.length > 180
+            ? finding.evidence.slice(0, 180) + "..."
+            : finding.evidence}
+        </div>
+      )}
       {finding.fileLine && (
         <div
           className="feed-file-ref"
@@ -388,18 +421,24 @@ export function ActivityFeed() {
   const agentThinking = useAuditStore((s) => s.agentThinking);
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const userScrolledUp = useRef(false);
 
-  const isNearBottom = useCallback(() => {
+  useEffect(() => {
     const el = containerRef.current;
-    if (!el) return true;
-    return el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    if (!el) return;
+    const onScroll = () => {
+      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+      userScrolledUp.current = !nearBottom;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
   useEffect(() => {
-    if (isNearBottom()) {
+    if (!userScrolledUp.current) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [pipelineLog.length, agentSteps.length, findings.length, agentThinking, isNearBottom]);
+  }, [pipelineLog.length, agentSteps.length, findings.length, agentThinking]);
 
   const hasContent =
     pipelineLog.length > 0 || agentSteps.length > 0 || findings.length > 0 || riskSummary;
