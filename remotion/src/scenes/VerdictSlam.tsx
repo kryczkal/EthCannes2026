@@ -9,7 +9,7 @@ import {
 import { Video } from "@remotion/media";
 import { fonts } from "../lib/theme";
 
-// Proof construction steps — line by line like a proof is being written
+// Proof publishing steps — reflects real system: IPFS + ENS on-chain
 const PROOF_STEPS: {
   text: string;
   frame: number;
@@ -20,24 +20,21 @@ const PROOF_STEPS: {
   isTitle?: boolean;
   isResult?: boolean;
 }[] = [
-  // Step 1: Hash
-  { text: "1. Hash audit results", frame: 0, color: "rgba(255,255,255,0.45)", size: 28, weight: 400, isTitle: true },
-  { text: "H(audit) = SHA256(scan_result ‖ pentest_log)", frame: 12, color: "rgba(255,255,255,0.9)", size: 38 },
-  { text: "→ 0x7f3a91b2c4d8e6f1a3b5c7d9e1f3a5b7...e4c8d1f0", frame: 24, color: "#60a5fa", size: 32, indent: 1 },
+  // Step 1: Pin to IPFS
+  { text: "1. Pin audit report to IPFS", frame: 0, color: "rgba(255,255,255,0.45)", size: 28, weight: 400, isTitle: true },
+  { text: "report_cid → bafkreig7h4x2e9...q4mq", frame: 12, color: "#60a5fa", size: 38 },
+  { text: "source_cid → bafybeiw3k8f1a2...x9vn", frame: 24, color: "#60a5fa", size: 38 },
 
-  // Step 2: Witness
-  { text: "2. Construct witness", frame: 42, color: "rgba(255,255,255,0.45)", size: 28, weight: 400, isTitle: true },
-  { text: "w = (audit_data, capabilities, risk_score)", frame: 54, color: "rgba(255,255,255,0.9)", size: 38 },
+  // Step 2: Write to ENS
+  { text: "2. Publish verdict on-chain", frame: 45, color: "rgba(255,255,255,0.45)", size: 28, weight: 400, isTitle: true },
+  { text: "axios.npmguard.eth", frame: 57, color: "#c9a84c", size: 42, weight: 700 },
+  { text: "npmguard.verdict   → safe", frame: 70, color: "rgba(255,255,255,0.9)", size: 34, indent: 1 },
+  { text: "npmguard.score     → 92", frame: 80, color: "rgba(255,255,255,0.9)", size: 34, indent: 1 },
+  { text: "npmguard.capabilities → network", frame: 90, color: "rgba(255,255,255,0.9)", size: 34, indent: 1 },
 
-  // Step 3: ZK Proof
-  { text: "3. Generate zero-knowledge proof", frame: 72, color: "rgba(255,255,255,0.45)", size: 28, weight: 400, isTitle: true },
-  { text: "π ← Prove(pk, statement, witness)", frame: 84, color: "rgba(255,255,255,0.9)", size: 38 },
-  { text: "→ π = 0x4ae2f19d8b3c7e5a1f6d9c2b4e8a...9b3c7d", frame: 96, color: "#c9a84c", size: 32, indent: 1 },
-
-  // Step 4: Verify
-  { text: "4. On-chain verification", frame: 118, color: "rgba(255,255,255,0.45)", size: 28, weight: 400, isTitle: true },
-  { text: "Verify(vk, x, π)", frame: 130, color: "rgba(255,255,255,0.9)", size: 42, weight: 700 },
-  { text: "→ ✓ PROOF VALID", frame: 148, color: "#4ade80", size: 52, weight: 700, isResult: true },
+  // Step 3: Verified
+  { text: "3. Immutable. Tamper-proof. Verifiable.", frame: 115, color: "rgba(255,255,255,0.45)", size: 28, weight: 400, isTitle: true },
+  { text: "✓ On-chain + IPFS verified", frame: 135, color: "#4ade80", size: 52, weight: 700, isResult: true },
 ];
 
 export const VerdictSlam: React.FC = () => {
