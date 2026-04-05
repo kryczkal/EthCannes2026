@@ -92,6 +92,7 @@ export async function investigate(
         testFile: null,
         testHash: null,
         testCode: null,
+        verifyError: null,
         reasoningHash: null,
         teeAttestationId: null,
       });

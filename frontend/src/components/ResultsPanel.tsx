@@ -10,7 +10,9 @@ function verificationStatus(proof?: Proof) {
   switch (proof.kind) {
     case "TEST_CONFIRMED": return { label: "VERIFIED", color: "var(--danger)", bg: "var(--danger-bg)", border: "var(--danger)", rank: 0 };
     case "AI_DYNAMIC": return { label: "OBSERVED", color: "var(--suspected)", bg: "var(--suspected-bg)", border: "var(--suspected)", rank: 1 };
-    case "TEST_UNCONFIRMED": return { label: "UNVERIFIED", color: "var(--suspected)", bg: "var(--suspected-bg)", border: "var(--suspected)", rank: 2 };
+    case "TEST_UNCONFIRMED":
+      if (proof.verifyError) return { label: "INFRA ERROR", color: "var(--text-muted)", bg: "var(--bg-tertiary)", border: "var(--text-muted)", rank: 3.5 };
+      return { label: "UNVERIFIED", color: "var(--suspected)", bg: "var(--suspected-bg)", border: "var(--suspected)", rank: 2 };
     case "AI_STATIC": return { label: "STATIC ANALYSIS", color: "var(--text-muted)", bg: "var(--bg-tertiary)", border: "var(--text-muted)", rank: 3 };
     case "STRUCTURAL": return { label: "STRUCTURAL", color: "var(--text-dim)", bg: "var(--bg-secondary)", border: "var(--text-dim)", rank: 4 };
   }

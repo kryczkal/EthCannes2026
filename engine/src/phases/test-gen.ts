@@ -16,16 +16,23 @@ import {
 } from "./test-gen-prompt.js";
 
 const EXPLOITS_DIR = resolve(import.meta.dirname, "../../../sandbox/exploits");
+const SANDBOX_DIR = resolve(import.meta.dirname, "../../../sandbox");
+
+const MAX_RETRIES = 3;
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function readExampleTest(capability: string): string {
   const exampleName = CAPABILITY_EXAMPLES[capability] ?? "env-exfil";
-  const examplePath = join(EXPLOITS_DIR, `${exampleName}.test.js`);
-  try {
-    return readFileSync(examplePath, "utf-8");
-  } catch {
-    const fallback = join(EXPLOITS_DIR, "env-exfil.test.js");
-    return existsSync(fallback) ? readFileSync(fallback, "utf-8") : "";
+  // Try .ts first, fall back to .js
+  for (const ext of [".test.ts", ".test.js"]) {
+    const p = join(EXPLOITS_DIR, `${exampleName}${ext}`);
+    if (existsSync(p)) return readFileSync(p, "utf-8");
   }
+  const fallback = join(EXPLOITS_DIR, "env-exfil.test.js");
+  return existsSync(fallback) ? readFileSync(fallback, "utf-8") : "";
 }
 
 function readPackageSource(packagePath: string): string {
@@ -56,24 +63,135 @@ function readPackageSource(packagePath: string): string {
   return files.join("\n\n");
 }
 
-function isValidJs(code: string): boolean {
-  const tmpFile = join(tmpdir(), `npmguard-syntax-check-${Date.now()}.js`);
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ---------------------------------------------------------------------------
+// Vitest validation — run the generated test on the host to catch runtime errors
+// ---------------------------------------------------------------------------
+
+interface ValidationResult {
+  valid: boolean;
+  errorType: "runtime" | "assertion" | "timeout" | null;
+  errorMessage: string | null;
+}
+
+const RUNTIME_ERROR_PATTERNS = [
+  "TypeError",
+  "ReferenceError",
+  "is not a function",
+  "is not defined",
+  "Cannot find module",
+  "Cannot read propert",
+  "is not a constructor",
+  "SyntaxError",
+];
+
+function classifyFailureMessages(messages: string[]): "runtime" | "assertion" {
+  const joined = messages.join("\n");
+  for (const pattern of RUNTIME_ERROR_PATTERNS) {
+    if (joined.includes(pattern)) return "runtime";
+  }
+  return "assertion";
+}
+
+function validateTestWithVitest(testCode: string): ValidationResult {
+  const tmpName = `_validation_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.test.ts`;
+  const tmpPath = join(EXPLOITS_DIR, tmpName);
+
   try {
-    writeFileSync(tmpFile, code, "utf-8");
-    execFileSync("node", ["--check", tmpFile], { timeout: 5000, stdio: "pipe" });
-    return true;
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    // Log the first part of the error for debugging
-    console.error(`[test-gen] syntax check failed: ${msg.split("\n").slice(0, 3).join(" | ")}`);
-    return false;
+    writeFileSync(tmpPath, testCode, "utf-8");
+
+    let stdout = "";
+    let stderr = "";
+    let exitCode = 0;
+
+    try {
+      stdout = execFileSync(
+        "npx",
+        ["vitest", "run", tmpPath, "--reporter=json", "--config", join(SANDBOX_DIR, "vitest.config.js")],
+        { cwd: SANDBOX_DIR, timeout: 25_000, encoding: "utf-8", stdio: "pipe" },
+      );
+    } catch (err: unknown) {
+      const e = err as { stdout?: string; stderr?: string; status?: number; killed?: boolean };
+      stdout = e.stdout ?? "";
+      stderr = e.stderr ?? "";
+      exitCode = e.status ?? 1;
+
+      if (e.killed) {
+        return { valid: false, errorType: "timeout", errorMessage: "Test execution timed out (25s)" };
+      }
+    }
+
+    // Parse vitest JSON output
+    const jsonStart = stdout.lastIndexOf('{"numTotalTestSuites"');
+    if (jsonStart === -1) {
+      // Could not parse — check stderr for compilation errors
+      const combined = stdout + stderr;
+      const isRuntime = RUNTIME_ERROR_PATTERNS.some((p) => combined.includes(p));
+      if (isRuntime) {
+        const errorLine = combined.split("\n").find((l) => RUNTIME_ERROR_PATTERNS.some((p) => l.includes(p))) ?? combined.slice(0, 300);
+        return { valid: false, errorType: "runtime", errorMessage: errorLine.slice(0, 500) };
+      }
+      return { valid: false, errorType: "runtime", errorMessage: `Could not parse vitest output. stderr: ${stderr.slice(0, 300)}` };
+    }
+
+    let parsed: {
+      numPassedTests: number;
+      numFailedTests: number;
+      testResults?: Array<{
+        assertionResults?: Array<{
+          status: string;
+          failureMessages?: string[];
+        }>;
+      }>;
+    };
+
+    try {
+      parsed = JSON.parse(stdout.slice(jsonStart));
+    } catch {
+      return { valid: false, errorType: "runtime", errorMessage: "Failed to parse vitest JSON" };
+    }
+
+    // All tests passed
+    if (parsed.numFailedTests === 0 && parsed.numPassedTests > 0) {
+      return { valid: true, errorType: null, errorMessage: null };
+    }
+
+    // Some tests failed — classify the failures
+    const allFailureMessages = parsed.testResults
+      ?.flatMap((r) => r.assertionResults ?? [])
+      ?.filter((a) => a.status === "failed")
+      ?.flatMap((a) => a.failureMessages ?? []) ?? [];
+
+    const errorType = classifyFailureMessages(allFailureMessages);
+    const errorMessage = allFailureMessages.join("\n").slice(0, 500);
+
+    if (errorType === "assertion") {
+      // Assertion failure = structurally correct test, keep it
+      return { valid: true, errorType: "assertion", errorMessage };
+    }
+
+    return { valid: false, errorType: "runtime", errorMessage };
   } finally {
-    try { unlinkSync(tmpFile); } catch { /* ignore */ }
+    try { unlinkSync(tmpPath); } catch { /* best effort */ }
   }
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+// ---------------------------------------------------------------------------
+// Test generation with retry loop
+// ---------------------------------------------------------------------------
+
+function cleanGeneratedCode(raw: string): string {
+  let code = raw.trim();
+  // Strip markdown fences
+  code = code.replace(/^```(?:javascript|js|typescript|ts)?\n?/m, "").replace(/\n?```\s*$/m, "");
+  // Strip server.listen/close (harness handles this)
+  code = code.replace(/^\s*server\.listen\(.*\);?\s*$/gm, "");
+  code = code.replace(/^\s*server\.close\(.*\);?\s*$/gm, "");
+  code = code.replace(/^\s*(before|after)(All|Each)\(\(\)\s*=>\s*\{\s*\}\);?\s*$/gm, "");
+  return code;
 }
 
 async function generateTestDirect(
@@ -82,50 +200,68 @@ async function generateTestDirect(
   packageSource: string,
 ): Promise<string | null> {
   const example = readExampleTest(finding.capability);
-  const userPrompt = buildTestGenUserPrompt(finding, packageName, packageSource, example);
+  let lastError: string | null = null;
 
-  try {
-    const result = await generateText({
-      model: getModel(config.testGenModel),
-      system: TESTGEN_SYSTEM_PROMPT,
-      prompt: userPrompt,
-      temperature: 0.2,
-      maxTokens: 8192,
-    });
-
-    let code = result.text.trim();
-    // Strip markdown fences if present
-    code = code.replace(/^```(?:javascript|js)?\n?/m, "").replace(/\n?```\s*$/m, "");
-
-    console.log(`[test-gen] LLM returned ${code.length} bytes for ${finding.fileLine}`);
-
-    // Validate JS syntax — reject truncated/invalid output
-    if (!isValidJs(code)) {
-      console.error(`[test-gen] generated code has invalid syntax for ${finding.fileLine}, skipping (${code.length} bytes)`);
-      return null;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    // Build prompt — on retry, append the error from the previous attempt
+    let userPrompt = buildTestGenUserPrompt(finding, packageName, packageSource, example);
+    if (lastError && attempt > 0) {
+      userPrompt += `\n\n## Previous Attempt Failed (attempt ${attempt}/${MAX_RETRIES})\nYour generated test had a runtime error:\n\`\`\`\n${lastError}\n\`\`\`\nFix the error and regenerate. Common fixes:\n- If "X is not a function": check the module's actual exports in the source code above\n- If "Cannot find module": check the entry point path\n- runPackage() returns module.exports directly — destructure what you need from it`;
     }
 
-    // Reject tests that don't use runPackage() — they'll fail at runtime
-    if (!code.includes("runPackage(") && !code.includes("runInChildProcess(")) {
-      console.error(`[test-gen] generated code doesn't use runPackage() or runInChildProcess() for ${finding.fileLine}, skipping`);
-      return null;
-    }
+    try {
+      const result = await generateText({
+        model: getModel(config.testGenModel),
+        system: TESTGEN_SYSTEM_PROMPT,
+        prompt: userPrompt,
+        temperature: 0.2 + (attempt * 0.1), // nudge creativity on retries
+        maxTokens: 8192,
+      });
 
-    // Reject tests that call server.listen/close (harness handles this)
-    if (code.includes("server.listen(") || code.includes("server.close(")) {
-      // Auto-fix: strip those lines rather than rejecting
-      code = code.replace(/^\s*server\.listen\(.*\);?\s*$/gm, "");
-      code = code.replace(/^\s*server\.close\(.*\);?\s*$/gm, "");
-      code = code.replace(/^\s*(before|after)(All|Each)\(\(\)\s*=>\s*\{\s*\}\);?\s*$/gm, "");
-      console.log(`[test-gen] auto-fixed: removed server.listen/close calls for ${finding.fileLine}`);
-    }
+      const code = cleanGeneratedCode(result.text);
 
-    return code;
-  } catch (err) {
-    console.error(`[test-gen] LLM call failed for finding ${finding.fileLine}: ${err}`);
-    return null;
+      console.log(`[test-gen] attempt ${attempt + 1}/${MAX_RETRIES}: LLM returned ${code.length} bytes for ${finding.fileLine}`);
+
+      // Structural check (fast)
+      if (!code.includes("runPackage(") && !code.includes("runInChildProcess(")) {
+        console.error(`[test-gen] attempt ${attempt + 1}: no runPackage/runInChildProcess call, retrying`);
+        lastError = "Test must use runPackage() or runInChildProcess() to load the package. Do not use require() directly.";
+        continue;
+      }
+
+      // Runtime validation — actually run the test with vitest
+      console.log(`[test-gen] attempt ${attempt + 1}: validating with vitest...`);
+      const validation = validateTestWithVitest(code);
+
+      if (validation.valid) {
+        if (validation.errorType === "assertion") {
+          console.log(`[test-gen] attempt ${attempt + 1}: VALID (assertion failure — structurally correct, keeping)`);
+        } else {
+          console.log(`[test-gen] attempt ${attempt + 1}: VALID (tests passed)`);
+        }
+        return code;
+      }
+
+      // Runtime error — retry with error feedback
+      lastError = validation.errorMessage?.slice(0, 500) ?? "Unknown runtime error";
+      console.log(`[test-gen] attempt ${attempt + 1}: ${validation.errorType} error, retrying — ${lastError.slice(0, 200)}`);
+
+      if (attempt < MAX_RETRIES - 1) {
+        await sleep(1000); // brief pause before retry
+      }
+    } catch (err) {
+      console.error(`[test-gen] attempt ${attempt + 1}: LLM call failed for ${finding.fileLine}: ${err}`);
+      lastError = `LLM call failed: ${err instanceof Error ? err.message : String(err)}`;
+    }
   }
+
+  console.error(`[test-gen] all ${MAX_RETRIES} attempts failed for ${finding.fileLine}`);
+  return null;
 }
+
+// ---------------------------------------------------------------------------
+// Orchestrator
+// ---------------------------------------------------------------------------
 
 /** Phase 1c: Auto-generate Vitest proof tests from investigation findings. */
 export async function generateTests(
@@ -157,7 +293,7 @@ export async function generateTests(
 
   // Staggered parallel: launch one request per second, run concurrently
   const testResultPromises = selectedFindings.map(({ index: i, finding }, j) =>
-    sleep(j * 1000).then(async () => {
+    sleep(j * 2000).then(async () => {
       console.log(`[test-gen] generating test ${j + 1}/${selectedFindings.length}: ${finding.capability} @ ${finding.fileLine}`);
       const testCode = await generateTestDirect(finding, packageName, packageSource);
       return { index: i, finding, testCode };
@@ -170,7 +306,7 @@ export async function generateTests(
     const result = testResults.find((r) => r.index === i);
     if (!result?.testCode) return proof;
 
-    const testPath = join(testDir, `finding-${i}.test.js`);
+    const testPath = join(testDir, `finding-${i}.test.ts`);
     writeFileSync(testPath, result.testCode, "utf-8");
     const hash = createHash("sha256").update(result.testCode).digest("hex");
 

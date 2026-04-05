@@ -46,6 +46,7 @@ export interface Proof {
   testFile: string | null;
   testHash: string | null;
   testCode: string | null;
+  verifyError: string | null;
   reasoningHash: string | null;
 }
 
@@ -187,6 +188,19 @@ export interface AuditErrorEvent extends BaseEvent {
   error?: string;
 }
 
+export interface VerifyStartedEvent extends BaseEvent {
+  type: "verify_started";
+  totalTests: number;
+}
+
+export interface VerifyTestResultEvent extends BaseEvent {
+  type: "verify_test_result";
+  proofIndex: number;
+  testFile: string;
+  status: "confirmed" | "unconfirmed" | "infra_error";
+  error?: string;
+}
+
 export type SSEEvent =
   | AuditStartedEvent
   | PhaseStartedEvent
@@ -203,7 +217,9 @@ export type SSEEvent =
   | AgentThinkingEvent
   | TriageProgressEvent
   | InventoryMetaEvent
-  | AuditErrorEvent;
+  | AuditErrorEvent
+  | VerifyStartedEvent
+  | VerifyTestResultEvent;
 
 export const PHASE_ORDER = ["resolve", "inventory", "triage", "investigation", "test-gen", "verify"] as const;
 

@@ -132,8 +132,9 @@ function connectSSE(
     "file_list", "file_analyzing", "file_verdict",
     "triage_complete", "triage_progress", "inventory_meta",
     "agent_thinking", "agent_tool_call", "agent_tool_result",
-    "agent_reasoning", "finding_discovered", "verdict_reached",
-    "audit_error",
+    "agent_reasoning", "finding_discovered",
+    "verify_started", "verify_test_result",
+    "verdict_reached", "audit_error",
   ] as const;
   for (const type of eventTypes) {
     es.addEventListener(type, handler);
@@ -414,6 +415,29 @@ export const useAuditStore = create<AuditState>((set, get) => ({
 
       case "finding_discovered": {
         set({ findings: [...state.findings, event.finding] });
+        break;
+      }
+
+      case "verify_started": {
+        set({
+          pipelineLog: [...state.pipelineLog, {
+            kind: "info" as const,
+            text: `Running ${event.totalTests} exploit test${event.totalTests === 1 ? "" : "s"} in sandbox...`,
+            timestamp: event.timestamp,
+          }],
+        });
+        break;
+      }
+
+      case "verify_test_result": {
+        const labels = { confirmed: "PASSED", unconfirmed: "FAILED", infra_error: "INFRA ERROR" } as const;
+        set({
+          pipelineLog: [...state.pipelineLog, {
+            kind: "info" as const,
+            text: `Test ${event.testFile}: ${labels[event.status]}${event.error ? ` (${event.error})` : ""}`,
+            timestamp: event.timestamp,
+          }],
+        });
         break;
       }
 

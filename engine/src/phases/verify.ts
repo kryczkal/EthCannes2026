@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import { config } from "../config.js";
 import { dockerExec } from "../sandbox/docker.js";
 import type { Proof } from "../models.js";
+import type { EmitFn } from "../events.js";
 
 const HARNESS_DIR = resolve(import.meta.dirname, "../../../sandbox/harness");
 
@@ -15,7 +16,7 @@ const VITEST_CONFIG = `const { defineConfig } = require("vitest/config");
 
 module.exports = defineConfig({
   test: {
-    include: ["generated/**/*.test.js"],
+    include: ["generated/**/*.test.{js,ts}"],
     setupFiles: ["./harness/setup.js"],
     restoreMocks: true,
     testTimeout: 15000,
@@ -48,7 +49,7 @@ async function runPackage(packageName, entryPoint) {
     exports = { __error: e };
   }
 
-  return { exports };
+  return exports;
 }
 
 module.exports = { runPackage };
@@ -146,6 +147,7 @@ function parseVitestOutput(stdout: string): VitestResult | null {
 export async function verifyProofs(
   proofs: Proof[],
   packagePath: string,
+  emit?: EmitFn,
 ): Promise<Proof[]> {
   const proofsWithTests = proofs.filter((p) => p.testFile);
 
@@ -155,6 +157,7 @@ export async function verifyProofs(
   }
 
   console.log(`[verify] verifying ${proofsWithTests.length} proofs with tests`);
+  emit?.("verify_started", { totalTests: proofsWithTests.length });
 
   // 1. Create temp workspace on host
   const workDir = mkdtempSync(join(tmpdir(), "npmguard-verify-"));
@@ -191,7 +194,7 @@ export async function verifyProofs(
       const proof = proofs[i]!;
       if (!proof.testFile) continue;
 
-      const testFileName = `finding-${i}.test.js`;
+      const testFileName = `finding-${i}.test.ts`;
       try {
         copyFileSync(proof.testFile, join(generatedDir, testFileName));
         testFileMap.set(testFileName, i);
@@ -226,7 +229,7 @@ export async function verifyProofs(
       "--cap-drop=ALL",
       `--memory=${config.sandboxMemoryMb}m`,
       `--cpus=${config.sandboxCpus}`,
-      "--user", "0:0",
+      "--user", `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`,
       "--pids-limit", "128",
       "-v", `${workDir}:/workspace`,
       "-w", "/workspace",
@@ -236,19 +239,34 @@ export async function verifyProofs(
 
     if (startResult.exitCode !== 0) {
       console.error(`[verify] failed to start container: ${startResult.stderr}`);
-      return proofs;
+      for (let i = 0; i < proofs.length; i++) {
+        if (proofs[i]!.testFile) {
+          emit?.("verify_test_result", { proofIndex: i, testFile: `finding-${i}.test.ts`, status: "infra_error", error: "container_start_failed" });
+        }
+      }
+      return proofs.map((proof) =>
+        proof.testFile ? { ...proof, kind: "TEST_UNCONFIRMED" as const, verifyError: "container_start_failed" } : proof,
+      );
     }
     console.log(`[verify] container started`);
 
     try {
       // 3. Make vitest + msw available in the workspace
+      let depsReady = false;
       if (hasVerifyImage) {
         // Symlink so Vite's resolver finds deps relative to /workspace
-        await dockerExec(
+        const symlinkResult = await dockerExec(
           ["exec", containerName, "ln", "-s", "/opt/verify/node_modules", "/workspace/node_modules"],
           10_000,
         );
-      } else {
+        if (symlinkResult.exitCode !== 0) {
+          console.error(`[verify] symlink failed (exit=${symlinkResult.exitCode}): ${symlinkResult.stderr}`);
+          // Fall through to npm install path
+        } else {
+          depsReady = true;
+        }
+      }
+      if (!depsReady) {
         console.log("[verify] installing vitest and msw (no pre-built image)...");
         const installResult = await dockerExec(
           ["exec", containerName, "sh", "-c", "cd /workspace && npm init -y > /dev/null 2>&1 && npm install --no-save vitest msw 2>&1 | tail -5"],
@@ -257,8 +275,13 @@ export async function verifyProofs(
         if (installResult.exitCode !== 0) {
           console.error(`[verify] npm install failed (exit=${installResult.exitCode}):`);
           console.error(installResult.stderr.slice(0, 500));
+          for (let i = 0; i < proofs.length; i++) {
+            if (proofs[i]!.testFile) {
+              emit?.("verify_test_result", { proofIndex: i, testFile: `finding-${i}.test.ts`, status: "infra_error", error: "npm_install_failed" });
+            }
+          }
           return proofs.map((proof) =>
-            proof.testFile ? { ...proof, kind: "TEST_UNCONFIRMED" as const } : proof,
+            proof.testFile ? { ...proof, kind: "TEST_UNCONFIRMED" as const, verifyError: "npm_install_failed" } : proof,
           );
         }
       }
@@ -294,8 +317,13 @@ export async function verifyProofs(
 
       if (!parsed?.testResults) {
         console.log("[verify] could not parse vitest results, marking all as TEST_UNCONFIRMED");
+        for (let i = 0; i < proofs.length; i++) {
+          if (proofs[i]!.testFile) {
+            emit?.("verify_test_result", { proofIndex: i, testFile: `finding-${i}.test.ts`, status: "infra_error", error: "results_parse_failed" });
+          }
+        }
         return proofs.map((proof) =>
-          proof.testFile ? { ...proof, kind: "TEST_UNCONFIRMED" as const } : proof,
+          proof.testFile ? { ...proof, kind: "TEST_UNCONFIRMED" as const, verifyError: "results_parse_failed" } : proof,
         );
       }
 
@@ -303,13 +331,14 @@ export async function verifyProofs(
       return proofs.map((proof, i) => {
         if (!proof.testFile) return proof;
 
-        const testFileName = `finding-${i}.test.js`;
+        const testFileName = `finding-${i}.test.ts`;
         const testResult = parsed.testResults?.find((r) =>
           r.name.includes(testFileName),
         );
 
         if (testResult?.status === "passed") {
           console.log(`[verify] finding-${i}: PASSED -> TEST_CONFIRMED`);
+          emit?.("verify_test_result", { proofIndex: i, testFile: testFileName, status: "confirmed" });
           return {
             ...proof,
             kind: "TEST_CONFIRMED" as const,
@@ -324,9 +353,20 @@ export async function verifyProofs(
           ?.join("\n")
           ?.slice(0, 500);
 
+        const notFound = !testResult;
         console.log(`[verify] finding-${i}: ${testResult?.status ?? "NOT_FOUND"} -> TEST_UNCONFIRMED${failureMsg ? ` (${failureMsg})` : ""}`);
+        emit?.("verify_test_result", {
+          proofIndex: i,
+          testFile: testFileName,
+          status: notFound ? "infra_error" : "unconfirmed",
+          ...(notFound && { error: "test_not_in_results" }),
+        });
 
-        return { ...proof, kind: "TEST_UNCONFIRMED" as const };
+        return {
+          ...proof,
+          kind: "TEST_UNCONFIRMED" as const,
+          ...(notFound && { verifyError: "test_not_in_results" }),
+        };
       });
     } finally {
       // Stop and remove container

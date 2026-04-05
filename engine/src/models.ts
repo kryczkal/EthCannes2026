@@ -217,6 +217,7 @@ export const Proof = z.object({
   testFile: z.string().nullable().default(null),
   testHash: z.string().nullable().default(null),
   testCode: z.string().nullable().default(null),
+  verifyError: z.string().nullable().default(null),
 
   reasoningHash: z.string().nullable().default(null),
   teeAttestationId: z.string().nullable().default(null),

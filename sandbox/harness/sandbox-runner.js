@@ -24,7 +24,7 @@ async function runPackage(packageName, entryPoint) {
     exports = { __error: e };
   }
 
-  return { exports };
+  return exports;
 }
 
 module.exports = { runPackage };

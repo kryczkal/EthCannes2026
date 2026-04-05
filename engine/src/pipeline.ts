@@ -240,7 +240,7 @@ export async function runAudit(packageName: string, emit?: EmitFn, auditId?: str
     // Phase 2: Proof verification
     const { result: verifiedProofs, log: verifyLog } = await timedPhase(
       "verify",
-      () => verifyProofs(proofs, resolved.path),
+      () => verifyProofs(proofs, resolved.path, emit),
       5 * 60_000 * timeoutScale,
       { proofCount: proofs.length, withTests: proofs.filter((x) => x.testFile).length },
       (p) => ({
