@@ -111,7 +111,7 @@ export const StatsTitle: React.FC = () => {
             width: "100%",
             height: "100%",
             objectFit: "cover",
-            filter: "brightness(0.5) saturate(0.7) contrast(1.1)",
+            filter: "brightness(0.7) saturate(0.85) contrast(1.1)",
           }}
         />
       </AbsoluteFill>
@@ -120,7 +120,7 @@ export const StatsTitle: React.FC = () => {
       <AbsoluteFill
         style={{
           background:
-            "radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.35) 100%)",
+            "radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.2) 100%)",
         }}
       />
 

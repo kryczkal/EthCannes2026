@@ -32,7 +32,7 @@ export const Terminal: React.FC = () => {
   });
 
   // Background dims dramatically between the two lines
-  const bgDim = interpolate(frame, [35, 50], [0.5, 0.25], {
+  const bgDim = interpolate(frame, [35, 50], [0.7, 0.4], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -97,7 +97,7 @@ export const Terminal: React.FC = () => {
       <AbsoluteFill
         style={{
           background:
-            "radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.35) 100%)",
+            "radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.2) 100%)",
         }}
       />
 

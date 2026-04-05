@@ -113,7 +113,7 @@ export const ClosingCard: React.FC = () => {
                     width: "100%",
                     height: "100%",
                     objectFit: "cover",
-                    filter: "brightness(0.5) saturate(0.7) contrast(1.1)",
+                    filter: "brightness(0.7) saturate(0.85) contrast(1.1)",
                   }}
                 />
               </AbsoluteFill>
@@ -124,7 +124,7 @@ export const ClosingCard: React.FC = () => {
           <AbsoluteFill
             style={{
               background:
-                "radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.35) 100%)",
+                "radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.2) 100%)",
             }}
           />
 
@@ -195,7 +195,7 @@ export const ClosingCard: React.FC = () => {
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
-                filter: "brightness(0.4) saturate(0.5) contrast(1.1)",
+                filter: "brightness(0.6) saturate(0.7) contrast(1.1)",
               }}
             />
           </AbsoluteFill>
@@ -203,7 +203,7 @@ export const ClosingCard: React.FC = () => {
           <AbsoluteFill
             style={{
               background:
-                "radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.4) 100%)",
+                "radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.2) 100%)",
             }}
           />
 

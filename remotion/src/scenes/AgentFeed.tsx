@@ -122,7 +122,7 @@ export const AgentFeed: React.FC = () => {
         <Video
           src={staticFile("bg-terminal.mp4")}
           muted
-          style={{ width: "100%", height: "100%", objectFit: "cover", filter: `brightness(${inBeat1 ? 0.3 : 0.2}) saturate(0.5) contrast(1.1)` }}
+          style={{ width: "100%", height: "100%", objectFit: "cover", filter: `brightness(${inBeat1 ? 0.5 : 0.4}) saturate(0.7) contrast(1.1)` }}
         />
       </AbsoluteFill>
 
