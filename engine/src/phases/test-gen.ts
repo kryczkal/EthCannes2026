@@ -229,25 +229,32 @@ async function generateTestDirect(
         continue;
       }
 
-      // Runtime validation — actually run the test with vitest
-      console.log(`[test-gen] attempt ${attempt + 1}: validating with vitest...`);
-      const validation = validateTestWithVitest(code);
+      // For test fixtures, validate on the host; for real packages skip
+      // (the Docker verify phase with retry handles real packages)
+      const isTestFixture = packageName.startsWith("test-pkg-");
+      if (isTestFixture) {
+        console.log(`[test-gen] attempt ${attempt + 1}: validating with vitest (test fixture)...`);
+        const validation = validateTestWithVitest(code);
 
-      if (validation.valid) {
-        if (validation.errorType === "assertion") {
-          console.log(`[test-gen] attempt ${attempt + 1}: VALID (assertion failure — structurally correct, keeping)`);
-        } else {
-          console.log(`[test-gen] attempt ${attempt + 1}: VALID (tests passed)`);
+        if (validation.valid) {
+          if (validation.errorType === "assertion") {
+            console.log(`[test-gen] attempt ${attempt + 1}: VALID (assertion failure — structurally correct, keeping)`);
+          } else {
+            console.log(`[test-gen] attempt ${attempt + 1}: VALID (tests passed)`);
+          }
+          return code;
         }
+
+        lastError = validation.errorMessage?.slice(0, 500) ?? "Unknown runtime error";
+        console.log(`[test-gen] attempt ${attempt + 1}: ${validation.errorType} error, retrying — ${lastError.slice(0, 200)}`);
+
+        if (attempt < MAX_RETRIES - 1) {
+          await sleep(1000);
+        }
+      } else {
+        // Real npm package — accept the test, Docker verify will validate it
+        console.log(`[test-gen] attempt ${attempt + 1}: ACCEPTED (real package, Docker verify will validate)`);
         return code;
-      }
-
-      // Runtime error — retry with error feedback
-      lastError = validation.errorMessage?.slice(0, 500) ?? "Unknown runtime error";
-      console.log(`[test-gen] attempt ${attempt + 1}: ${validation.errorType} error, retrying — ${lastError.slice(0, 200)}`);
-
-      if (attempt < MAX_RETRIES - 1) {
-        await sleep(1000); // brief pause before retry
       }
     } catch (err) {
       console.error(`[test-gen] attempt ${attempt + 1}: LLM call failed for ${finding.fileLine}: ${err}`);
