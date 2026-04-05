@@ -1,26 +1,18 @@
 import {
   AbsoluteFill,
-  Img,
   interpolate,
-  spring,
   staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
 import { Video } from "@remotion/media";
-import { colors, fonts, springs } from "../lib/theme";
+import { colors, fonts } from "../lib/theme";
 
 export const ClosingCard: React.FC = () => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  useVideoConfig();
 
-  // Logo animations — full 150 frames
-  const logoScale = spring({ frame, fps, config: springs.smooth });
-  const logoOpacity = interpolate(frame, [0, 15], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const titleOpacity = interpolate(frame, [12, 25], [0, 1], {
+  const titleOpacity = interpolate(frame, [0, 15], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
