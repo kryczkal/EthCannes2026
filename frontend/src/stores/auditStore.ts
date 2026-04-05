@@ -100,12 +100,18 @@ const initialState = {
 
 let activeEventSource: EventSource | null = null;
 let activeFileAbort: AbortController | null = null;
+let seenEventTimestamps = new Set<string>();
 
 function connectSSE(
   auditId: string,
   set: (partial: Partial<AuditState>) => void,
   get: () => AuditState,
 ) {
+  // Close any existing connection first (guards against React Strict Mode double-fire)
+  if (activeEventSource) {
+    activeEventSource.close();
+    activeEventSource = null;
+  }
   const es = new EventSource(`${API_BASE}/audit/${auditId}/events`);
   activeEventSource = es;
 
@@ -147,6 +153,7 @@ export const useAuditStore = create<AuditState>((set, get) => ({
       activeEventSource.close();
       activeEventSource = null;
     }
+    seenEventTimestamps = new Set();
     set({ ...initialState, phases: PHASE_ORDER.map((name) => ({ name, status: "pending" as const })) });
   },
 
@@ -207,6 +214,11 @@ export const useAuditStore = create<AuditState>((set, get) => ({
   },
 
   handleEvent: (event: SSEEvent) => {
+    // Deduplicate: skip events we've already processed (guards against SSE replay + Strict Mode)
+    const eventKey = `${event.type}:${event.timestamp}`;
+    if (seenEventTimestamps.has(eventKey)) return;
+    seenEventTimestamps.add(eventKey);
+
     const state = get();
 
     switch (event.type) {
