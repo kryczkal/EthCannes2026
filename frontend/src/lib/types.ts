@@ -222,6 +222,8 @@ export const PHASE_LABELS: Record<string, string> = {
 export const PHASE_WAIT_LABELS: Record<string, string> = {
   resolve: "Downloading and unpacking...",
   inventory: "Building file inventory...",
+  triage: "Analyzing source files...",
+  investigation: "Agent is investigating...",
   "test-gen": "Generating exploit tests...",
   verify: "Running verification in sandbox...",
 };

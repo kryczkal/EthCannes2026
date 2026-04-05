@@ -575,7 +575,7 @@ export function ActivityFeed() {
           <FindingItem key={`f-${i}`} finding={f} />
         ))}
 
-        {isRunning && !agentThinking && !verdict && phase && PHASE_WAIT_LABELS[phase] && (
+        {isRunning && !agentThinking && !lastToolCallPending && !verdict && phase && PHASE_WAIT_LABELS[phase] && (
           <div className="feed-item" style={{ opacity: 0.6 }}>
             <div className="feed-meta">
               <FeedTag type="phase">{phase}</FeedTag>
