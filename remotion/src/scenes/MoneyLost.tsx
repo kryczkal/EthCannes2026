@@ -4,17 +4,10 @@ import {
   spring,
   useCurrentFrame,
   useVideoConfig,
+  staticFile,
 } from "remotion";
-import { colors, fonts, springs, gradients } from "../lib/theme";
-import { GlassCard, GridBackground, GradientText } from "../lib/visuals";
-
-// Floating ember particles
-const EMBERS = Array.from({ length: 10 }, (_, i) => ({
-  x: 30 + ((i * 137) % 100) * 0.6 + 20,
-  startFrame: i * 6,
-  size: 3 + (i % 3) * 2,
-  drift: (i % 2 === 0 ? -1 : 1) * (10 + (i % 5) * 4),
-}));
+import { Video } from "@remotion/media";
+import { fonts, springs } from "../lib/theme";
 
 export const MoneyLost: React.FC = () => {
   const frame = useCurrentFrame();
@@ -22,20 +15,19 @@ export const MoneyLost: React.FC = () => {
 
   // Count-up from 0 to 60
   const countValue = Math.floor(
-    interpolate(frame, [0, 25], [0, 60], {
+    interpolate(frame, [3, 25], [0, 60], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
     }),
   );
 
-  // Card entrance
-  const cardScale = spring({
+  // Number slams in
+  const numberScale = spring({
     frame,
     fps,
     config: springs.bouncy,
   });
-
-  const cardOpacity = interpolate(frame, [0, 5], [0, 1], {
+  const numberOpacity = interpolate(frame, [0, 5], [0, 1], {
     extrapolateRight: "clamp",
   });
 
@@ -49,126 +41,113 @@ export const MoneyLost: React.FC = () => {
     extrapolateRight: "clamp",
   });
 
-  // Separator line
+  // Accent line
   const lineWidth = spring({
-    frame: frame - 20,
+    frame: frame - 15,
     fps,
     config: springs.smooth,
   });
 
-  // Red glow pulse
-  const glowIntensity = interpolate(
-    Math.sin(frame * 0.15),
-    [-1, 1],
-    [0.2, 0.45],
-  );
+  // Slow zoom on background video (Ken Burns)
+  const zoom = interpolate(frame, [0, 90], [1.05, 1.12], {
+    extrapolateRight: "clamp",
+  });
 
   return (
-    <AbsoluteFill
-      style={{
-        background: gradients.bgRadial,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <GridBackground opacity={0.04} />
+    <AbsoluteFill style={{ backgroundColor: "#000" }}>
+      {/* Background video — dimmed, desaturated, slow zoom */}
+      <AbsoluteFill style={{ transform: `scale(${zoom})` }}>
+        <Video
+          src={staticFile("bg-money.mp4")}
+          muted
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            filter: "brightness(0.3) saturate(0.7) contrast(1.1)",
+          }}
+        />
+      </AbsoluteFill>
 
-      {/* Floating embers */}
-      {EMBERS.map((ember, i) => {
-        const emberOpacity = interpolate(
-          frame,
-          [ember.startFrame, ember.startFrame + 20, ember.startFrame + 55],
-          [0, 0.35, 0],
-          { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
-        );
-        const emberY = interpolate(frame, [0, 90], [0, -50], {
-          extrapolateRight: "clamp",
-        });
-        const emberX = Math.sin((frame + i * 20) * 0.05) * ember.drift;
+      {/* Dark radial overlay for text readability */}
+      <AbsoluteFill
+        style={{
+          background:
+            "radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.6) 100%)",
+        }}
+      />
 
-        return (
+      {/* Content */}
+      <AbsoluteFill
+        style={{ justifyContent: "center", alignItems: "center" }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
+          {/* $60B — pure white, layered shadows */}
           <div
-            key={i}
             style={{
-              position: "absolute",
-              left: `${ember.x}%`,
-              top: "55%",
-              width: ember.size,
-              height: ember.size,
-              borderRadius: "50%",
-              backgroundColor: colors.danger,
-              opacity: emberOpacity,
-              transform: `translate(${emberX}px, ${emberY}px)`,
-              boxShadow: `0 0 ${ember.size * 3}px ${colors.danger}`,
-              pointerEvents: "none",
+              fontFamily: fonts.heading,
+              fontSize: 260,
+              fontWeight: 900,
+              lineHeight: 0.9,
+              color: "#ffffff",
+              transform: `scale(${numberScale})`,
+              opacity: numberOpacity,
+              letterSpacing: "-0.04em",
+              textShadow:
+                "0 2px 4px rgba(0,0,0,0.5), 0 8px 30px rgba(0,0,0,0.6), 0 0 80px rgba(0,0,0,0.4)",
+            }}
+          >
+            ${countValue}B
+          </div>
+
+          {/* Accent line */}
+          <div
+            style={{
+              width: interpolate(lineWidth, [0, 1], [0, 120]),
+              height: 2,
+              background:
+                "linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)",
+              marginTop: 20,
+              marginBottom: 16,
+              borderRadius: 1,
             }}
           />
-        );
-      })}
 
-      {/* Glass stat card */}
+          {/* "in damage" — light, wide-spaced, uppercase whisper */}
+          <div
+            style={{
+              fontFamily: fonts.heading,
+              fontSize: 28,
+              fontWeight: 400,
+              color: "rgba(255,255,255,0.6)",
+              opacity: subtitleOpacity,
+              transform: `translateY(${subtitleY}px)`,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              textShadow: "0 2px 15px rgba(0,0,0,0.8)",
+            }}
+          >
+            in damage
+          </div>
+        </div>
+      </AbsoluteFill>
+
+      {/* Vignette */}
       <div
         style={{
-          transform: `scale(${cardScale})`,
-          opacity: cardOpacity,
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.5) 100%)",
+          pointerEvents: "none",
         }}
-      >
-        <GlassCard
-          width={700}
-          padding="60px 80px"
-          glowColor={`rgba(248, 113, 113, ${glowIntensity})`}
-          borderOpacity={0.1}
-        >
-          <div style={{ textAlign: "center" }}>
-            {/* Main number with gradient */}
-            <div
-              style={{
-                fontFamily: fonts.mono,
-                fontSize: 200,
-                fontWeight: 700,
-                lineHeight: 1,
-                letterSpacing: "-0.02em",
-              }}
-            >
-              <GradientText
-                gradient={gradients.dangerText}
-                style={{
-                  filter:
-                    "drop-shadow(0 0 60px rgba(248, 113, 113, 0.5))",
-                }}
-              >
-                ${countValue}B
-              </GradientText>
-            </div>
-
-            {/* Separator line */}
-            <div
-              style={{
-                width: interpolate(lineWidth, [0, 1], [0, 120]),
-                height: 1,
-                background:
-                  "linear-gradient(90deg, transparent, rgba(248, 113, 113, 0.4), transparent)",
-                margin: "20px auto 16px",
-              }}
-            />
-
-            {/* Subtitle */}
-            <div
-              style={{
-                fontFamily: fonts.mono,
-                fontSize: 28,
-                color: colors.textDim,
-                opacity: subtitleOpacity,
-                transform: `translateY(${subtitleY}px)`,
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
-              }}
-            >
-              in damage
-            </div>
-          </div>
-        </GlassCard>
-      </div>
+      />
     </AbsoluteFill>
   );
 };

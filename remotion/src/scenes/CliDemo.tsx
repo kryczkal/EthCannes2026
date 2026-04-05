@@ -46,14 +46,33 @@ export const CliDemo: React.FC = () => {
     extrapolateRight: "clamp",
   });
 
+  // Reactive glow color: red when blocked, green when safe
+  const glowColor =
+    frame < 60
+      ? "rgba(248, 113, 113, 0.06)"
+      : `rgba(74, 222, 128, ${interpolate(frame, [90, 105], [0, 0.06], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })})`;
+
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: colors.bg,
+        background: `radial-gradient(ellipse at 50% 50%, rgba(30, 25, 20, 1) 0%, ${colors.bg} 50%, #000 100%)`,
         justifyContent: "center",
         alignItems: "center",
       }}
     >
+      {/* Reactive glow behind terminal */}
+      <div
+        style={{
+          position: "absolute",
+          width: 1200,
+          height: 600,
+          borderRadius: "50%",
+          background: `radial-gradient(ellipse, ${glowColor}, transparent 70%)`,
+          filter: "blur(60px)",
+          pointerEvents: "none",
+        }}
+      />
+
       <div
         style={{
           width: 1100,
@@ -61,7 +80,8 @@ export const CliDemo: React.FC = () => {
           borderRadius: 12,
           border: `1px solid rgba(255,255,255,0.1)`,
           overflow: "hidden",
-          boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
+          boxShadow:
+            "0 40px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05)",
         }}
       >
         {/* Title bar */}

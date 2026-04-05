@@ -4,14 +4,10 @@ import {
   spring,
   useCurrentFrame,
   useVideoConfig,
+  staticFile,
 } from "remotion";
-import { colors, fonts, springs, gradients } from "../lib/theme";
-import {
-  GlassCard,
-  GridBackground,
-  GradientText,
-  AnimatedBorder,
-} from "../lib/visuals";
+import { Video } from "@remotion/media";
+import { fonts, springs } from "../lib/theme";
 
 const CAPABILITIES = [
   { label: "network", dot: "#f87171" },
@@ -40,13 +36,6 @@ export const VerdictSlam: React.FC = () => {
     extrapolateRight: "clamp",
   });
 
-  // Red glow pulse
-  const glowIntensity = interpolate(
-    Math.sin(frame * 0.12),
-    [-1, 1],
-    [0.15, 0.4],
-  );
-
   // Score count-up
   const scoreValue = Math.floor(
     interpolate(frame, [15, 30], [0, 92], {
@@ -66,7 +55,7 @@ export const VerdictSlam: React.FC = () => {
     extrapolateRight: "clamp",
   });
 
-  // Capability tags pop in with stagger
+  // Capability tags
   const getTagProgress = (index: number) => {
     const delay = 25 + index * 6;
     return spring({
@@ -76,7 +65,7 @@ export const VerdictSlam: React.FC = () => {
     });
   };
 
-  // Screen shake on slam (extended, with Y axis)
+  // Screen shake on slam
   const shakeX =
     frame < 12
       ? Math.sin(frame * 5) *
@@ -88,25 +77,34 @@ export const VerdictSlam: React.FC = () => {
         interpolate(frame, [0, 12], [4, 0], { extrapolateRight: "clamp" })
       : 0;
 
-  // Animated border rotation
-  const borderRotation = interpolate(frame, [0, 195], [0, 2], {
+  // Slow zoom on background
+  const zoom = interpolate(frame, [0, 195], [1.05, 1.15], {
     extrapolateRight: "clamp",
   });
 
-  // Card entrance
-  const cardScale = spring({
-    frame: frame - 2,
-    fps,
-    config: { damping: 20, stiffness: 150 },
-  });
-
   return (
-    <AbsoluteFill
-      style={{
-        background: `radial-gradient(ellipse at 50% 30%, rgba(248, 113, 113, 0.08) 0%, ${colors.bg} 60%, #000 100%)`,
-      }}
-    >
-      <GridBackground opacity={0.03} />
+    <AbsoluteFill style={{ backgroundColor: "#000" }}>
+      {/* Background video */}
+      <AbsoluteFill style={{ transform: `scale(${zoom})` }}>
+        <Video
+          src={staticFile("bg-verdict.mp4")}
+          muted
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            filter: "brightness(0.25) saturate(0.6) contrast(1.15)",
+          }}
+        />
+      </AbsoluteFill>
+
+      {/* Dark overlay */}
+      <AbsoluteFill
+        style={{
+          background:
+            "radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.7) 100%)",
+        }}
+      />
 
       <AbsoluteFill
         style={{
@@ -115,181 +113,146 @@ export const VerdictSlam: React.FC = () => {
           transform: `translate(${shakeX}px, ${shakeY}px)`,
         }}
       >
-        <div style={{ transform: `scale(${cardScale})` }}>
-          <AnimatedBorder
-            width={800}
-            borderWidth={1.5}
-            borderRadius={20}
-            colors={[colors.danger, "#ef4444", "transparent", colors.danger]}
-            rotationProgress={borderRotation}
+        <div style={{ textAlign: "center" }}>
+          {/* CRITICAL — solid red, no gradient */}
+          <div
+            style={{
+              fontFamily: fonts.mono,
+              fontSize: 140,
+              fontWeight: 700,
+              lineHeight: 1,
+              color: "#ff4444",
+              transform: `scale(${textScale})`,
+              opacity: textOpacity,
+              filter: `blur(${textBlur}px)`,
+              letterSpacing: "0.05em",
+              textShadow:
+                "0 0 60px rgba(255, 68, 68, 0.4), 0 0 120px rgba(255, 68, 68, 0.15), 0 4px 20px rgba(0,0,0,0.6)",
+            }}
           >
-            <GlassCard
-              padding="70px 100px"
-              glowColor={`rgba(248, 113, 113, ${glowIntensity})`}
-              borderOpacity={0}
-              borderRadius={20}
+            CRITICAL
+          </div>
+
+          {/* Score pill */}
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 12,
+              marginTop: 24,
+              padding: "8px 20px",
+              borderRadius: 8,
+              background: "rgba(255, 68, 68, 0.08)",
+              border: "1px solid rgba(255, 68, 68, 0.2)",
+              opacity: scoreOpacity,
+            }}
+          >
+            <span
+              style={{
+                fontFamily: fonts.mono,
+                fontSize: 22,
+                color: "rgba(255,255,255,0.5)",
+              }}
             >
-              <div style={{ textAlign: "center", position: "relative" }}>
-                {/* Ghost echo behind CRITICAL */}
-                <div
-                  style={{
-                    position: "absolute",
-                    left: "50%",
-                    top: 0,
-                    transform: "translateX(-50%) scale(1.15)",
-                    fontFamily: fonts.mono,
-                    fontSize: 140,
-                    fontWeight: 700,
-                    color: colors.danger,
-                    opacity: 0.05,
-                    filter: "blur(10px)",
-                    letterSpacing: "0.05em",
-                    lineHeight: 1,
-                    pointerEvents: "none",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  CRITICAL
-                </div>
+              Risk Score
+            </span>
+            <span
+              style={{
+                fontFamily: fonts.mono,
+                fontSize: 28,
+                fontWeight: 700,
+                color: "#ff4444",
+              }}
+            >
+              {scoreValue}/100
+            </span>
+          </div>
 
-                {/* CRITICAL text */}
-                <div
-                  style={{
-                    fontFamily: fonts.mono,
-                    fontSize: 140,
-                    fontWeight: 700,
-                    lineHeight: 1,
-                    transform: `scale(${textScale})`,
-                    opacity: textOpacity,
-                    filter: `blur(${textBlur}px)`,
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  <GradientText
-                    gradient={gradients.dangerText}
-                    style={{
-                      filter:
-                        "drop-shadow(0 0 80px rgba(248, 113, 113, 0.6)) drop-shadow(0 0 160px rgba(248, 113, 113, 0.2))",
-                    }}
-                  >
-                    CRITICAL
-                  </GradientText>
-                </div>
+          {/* Progress bar */}
+          <div
+            style={{
+              width: 200,
+              height: 3,
+              borderRadius: 2,
+              background: "rgba(255,255,255,0.1)",
+              margin: "12px auto 0",
+              opacity: scoreOpacity,
+            }}
+          >
+            <div
+              style={{
+                width: `${progressFill}%`,
+                height: "100%",
+                borderRadius: 2,
+                backgroundColor: "#ff4444",
+                boxShadow: "0 0 8px rgba(255, 68, 68, 0.5)",
+              }}
+            />
+          </div>
 
-                {/* Score pill */}
+          {/* Capability tags */}
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              justifyContent: "center",
+              marginTop: 28,
+              flexWrap: "wrap",
+            }}
+          >
+            {CAPABILITIES.map((cap, i) => {
+              const progress = getTagProgress(i);
+              return (
                 <div
+                  key={cap.label}
                   style={{
-                    display: "inline-flex",
+                    display: "flex",
                     alignItems: "center",
-                    gap: 12,
-                    marginTop: 24,
-                    padding: "8px 20px",
-                    borderRadius: 8,
-                    background: "rgba(248, 113, 113, 0.08)",
-                    border: "1px solid rgba(248, 113, 113, 0.2)",
-                    opacity: scoreOpacity,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: fonts.mono,
-                      fontSize: 22,
-                      color: colors.textDim,
-                    }}
-                  >
-                    Risk Score
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: fonts.mono,
-                      fontSize: 28,
-                      fontWeight: 700,
-                      color: colors.danger,
-                    }}
-                  >
-                    {scoreValue}/100
-                  </span>
-                </div>
-
-                {/* Progress bar */}
-                <div
-                  style={{
-                    width: 200,
-                    height: 3,
-                    borderRadius: 2,
-                    background: "rgba(255,255,255,0.1)",
-                    margin: "12px auto 0",
-                    opacity: scoreOpacity,
+                    gap: 8,
+                    fontFamily: fonts.mono,
+                    fontSize: 15,
+                    color: "rgba(255,255,255,0.7)",
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    padding: "8px 18px",
+                    borderRadius: 20,
+                    transform: `scale(${progress})`,
+                    opacity: interpolate(
+                      progress,
+                      [0, 0.5, 1],
+                      [0, 0.5, 1],
+                    ),
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
                   }}
                 >
                   <div
                     style={{
-                      width: `${progressFill}%`,
-                      height: "100%",
-                      borderRadius: 2,
-                      backgroundColor: colors.danger,
-                      boxShadow: `0 0 8px ${colors.danger}`,
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      backgroundColor: cap.dot,
+                      boxShadow: `0 0 6px ${cap.dot}`,
                     }}
                   />
+                  {cap.label}
                 </div>
-
-                {/* Capability tags */}
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 10,
-                    justifyContent: "center",
-                    marginTop: 28,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  {CAPABILITIES.map((cap, i) => {
-                    const progress = getTagProgress(i);
-                    return (
-                      <div
-                        key={cap.label}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          fontFamily: fonts.mono,
-                          fontSize: 16,
-                          color: colors.danger,
-                          background: "rgba(248, 113, 113, 0.06)",
-                          backdropFilter: "blur(20px)",
-                          border: "1px solid rgba(248, 113, 113, 0.15)",
-                          padding: "8px 20px",
-                          borderRadius: 20,
-                          transform: `scale(${progress})`,
-                          opacity: interpolate(
-                            progress,
-                            [0, 0.5, 1],
-                            [0, 0.5, 1],
-                          ),
-                          textTransform: "uppercase",
-                          letterSpacing: "0.05em",
-                          boxShadow: "0 0 20px rgba(248, 113, 113, 0.08)",
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: "50%",
-                            backgroundColor: cap.dot,
-                            boxShadow: `0 0 6px ${cap.dot}`,
-                          }}
-                        />
-                        {cap.label}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </GlassCard>
-          </AnimatedBorder>
+              );
+            })}
+          </div>
         </div>
       </AbsoluteFill>
+
+      {/* Vignette */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.5) 100%)",
+          pointerEvents: "none",
+        }}
+      />
     </AbsoluteFill>
   );
 };

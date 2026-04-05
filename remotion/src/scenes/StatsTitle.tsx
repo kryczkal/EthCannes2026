@@ -4,13 +4,24 @@ import {
   spring,
   useCurrentFrame,
   useVideoConfig,
+  Easing,
+  staticFile,
 } from "remotion";
-import { colors, fonts, springs, gradients } from "../lib/theme";
-import { GlassCard, GridBackground, GradientText } from "../lib/visuals";
+import { Video } from "@remotion/media";
+import { fonts, springs } from "../lib/theme";
 
 export const StatsTitle: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+
+  // ── BEAT 1: "8 out of 10 were preventable" (frames 0–75) ──
+
+  // Fade out beat 1 to make room for beat 2
+  const beat1Opacity = interpolate(frame, [65, 78], [1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.inOut(Easing.quad),
+  });
 
   // "8" slams in
   const numberScale = spring({
@@ -18,7 +29,6 @@ export const StatsTitle: React.FC = () => {
     fps,
     config: springs.bouncy,
   });
-
   const numberOpacity = interpolate(frame, [0, 5], [0, 1], {
     extrapolateRight: "clamp",
   });
@@ -28,8 +38,12 @@ export const StatsTitle: React.FC = () => {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+  const outOfY = interpolate(frame, [12, 22], [20, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
 
-  // "were preventable" types in
+  // "were preventable"
   const preventableOpacity = interpolate(frame, [28, 40], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -39,253 +53,242 @@ export const StatsTitle: React.FC = () => {
     extrapolateRight: "clamp",
   });
 
-  // Underline for "were preventable"
-  const underlineWidth = spring({
-    frame: frame - 35,
+  // Accent line
+  const lineWidth = spring({
+    frame: frame - 25,
     fps,
     config: springs.smooth,
   });
 
-  // Kicker line
-  const kickerOpacity = interpolate(frame, [55, 70], [0, 1], {
+  // ── BEAT 2: "with a simple post-install script check" (frames 78–140) ──
+  // Line-by-line reveal with smooth ease + blur-to-sharp (focus pull)
+
+  // Line 1: "With a simple"
+  const line1Op = interpolate(frame, [80, 92], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.out(Easing.quad),
+  });
+  const line1Y = interpolate(frame, [80, 92], [30, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.out(Easing.quad),
+  });
+  const line1Blur = interpolate(frame, [80, 90], [8, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const kickerY = interpolate(frame, [55, 70], [10, 0], {
+
+  // Line 2: "post-install script check."
+  const line2Op = interpolate(frame, [94, 106], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.out(Easing.quad),
+  });
+  const line2Y = interpolate(frame, [94, 106], [30, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.out(Easing.quad),
+  });
+  const line2Blur = interpolate(frame, [94, 104], [8, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // Card entrance
-  const cardScale = spring({
-    frame,
-    fps,
-    config: { damping: 30, stiffness: 120 },
-  });
-  const cardOpacity = interpolate(frame, [0, 8], [0, 1], {
-    extrapolateRight: "clamp",
-  });
-
-  // Slow zoom
-  const zoom = interpolate(frame, [0, 140], [1, 1.02], {
-    extrapolateRight: "clamp",
-  });
-
-  // Circle ring behind the "8"
-  const ringOpacity = interpolate(frame, [3, 15], [0, 0.15], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const ringScale = spring({
-    frame: frame - 2,
-    fps,
-    config: { damping: 25, stiffness: 100 },
-  });
-
-  // Corner accent marks
-  const cornerProgress = spring({
-    frame: frame - 10,
-    fps,
-    config: springs.smooth,
-  });
-  const cornerOpacity = interpolate(cornerProgress, [0, 1], [0, 0.4]);
-  const cornerSize = interpolate(cornerProgress, [0, 1], [0, 20]);
-
-  // Grid parallax drift
-  const gridOffset = interpolate(frame, [0, 140], [0, -20], {
+  // Slow zoom on background
+  const zoom = interpolate(frame, [0, 140], [1.05, 1.15], {
     extrapolateRight: "clamp",
   });
 
   return (
-    <AbsoluteFill
-      style={{
-        background: gradients.bgRadial,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <GridBackground opacity={0.04} offsetY={gridOffset} />
+    <AbsoluteFill style={{ backgroundColor: "#000" }}>
+      {/* Background video */}
+      <AbsoluteFill style={{ transform: `scale(${zoom})` }}>
+        <Video
+          src={staticFile("bg-stats.mp4")}
+          muted
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            filter: "brightness(0.3) saturate(0.6) contrast(1.1)",
+          }}
+        />
+      </AbsoluteFill>
 
+      {/* Dark overlay */}
+      <AbsoluteFill
+        style={{
+          background:
+            "radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.6) 100%)",
+        }}
+      />
+
+      {/* ── BEAT 1: 8 out of 10 were preventable ── */}
       <AbsoluteFill
         style={{
           justifyContent: "center",
           alignItems: "center",
-          transform: `scale(${zoom})`,
+          opacity: beat1Opacity,
         }}
       >
         <div
           style={{
-            transform: `scale(${cardScale})`,
-            opacity: cardOpacity,
-            position: "relative",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
           }}
         >
-          {/* Corner accent marks */}
-          {[
-            { top: 0, left: 0, bT: "top", bL: "left" },
-            { top: 0, right: 0, bT: "top", bL: "right" },
-            { bottom: 0, left: 0, bT: "bottom", bL: "left" },
-            { bottom: 0, right: 0, bT: "bottom", bL: "right" },
-          ].map((pos, i) => (
-            <div
-              key={i}
-              style={{
-                position: "absolute",
-                top: "top" in pos && pos.top === 0 ? 0 : undefined,
-                bottom:
-                  "bottom" in pos && pos.bottom === 0 ? 0 : undefined,
-                left: "left" in pos && pos.left === 0 ? 0 : undefined,
-                right: "right" in pos && pos.right === 0 ? 0 : undefined,
-                width: cornerSize,
-                height: cornerSize,
-                opacity: cornerOpacity,
-                borderTop:
-                  pos.bT === "top"
-                    ? `1px solid ${colors.accent}`
-                    : "none",
-                borderBottom:
-                  pos.bT === "bottom"
-                    ? `1px solid ${colors.accent}`
-                    : "none",
-                borderLeft:
-                  pos.bL === "left"
-                    ? `1px solid ${colors.accent}`
-                    : "none",
-                borderRight:
-                  pos.bL === "right"
-                    ? `1px solid ${colors.accent}`
-                    : "none",
-                pointerEvents: "none",
-              }}
-            />
-          ))}
-
-          <GlassCard
-            width={900}
-            padding="50px 80px"
-            glowColor="rgba(248, 113, 113, 0.15)"
-            borderOpacity={0.08}
+          {/* "8 out of 10" */}
+          <div
+            style={{ display: "flex", alignItems: "baseline", gap: 20 }}
           >
             <div
               style={{
-                textAlign: "center",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
+                fontFamily: fonts.heading,
+                fontSize: 280,
+                fontWeight: 900,
+                lineHeight: 0.85,
+                color: "#ffffff",
+                transform: `scale(${numberScale})`,
+                opacity: numberOpacity,
+                letterSpacing: "-0.04em",
+                textShadow:
+                  "0 2px 4px rgba(0,0,0,0.5), 0 8px 30px rgba(0,0,0,0.6), 0 0 80px rgba(0,0,0,0.4)",
               }}
             >
-              {/* "8 out of 10" row */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  gap: 16,
-                  position: "relative",
-                  justifyContent: "center",
-                }}
-              >
-                {/* Circle ring behind the 8 */}
-                <div
-                  style={{
-                    position: "absolute",
-                    width: 200,
-                    height: 200,
-                    borderRadius: "50%",
-                    border: `3px solid rgba(248, 113, 113, ${ringOpacity})`,
-                    left: "50%",
-                    top: "50%",
-                    transform: `translate(-80%, -50%) scale(${ringScale})`,
-                    pointerEvents: "none",
-                  }}
-                />
-
-                <div
-                  style={{
-                    fontFamily: fonts.mono,
-                    fontSize: 220,
-                    fontWeight: 700,
-                    lineHeight: 1,
-                    transform: `scale(${numberScale})`,
-                    opacity: numberOpacity,
-                  }}
-                >
-                  <GradientText
-                    gradient={gradients.dangerText}
-                    style={{
-                      filter:
-                        "drop-shadow(0 0 80px rgba(248, 113, 113, 0.4))",
-                    }}
-                  >
-                    8
-                  </GradientText>
-                </div>
-                <span
-                  style={{
-                    fontFamily: fonts.mono,
-                    fontSize: 56,
-                    color: colors.text,
-                    opacity: outOfOpacity,
-                    lineHeight: 1,
-                  }}
-                >
-                  out of 10
-                </span>
-              </div>
-
-              {/* "were preventable" */}
-              <div
+              8
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                opacity: outOfOpacity,
+                transform: `translateY(${outOfY}px)`,
+              }}
+            >
+              <span
                 style={{
                   fontFamily: fonts.heading,
-                  fontSize: 42,
-                  fontWeight: 700,
-                  color: colors.text,
-                  opacity: preventableOpacity,
-                  transform: `translateY(${preventableY}px)`,
-                  marginTop: 16,
+                  fontSize: 64,
+                  fontWeight: 400,
+                  color: "rgba(255,255,255,0.7)",
+                  lineHeight: 1,
                   letterSpacing: "-0.01em",
+                  textShadow: "0 4px 20px rgba(0,0,0,0.8)",
                 }}
               >
-                were preventable
-              </div>
-
-              {/* Underline */}
-              <div
+                out of
+              </span>
+              <span
                 style={{
-                  width: interpolate(underlineWidth, [0, 1], [0, 260]),
-                  height: 2,
-                  backgroundColor: colors.accent,
-                  opacity: 0.5,
-                  marginTop: 8,
-                }}
-              />
-
-              {/* Kicker in glass chip */}
-              <div
-                style={{
-                  marginTop: 24,
-                  opacity: kickerOpacity,
-                  transform: `translateY(${kickerY}px)`,
+                  fontFamily: fonts.heading,
+                  fontSize: 100,
+                  fontWeight: 700,
+                  color: "rgba(255,255,255,0.5)",
+                  lineHeight: 0.9,
+                  letterSpacing: "-0.04em",
+                  textShadow: "0 4px 20px rgba(0,0,0,0.8)",
                 }}
               >
-                <div
-                  style={{
-                    fontFamily: fonts.mono,
-                    fontSize: 20,
-                    color: colors.accent,
-                    padding: "12px 24px",
-                    borderRadius: 8,
-                    background: "rgba(201, 168, 76, 0.06)",
-                    border: "1px solid rgba(201, 168, 76, 0.2)",
-                    letterSpacing: "0.04em",
-                  }}
-                >
-                  with a simple post-install script check
-                </div>
-              </div>
+                10
+              </span>
             </div>
-          </GlassCard>
+          </div>
+
+          {/* Accent line */}
+          <div
+            style={{
+              width: interpolate(lineWidth, [0, 1], [0, 160]),
+              height: 2,
+              background:
+                "linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent)",
+              marginTop: 20,
+              marginBottom: 20,
+              borderRadius: 1,
+            }}
+          />
+
+          {/* "were preventable" */}
+          <div
+            style={{
+              fontFamily: fonts.heading,
+              fontSize: 62,
+              fontWeight: 700,
+              color: "rgba(255,255,255,0.9)",
+              opacity: preventableOpacity,
+              transform: `translateY(${preventableY}px)`,
+              letterSpacing: "-0.02em",
+              textShadow: "0 4px 20px rgba(0,0,0,0.8)",
+            }}
+          >
+            were preventable
+          </div>
         </div>
       </AbsoluteFill>
+
+      {/* ── BEAT 2: line-by-line reveal with focus pull ── */}
+      <AbsoluteFill
+        style={{
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          {/* Line 1 */}
+          <div
+            style={{
+              fontFamily: fonts.heading,
+              fontSize: 72,
+              fontWeight: 700,
+              color: "#ffffff",
+              letterSpacing: "-0.02em",
+              textShadow:
+                "0 2px 4px rgba(0,0,0,0.5), 0 8px 30px rgba(0,0,0,0.6)",
+              opacity: line1Op,
+              transform: `translateY(${line1Y}px)`,
+              filter: `blur(${line1Blur}px)`,
+            }}
+          >
+            With a simple
+          </div>
+          {/* Line 2 */}
+          <div
+            style={{
+              fontFamily: fonts.heading,
+              fontSize: 72,
+              fontWeight: 700,
+              color: "#ffffff",
+              letterSpacing: "-0.02em",
+              textShadow:
+                "0 2px 4px rgba(0,0,0,0.5), 0 8px 30px rgba(0,0,0,0.6)",
+              opacity: line2Op,
+              transform: `translateY(${line2Y}px)`,
+              filter: `blur(${line2Blur}px)`,
+            }}
+          >
+            post-install script check.
+          </div>
+        </div>
+      </AbsoluteFill>
+
+      {/* Vignette */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.5) 100%)",
+          pointerEvents: "none",
+        }}
+      />
     </AbsoluteFill>
   );
 };

@@ -7,6 +7,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { Video } from "@remotion/media";
 import { colors, fonts, springs } from "../lib/theme";
 
 const FEATURES = [
@@ -47,107 +48,121 @@ export const ClosingCard: React.FC = () => {
     extrapolateRight: "clamp",
   });
 
-  // Subtle gradient animation
-  const gradientAngle = interpolate(frame, [0, 90], [140, 160]);
+  // Slow zoom
+  const zoom = interpolate(frame, [0, 150], [1.05, 1.12], {
+    extrapolateRight: "clamp",
+  });
 
   return (
-    <AbsoluteFill
-      style={{
-        background: `linear-gradient(${gradientAngle}deg, ${colors.bg} 0%, ${colors.bgSecondary} 50%, ${colors.bg} 100%)`,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      {/* Subtle gold accent glow */}
-      <div
+    <AbsoluteFill style={{ backgroundColor: "#000" }}>
+      {/* Background video */}
+      <AbsoluteFill style={{ transform: `scale(${zoom})` }}>
+        <Video
+          src={staticFile("bg-closing.mp4")}
+          muted
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            filter: "brightness(0.25) saturate(0.5) contrast(1.1)",
+          }}
+        />
+      </AbsoluteFill>
+
+      {/* Dark overlay */}
+      <AbsoluteFill
         style={{
-          position: "absolute",
-          top: "40%",
-          left: "50%",
-          width: 600,
-          height: 300,
-          transform: "translate(-50%, -50%)",
-          borderRadius: "50%",
-          background: `radial-gradient(ellipse, rgba(201, 168, 76, 0.08), transparent 70%)`,
-          filter: "blur(60px)",
+          background:
+            "radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.7) 100%)",
         }}
       />
 
-      {/* Logo */}
-      <Img
-        src={staticFile("logo.svg")}
-        style={{
-          width: 80,
-          height: 80,
-          transform: `scale(${logoScale})`,
-        }}
-      />
-
-      {/* Brand name */}
-      <div
-        style={{
-          fontFamily: fonts.heading,
-          fontSize: 64,
-          fontWeight: 900,
-          color: colors.text,
-          opacity: titleOpacity,
-          marginTop: 20,
-          letterSpacing: "-0.03em",
-        }}
+      {/* Content */}
+      <AbsoluteFill
+        style={{ justifyContent: "center", alignItems: "center" }}
       >
-        npm
-        <span style={{ color: colors.accent }}>guard</span>
-      </div>
+        {/* Logo */}
+        <Img
+          src={staticFile("logo.png")}
+          style={{
+            width: 90,
+            height: 90,
+            transform: `scale(${logoScale})`,
+            filter: "drop-shadow(0 0 30px rgba(201, 168, 76, 0.3))",
+          }}
+        />
 
-      {/* Feature pills */}
-      <div
-        style={{
-          display: "flex",
-          gap: 14,
-          marginTop: 36,
-        }}
-      >
-        {FEATURES.map((feature, i) => {
-          const progress = getFeatureProgress(i);
-          return (
-            <div
-              key={feature}
-              style={{
-                fontFamily: fonts.mono,
-                fontSize: 15,
-                color: colors.accent,
-                border: `1px solid ${colors.accent}`,
-                backgroundColor: "rgba(201, 168, 76, 0.06)",
-                padding: "10px 22px",
-                borderRadius: 24,
-                transform: `scale(${progress})`,
-                opacity: interpolate(progress, [0, 0.5, 1], [0, 0.5, 1]),
-                letterSpacing: "0.02em",
-              }}
-            >
-              {feature}
-            </div>
-          );
-        })}
-      </div>
+        {/* Brand name */}
+        <div
+          style={{
+            fontFamily: fonts.heading,
+            fontSize: 72,
+            fontWeight: 900,
+            opacity: titleOpacity,
+            marginTop: 20,
+            letterSpacing: "-0.03em",
+            textShadow:
+              "0 2px 4px rgba(0,0,0,0.5), 0 8px 30px rgba(0,0,0,0.6)",
+          }}
+        >
+          <span style={{ color: "#ffffff" }}>npm</span>
+          <span style={{ color: colors.accent }}>guard</span>
+        </div>
+
+        {/* Feature pills */}
+        <div
+          style={{
+            display: "flex",
+            gap: 14,
+            marginTop: 36,
+          }}
+        >
+          {FEATURES.map((feature, i) => {
+            const progress = getFeatureProgress(i);
+            return (
+              <div
+                key={feature}
+                style={{
+                  fontFamily: fonts.mono,
+                  fontSize: 15,
+                  color: "rgba(255,255,255,0.8)",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  background: "rgba(255,255,255,0.04)",
+                  backdropFilter: "blur(20px)",
+                  padding: "10px 22px",
+                  borderRadius: 24,
+                  transform: `scale(${progress})`,
+                  opacity: interpolate(
+                    progress,
+                    [0, 0.5, 1],
+                    [0, 0.5, 1],
+                  ),
+                  letterSpacing: "0.02em",
+                }}
+              >
+                {feature}
+              </div>
+            );
+          })}
+        </div>
+      </AbsoluteFill>
 
       {/* Bottom text */}
       <div
         style={{
           position: "absolute",
           bottom: 60,
+          left: 0,
+          right: 0,
+          textAlign: "center",
           opacity: bottomOpacity,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 8,
         }}
       >
         <div
           style={{
             fontFamily: fonts.mono,
             fontSize: 14,
-            color: colors.textMuted,
+            color: "rgba(255,255,255,0.4)",
             letterSpacing: "0.15em",
             textTransform: "uppercase",
           }}
@@ -155,6 +170,17 @@ export const ClosingCard: React.FC = () => {
           ETH Cannes 2026
         </div>
       </div>
+
+      {/* Vignette */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.5) 100%)",
+          pointerEvents: "none",
+        }}
+      />
     </AbsoluteFill>
   );
 };

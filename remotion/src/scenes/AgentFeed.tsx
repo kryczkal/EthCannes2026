@@ -241,7 +241,7 @@ export const AgentFeed: React.FC = () => {
           justifyContent: "space-between",
           padding: "0 28px",
           borderBottom: `1px solid rgba(255,255,255,0.06)`,
-          backgroundColor: colors.bgSecondary,
+          background: `linear-gradient(90deg, ${colors.bgSecondary}, rgba(201, 168, 76, 0.03), ${colors.bgSecondary})`,
         }}
       >
         <div
@@ -433,7 +433,7 @@ export const AgentFeed: React.FC = () => {
                 top: 40 + scannerY,
                 height: 2,
                 background: `linear-gradient(90deg, ${colors.investigating}, transparent)`,
-                opacity: 0.6,
+                opacity: interpolate(Math.sin(frame * 0.3), [-1, 1], [0.4, 0.8]),
                 boxShadow: `0 0 20px ${colors.investigating}`,
               }}
             />

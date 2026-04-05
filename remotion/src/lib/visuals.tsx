@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill } from "remotion";
 import { colors } from "./theme";
 
 /* ─── Cinematic Letterbox ─── */

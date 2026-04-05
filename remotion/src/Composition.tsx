@@ -10,6 +10,7 @@ import { AgentFeed } from "./scenes/AgentFeed";
 import { VerdictSlam } from "./scenes/VerdictSlam";
 import { CliDemo } from "./scenes/CliDemo";
 import { ClosingCard } from "./scenes/ClosingCard";
+import { NoiseOverlay } from "./lib/visuals";
 
 export const NpmGuardPromo: React.FC = () => {
   const { fps } = useVideoConfig();
@@ -20,14 +21,6 @@ export const NpmGuardPromo: React.FC = () => {
       <Audio src={staticFile("voiceover.mp3")} />
 
       {/* ACT 1: The Problem */}
-
-      <Sequence
-        from={SCENES.statsTitle.from}
-        durationInFrames={SCENES.statsTitle.duration}
-        premountFor={fps}
-      >
-        <StatsTitle />
-      </Sequence>
 
       <Sequence
         from={SCENES.exploitMontage.from}
@@ -43,6 +36,14 @@ export const NpmGuardPromo: React.FC = () => {
         premountFor={fps}
       >
         <MoneyLost />
+      </Sequence>
+
+      <Sequence
+        from={SCENES.statsTitle.from}
+        durationInFrames={SCENES.statsTitle.duration}
+        premountFor={fps}
+      >
+        <StatsTitle />
       </Sequence>
 
       {/* ACT 2: The Trigger */}
@@ -96,6 +97,9 @@ export const NpmGuardPromo: React.FC = () => {
       >
         <ClosingCard />
       </Sequence>
+
+      {/* Film grain overlay — sits above all scenes */}
+      <NoiseOverlay opacity={0.015} />
     </AbsoluteFill>
   );
 };
