@@ -10,6 +10,7 @@ export interface AuditEvent {
   type: string;
   auditId: string;
   timestamp: string;
+  seq: number;          // buffer index — unique, stable, collision-proof
   [key: string]: unknown;
 }
 
@@ -48,6 +49,7 @@ export function createEmitFn(auditId: string, emitter: EventEmitter): EmitFn {
       type,
       auditId,
       timestamp: new Date().toISOString(),
+      seq: -1,           // will be overwritten when pushed into eventBuffer
       ...payload,
     };
     emitter.emit("event", event);
@@ -94,6 +96,7 @@ export function createSession(packageName: string): AuditSession {
   };
   // Buffer all events so late-connecting SSE clients can replay them
   emitter.on("event", (event: AuditEvent) => {
+    event.seq = session.eventBuffer.length;   // stamp with stable buffer index
     session.eventBuffer.push(event);
   });
   sessions.set(auditId, session);

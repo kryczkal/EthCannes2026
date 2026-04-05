@@ -100,7 +100,7 @@ const initialState = {
 
 let activeEventSource: EventSource | null = null;
 let activeFileAbort: AbortController | null = null;
-let seenEventTimestamps = new Set<string>();
+let seenEventSeqs = new Set<number>();
 
 function connectSSE(
   auditId: string,
@@ -153,7 +153,7 @@ export const useAuditStore = create<AuditState>((set, get) => ({
       activeEventSource.close();
       activeEventSource = null;
     }
-    seenEventTimestamps = new Set();
+    seenEventSeqs = new Set();
     set({ ...initialState, phases: PHASE_ORDER.map((name) => ({ name, status: "pending" as const })) });
   },
 
@@ -215,9 +215,12 @@ export const useAuditStore = create<AuditState>((set, get) => ({
 
   handleEvent: (event: SSEEvent) => {
     // Deduplicate: skip events we've already processed (guards against SSE replay + Strict Mode)
-    const eventKey = `${event.type}:${event.timestamp}`;
-    if (seenEventTimestamps.has(eventKey)) return;
-    seenEventTimestamps.add(eventKey);
+    // Use server-assigned seq (buffer index) — unique even for same-millisecond events
+    const seq = (event as { seq?: number }).seq;
+    if (seq !== undefined) {
+      if (seenEventSeqs.has(seq)) return;
+      seenEventSeqs.add(seq);
+    }
 
     const state = get();
 
