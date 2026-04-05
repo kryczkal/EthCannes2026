@@ -1,139 +1,141 @@
 import {
   AbsoluteFill,
-  Img,
   interpolate,
-  spring,
-  staticFile,
   useCurrentFrame,
   useVideoConfig,
   Easing,
 } from "remotion";
-import { colors, fonts, springs, gradients } from "../lib/theme";
+import { colors, fonts } from "../lib/theme";
+
+const COMMAND = "npmguard";
+const CHARS_PER_FRAME = 0.45;
 
 export const LogoReveal: React.FC = () => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  useVideoConfig();
 
-  // White → dark transition
-  const bgFade = interpolate(frame, [0, 25], [1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: Easing.inOut(Easing.quad),
-  });
-
-  // Logo scales in with spring
-  const logoScale = spring({
-    frame: frame - 10,
-    fps,
-    config: springs.snappy,
-  });
-
-  const logoOpacity = interpolate(frame, [10, 20], [0, 1], {
+  // Terminal fade in
+  const termOpacity = interpolate(frame, [0, 10], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // Tagline fades in
-  const taglineOpacity = interpolate(frame, [25, 40], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  const taglineY = interpolate(frame, [25, 40], [20, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  // Gold accent line — wider
-  const lineWidth = spring({
-    frame: frame - 30,
-    fps,
-    config: springs.smooth,
-  });
-
-  // Logo glow
-  const logoGlow = interpolate(
-    Math.sin(frame * 0.1),
-    [-1, 1],
-    [0.1, 0.25],
+  // Typing animation
+  const typedChars = Math.min(
+    Math.floor(Math.max(0, frame - 10) * CHARS_PER_FRAME),
+    COMMAND.length,
   );
+  const typedText = COMMAND.slice(0, typedChars);
+  const doneTyping = typedChars >= COMMAND.length;
+  const showCursor = Math.floor(frame / 8) % 2 === 0;
+
+  // Subtitle fades in after typing
+  const subtitleOpacity = interpolate(frame, [38, 55], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.out(Easing.quad),
+  });
+  const subtitleY = interpolate(frame, [38, 55], [20, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.out(Easing.quad),
+  });
+
+  // Cursor glow
+  const cursorGlow = doneTyping ? 0.05 : 0.12;
 
   return (
-    <AbsoluteFill
-      style={{
-        background: gradients.bgRadial,
-      }}
-    >
-      {/* White overlay fading out */}
-      <AbsoluteFill
-        style={{
-          backgroundColor: colors.white,
-          opacity: bgFade,
-        }}
-      />
-
-      {/* Glow ring behind logo */}
+    <AbsoluteFill style={{ backgroundColor: "#060504" }}>
+      {/* Subtle center glow */}
       <div
         style={{
           position: "absolute",
-          top: "50%",
+          top: "45%",
           left: "50%",
-          width: 300,
-          height: 300,
+          width: 800,
+          height: 400,
           borderRadius: "50%",
-          transform: "translate(-50%, -65%)",
-          background: `radial-gradient(ellipse, rgba(201, 168, 76, ${logoGlow}), transparent 70%)`,
-          filter: "blur(50px)",
+          background: `radial-gradient(ellipse, rgba(201, 168, 76, ${cursorGlow}), transparent 70%)`,
+          transform: "translate(-50%, -50%)",
+          filter: "blur(80px)",
           pointerEvents: "none",
-          opacity: logoOpacity,
         }}
       />
 
-      {/* Content */}
+      {/* Terminal typewriter */}
       <AbsoluteFill
         style={{
           justifyContent: "center",
           alignItems: "center",
+          opacity: termOpacity,
         }}
       >
-        {/* Logo */}
-        <Img
-          src={staticFile("logo.png")}
-          style={{
-            width: 140,
-            height: 140,
-            transform: `scale(${logoScale})`,
-            opacity: logoOpacity,
-            filter: `drop-shadow(0 0 30px rgba(201, 168, 76, 0.3))`,
-          }}
-        />
-
-        {/* Gold accent line — wider, gradient */}
         <div
           style={{
-            width: interpolate(lineWidth, [0, 1], [0, 300]),
-            height: 2,
-            background: `linear-gradient(90deg, transparent, ${colors.accent}, transparent)`,
-            marginTop: 28,
-            marginBottom: 28,
-            borderRadius: 1,
-          }}
-        />
-
-        {/* Tagline */}
-        <div
-          style={{
-            fontFamily: fonts.heading,
-            fontSize: 52,
-            fontWeight: 700,
-            color: colors.text,
-            opacity: taglineOpacity,
-            transform: `translateY(${taglineY}px)`,
-            letterSpacing: "-0.02em",
-            textShadow: "0 4px 30px rgba(0,0,0,0.5)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 24,
           }}
         >
-          Know what you install.
+          {/* Prompt + typed text */}
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <span
+              style={{
+                fontFamily: fonts.mono,
+                fontSize: 20,
+                color: "rgba(255,255,255,0.3)",
+                marginRight: 14,
+              }}
+            >
+              $
+            </span>
+            <span
+              style={{
+                fontFamily: fonts.mono,
+                fontSize: 80,
+                fontWeight: 700,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              <span style={{ color: "#ffffff" }}>
+                {typedText.slice(0, 3)}
+              </span>
+              <span style={{ color: colors.accent }}>
+                {typedText.slice(3)}
+              </span>
+            </span>
+            {/* Blinking cursor */}
+            <span
+              style={{
+                fontFamily: fonts.mono,
+                fontSize: 80,
+                fontWeight: 400,
+                color: colors.accent,
+                opacity: showCursor ? 0.8 : 0,
+                marginLeft: 2,
+              }}
+            >
+              _
+            </span>
+          </div>
+
+          {/* Subtitle */}
+          <div
+            style={{
+              fontFamily: fonts.heading,
+              fontSize: 30,
+              fontWeight: 400,
+              color: "rgba(255,255,255,0.5)",
+              opacity: subtitleOpacity,
+              transform: `translateY(${subtitleY}px)`,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              textShadow: "0 2px 15px rgba(0,0,0,0.5)",
+            }}
+          >
+            pentests every package with AI
+          </div>
         </div>
       </AbsoluteFill>
 
@@ -143,7 +145,7 @@ export const LogoReveal: React.FC = () => {
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.4) 100%)",
+            "radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.5) 100%)",
           pointerEvents: "none",
         }}
       />
