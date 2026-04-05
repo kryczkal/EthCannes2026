@@ -100,6 +100,7 @@ const initialState = {
 
 let activeEventSource: EventSource | null = null;
 let activeFileAbort: AbortController | null = null;
+// Per-connection seen-set; replaced on every connectSSE call so replays are always fresh
 let seenEventSeqs = new Set<number>();
 
 function connectSSE(
@@ -112,6 +113,8 @@ function connectSSE(
     activeEventSource.close();
     activeEventSource = null;
   }
+  // Fresh dedup set per connection — replayed events from the server always start at seq 0
+  seenEventSeqs = new Set();
   const es = new EventSource(`${API_BASE}/audit/${auditId}/events`);
   activeEventSource = es;
 
@@ -153,7 +156,7 @@ export const useAuditStore = create<AuditState>((set, get) => ({
       activeEventSource.close();
       activeEventSource = null;
     }
-    seenEventSeqs = new Set();
+    // seenEventSeqs is reset inside connectSSE on every new connection — no need to clear here
     set({ ...initialState, phases: PHASE_ORDER.map((name) => ({ name, status: "pending" as const })) });
   },
 
