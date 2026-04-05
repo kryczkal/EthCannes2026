@@ -69,7 +69,7 @@ export interface AuditSession {
 
 const sessions = new Map<string, AuditSession>();
 
-const SESSION_TTL_MS = 5 * 60_000; // 5 minutes after completion
+const SESSION_TTL_MS = 30 * 60_000; // 30 minutes after completion
 
 export function createSession(packageName: string): AuditSession {
   const auditId = randomUUID();

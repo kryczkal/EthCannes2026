@@ -10,7 +10,7 @@ import type {
   SSEEvent,
   PipelineLogEntry,
 } from "../lib/types";
-import { PHASE_ORDER } from "../lib/types";
+import { PHASE_ORDER, PHASE_LABELS } from "../lib/types";
 
 const API_BASE = "/api";
 
@@ -58,6 +58,7 @@ interface AuditState {
 
   // Actions
   startAudit: (packageName: string, version?: string) => Promise<void>;
+  connectToSession: (auditId: string) => Promise<void>;
   handleEvent: (event: SSEEvent) => void;
   selectFile: (path: string) => Promise<void>;
   reset: () => void;
@@ -90,6 +91,45 @@ const initialState = {
 };
 
 let activeEventSource: EventSource | null = null;
+let activeFileAbort: AbortController | null = null;
+
+function connectSSE(
+  auditId: string,
+  set: (partial: Partial<AuditState>) => void,
+  get: () => AuditState,
+) {
+  const es = new EventSource(`${API_BASE}/audit/${auditId}/events`);
+  activeEventSource = es;
+
+  const handler = (e: MessageEvent) => {
+    try {
+      const event = JSON.parse(e.data) as SSEEvent;
+      get().handleEvent(event);
+    } catch (err) {
+      console.warn("Malformed SSE event, skipping:", err);
+    }
+  };
+
+  const eventTypes = [
+    "audit_started", "phase_started", "phase_completed",
+    "file_list", "file_analyzing", "file_verdict",
+    "triage_complete", "triage_progress",
+    "agent_thinking", "agent_tool_call", "agent_tool_result",
+    "agent_reasoning", "finding_discovered", "verdict_reached",
+    "audit_error",
+  ] as const;
+  for (const type of eventTypes) {
+    es.addEventListener(type, handler);
+  }
+
+  es.onerror = () => {
+    es.close();
+    activeEventSource = null;
+    if (get().isRunning) {
+      set({ isRunning: false, error: "Lost connection to audit engine" });
+    }
+  };
+}
 
 export const useAuditStore = create<AuditState>((set, get) => ({
   ...initialState,
@@ -133,37 +173,29 @@ export const useAuditStore = create<AuditState>((set, get) => ({
     }
     set({ auditId });
 
-    // Connect SSE
-    const es = new EventSource(`${API_BASE}/audit/${auditId}/events`);
-    activeEventSource = es;
+    connectSSE(auditId, set, get);
+  },
 
-    const handler = (e: MessageEvent) => {
-      try {
-        const event = JSON.parse(e.data) as SSEEvent;
-        get().handleEvent(event);
-      } catch {
-        // Malformed SSE data — skip this event
+  connectToSession: async (auditId: string) => {
+    get().reset();
+    set({ auditId, isRunning: true });
+
+    // Check if session exists before connecting SSE
+    try {
+      const res = await fetch(`${API_BASE}/audit/${auditId}/report`);
+      if (!res.ok) {
+        const msg = res.status === 404
+          ? "This audit session has expired or was not found."
+          : `Engine returned ${res.status}`;
+        set({ isRunning: false, error: msg });
+        return;
       }
-    };
-
-    // Listen for all event types
-    const eventTypes = [
-      "audit_started", "phase_started", "phase_completed",
-      "file_list", "file_analyzing", "file_verdict",
-      "triage_complete", "triage_progress",
-      "agent_thinking", "agent_tool_call", "agent_tool_result",
-      "agent_reasoning", "finding_discovered", "verdict_reached",
-      "audit_error",
-    ] as const;
-    for (const type of eventTypes) {
-      es.addEventListener(type, handler);
+    } catch {
+      set({ isRunning: false, error: "Failed to connect to audit engine" });
+      return;
     }
 
-    es.onerror = () => {
-      es.close();
-      activeEventSource = null;
-      set({ isRunning: false });
-    };
+    connectSSE(auditId, set, get);
   },
 
   handleEvent: (event: SSEEvent) => {
@@ -171,14 +203,6 @@ export const useAuditStore = create<AuditState>((set, get) => ({
 
     switch (event.type) {
       case "phase_started": {
-        const phaseLabels: Record<string, string> = {
-          resolve: "Resolving package",
-          inventory: "Scanning package structure",
-          triage: "Analyzing source files",
-          investigation: "Starting deep investigation",
-          "test-gen": "Generating exploit tests",
-          verify: "Running verification",
-        };
         set({
           phase: event.phase,
           phases: state.phases.map((p) =>
@@ -186,7 +210,7 @@ export const useAuditStore = create<AuditState>((set, get) => ({
           ),
           pipelineLog: [...state.pipelineLog, {
             kind: "phase" as const,
-            text: phaseLabels[event.phase] || event.phase,
+            text: PHASE_LABELS[event.phase] || event.phase,
             timestamp: event.timestamp,
           }],
         });
@@ -354,11 +378,18 @@ export const useAuditStore = create<AuditState>((set, get) => ({
 
     if (!auditId) return;
 
+    // Cancel any in-flight file fetch
+    activeFileAbort?.abort();
+    const controller = new AbortController();
+    activeFileAbort = controller;
+
     try {
-      const res = await fetch(`${API_BASE}/audit/${auditId}/file/${filePath}`);
+      const res = await fetch(
+        `${API_BASE}/audit/${auditId}/file/${filePath}`,
+        { signal: controller.signal },
+      );
       if (res.ok) {
         const content = await res.text();
-        // Guard against stale fetch overwriting a newer selection
         if (get().selectedFile === filePath) {
           set({ selectedFileContent: content });
         }
@@ -367,7 +398,8 @@ export const useAuditStore = create<AuditState>((set, get) => ({
           set({ selectedFileContent: `// Failed to load file (${res.status})` });
         }
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       if (get().selectedFile === filePath) {
         set({ selectedFileContent: "// Failed to load file" });
       }

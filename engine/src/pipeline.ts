@@ -6,17 +6,16 @@ import { runTriage } from "./phases/triage.js";
 import { investigate } from "./phases/investigate.js";
 import { generateTests } from "./phases/test-gen.js";
 import { verifyProofs } from "./phases/verify.js";
-import { startAuditLog, writeLog, getRunDir } from "./audit-log.js";
+import { startAuditLog, type AuditLogger } from "./audit-log.js";
 import type { EmitFn } from "./events.js";
 import { setSessionPackagePath } from "./events.js";
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms),
-    ),
-  ]);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 async function timedPhase<T>(
@@ -57,7 +56,7 @@ export interface AuditResult {
 
 export async function runAudit(packageName: string, emit?: EmitFn, auditId?: string): Promise<AuditResult> {
   console.log(`[pipeline] starting audit for ${packageName}`);
-  startAuditLog(packageName);
+  const log = startAuditLog(packageName);
   const trace: PhaseLog[] = [];
 
   emit?.("audit_started", { packageName });
@@ -72,7 +71,7 @@ export async function runAudit(packageName: string, emit?: EmitFn, auditId?: str
     emit,
   );
   trace.push(resolveLog);
-  writeLog("resolve.json", resolved);
+  log.writeLog("resolve.json", resolved);
 
   // Store package path on session so file-serving endpoint works
   if (auditId) setSessionPackagePath(auditId, resolved.path);
@@ -97,7 +96,7 @@ export async function runAudit(packageName: string, emit?: EmitFn, auditId?: str
       emit,
     );
     trace.push(inventoryLog);
-    writeLog("inventory.json", inventory);
+    log.writeLog("inventory.json", inventory);
 
     // Emit file list for frontend visualization
     emit?.("file_list", { files: inventory.files });
@@ -157,7 +156,7 @@ export async function runAudit(packageName: string, emit?: EmitFn, auditId?: str
       emit,
     );
     trace.push(triageLog);
-    writeLog("triage.json", triageOutput);
+    log.writeLog("triage.json", triageOutput);
     const triage = triageOutput.result;
 
     // Emit triage complete for frontend
@@ -184,7 +183,7 @@ export async function runAudit(packageName: string, emit?: EmitFn, auditId?: str
     // Phase 1b: Investigation
     const { result: investigationResult, log: investigateLog } = await timedPhase(
       "investigation",
-      () => investigate(resolved.path, inventory, triage, triageOutput.fileVerdicts, emit),
+      () => investigate(resolved.path, inventory, triage, triageOutput.fileVerdicts, emit, log),
       5 * 60_000 * timeoutScale,
       {
         riskScore: triage.riskScore,
@@ -214,7 +213,7 @@ export async function runAudit(packageName: string, emit?: EmitFn, auditId?: str
       emit,
     );
     trace.push(investigateLog);
-    writeLog("investigation.json", investigationResult);
+    log.writeLog("investigation.json", investigationResult);
 
     // Phase 1c: Test generation
     const { result: proofs, log: testGenLog } = await timedPhase(
@@ -256,8 +255,8 @@ export async function runAudit(packageName: string, emit?: EmitFn, auditId?: str
       findings: investigationResult.findings,
       trace,
     };
-    writeLog("report.json", report);
-    console.log(`[pipeline] full logs saved to ${getRunDir()}`);
+    log.writeLog("report.json", report);
+    console.log(`[pipeline] full logs saved to ${log.runDir}`);
 
     emit?.("verdict_reached", {
       verdict: report.verdict,

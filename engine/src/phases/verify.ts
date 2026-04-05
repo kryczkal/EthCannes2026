@@ -1,10 +1,11 @@
-import { execFile } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, readFileSync, copyFileSync, mkdirSync, rmSync } from "node:fs";
 import { join, basename, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 
 import { config } from "../config.js";
+import { dockerExec } from "../sandbox/docker.js";
 import type { Proof } from "../models.js";
 
 const HARNESS_DIR = resolve(import.meta.dirname, "../../../sandbox/harness");
@@ -141,23 +142,6 @@ function parseVitestOutput(stdout: string): VitestResult | null {
   }
 }
 
-function dockerExec(args: string[], timeoutMs: number): Promise<{ stdout: string; stderr: string; exitCode: number; timedOut: boolean }> {
-  return new Promise((resolve) => {
-    const child = execFile("docker", args, {
-      maxBuffer: 10 * 1024 * 1024,
-      timeout: timeoutMs,
-      encoding: "utf-8",
-    }, (error, stdout, stderr) => {
-      const timedOut = error?.killed === true;
-      let exitCode: number;
-      if (timedOut) exitCode = -1;
-      else if (!error) exitCode = 0;
-      else exitCode = child.exitCode ?? 1;
-      resolve({ stdout: stdout ?? "", stderr: stderr ?? "", exitCode, timedOut });
-    });
-  });
-}
-
 /** Phase 2: Verify proofs by running generated Vitest tests in a Docker sandbox. */
 export async function verifyProofs(
   proofs: Proof[],
@@ -197,10 +181,9 @@ export async function verifyProofs(
     // Write vitest config
     writeFileSync(join(workDir, "vitest.config.js"), VITEST_CONFIG, "utf-8");
 
-    // Symlink the package into test-packages/ so sandbox-runner can find it
-    // Use a copy instead of symlink for Docker bind mount compatibility
-    const { execSync } = await import("node:child_process");
-    execSync(`cp -r "${packagePath}" "${join(testPkgDir, packageDirName)}"`, { timeout: 10_000 });
+    // Copy the package into test-packages/ so sandbox-runner can find it
+    // (copy instead of symlink for Docker bind mount compatibility)
+    execFileSync("cp", ["-r", packagePath, join(testPkgDir, packageDirName)], { timeout: 10_000 });
 
     // Copy generated test files
     const testFileMap = new Map<string, number>();

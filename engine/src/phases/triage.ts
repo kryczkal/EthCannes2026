@@ -223,13 +223,26 @@ export async function runTriage(
 
   // MAP: analyze each file in parallel
   const total = sourceFiles.length;
-  let completedCount = 0;
+  let completed = 0;
   const fileVerdicts = await Promise.all(
     sourceFiles.map(async (f) => {
-      emit?.("triage_progress", { current: completedCount + 1, total, file: f.path });
-      const verdict = await analyzeFile(packagePath, f.path, flagsByFile.get(f.path) ?? [], emit);
-      completedCount++;
-      return verdict;
+      try {
+        const verdict = await analyzeFile(packagePath, f.path, flagsByFile.get(f.path) ?? [], emit);
+        completed++;
+        emit?.("triage_progress", { current: completed, total, file: f.path });
+        return verdict;
+      } catch (err) {
+        completed++;
+        console.error(`[triage:map] failed for ${f.path}: ${err instanceof Error ? err.message : err}`);
+        return {
+          file: f.path,
+          capabilities: [],
+          suspiciousPatterns: ["analysis-error"],
+          suspiciousLines: null,
+          summary: `Analysis failed: ${err instanceof Error ? err.message : "unknown error"}`,
+          riskContribution: 5,
+        } satisfies FileVerdict;
+      }
     }),
   );
 

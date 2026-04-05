@@ -1,36 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { useAuditStore } from "../stores/auditStore";
+import { useTypewriter } from "../hooks/useTypewriter";
+import { useCountUp } from "../hooks/useCountUp";
+import { PHASE_WAIT_LABELS } from "../lib/types";
 import type { AgentStep, Finding, PipelineLogEntry } from "../lib/types";
-
-// ── Hooks ──
-
-function useTypewriter(text: string, speed = 10): { displayed: string; done: boolean } {
-  const [index, setIndex] = useState(0);
-  useEffect(() => { setIndex(0); }, [text]);
-  useEffect(() => {
-    if (index >= text.length) return;
-    const t = setTimeout(() => setIndex((i) => i + 1), speed);
-    return () => clearTimeout(t);
-  }, [index, text, speed]);
-  return { displayed: text.slice(0, index), done: index >= text.length };
-}
-
-function useCountUp(target: number, durationMs = 1000): number {
-  const [val, setVal] = useState(0);
-  useEffect(() => {
-    if (target === 0) { setVal(0); return; }
-    const steps = 20;
-    const interval = durationMs / steps;
-    let i = 0;
-    const timer = setInterval(() => {
-      i++;
-      setVal(+(target * (i / steps)).toFixed(1));
-      if (i >= steps) clearInterval(timer);
-    }, interval);
-    return () => clearInterval(timer);
-  }, [target, durationMs]);
-  return val;
-}
 
 // ── Sub-components ──
 
@@ -169,22 +142,44 @@ function ToolResultItem({ step }: { step: AgentStep }) {
   );
 }
 
+const CONFIDENCE_STYLE: Record<
+  string,
+  { color: string; bg: string; border: string }
+> = {
+  CONFIRMED: {
+    color: "var(--danger)",
+    bg: "var(--danger-bg)",
+    border: "var(--danger)",
+  },
+  LIKELY: {
+    color: "var(--suspected)",
+    bg: "var(--suspected-bg)",
+    border: "var(--suspected)",
+  },
+  SUSPECTED: {
+    color: "var(--text-muted)",
+    bg: "var(--bg-secondary)",
+    border: "var(--text-muted)",
+  },
+};
+
 function FindingItem({ finding }: { finding: Finding }) {
   const selectFile = useAuditStore((s) => s.selectFile);
+  const style = CONFIDENCE_STYLE[finding.confidence] ?? CONFIDENCE_STYLE.SUSPECTED;
 
   return (
     <div
       className="feed-item finding-slam"
       style={{
-        borderLeft: "3px solid var(--danger)",
-        background: "var(--danger-bg)",
+        borderLeft: `3px solid ${style.border}`,
+        background: style.bg,
       }}
     >
       <div
         style={{
           fontWeight: 700,
           fontSize: "0.85rem",
-          color: "var(--danger)",
+          color: style.color,
           marginBottom: 2,
         }}
       >
@@ -193,7 +188,8 @@ function FindingItem({ finding }: { finding: Finding }) {
           style={{
             fontFamily: "var(--font-mono)",
             fontSize: "0.65rem",
-            color: "var(--text-muted)",
+            color: style.color,
+            opacity: 0.8,
             marginLeft: 8,
             fontWeight: 400,
           }}
@@ -202,6 +198,16 @@ function FindingItem({ finding }: { finding: Finding }) {
         </span>
       </div>
       <div className="feed-body">{finding.problem}</div>
+      {finding.evidence && finding.evidence !== finding.problem && (
+        <div
+          className="feed-body"
+          style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}
+        >
+          {finding.evidence.length > 180
+            ? finding.evidence.slice(0, 180) + "..."
+            : finding.evidence}
+        </div>
+      )}
       {finding.fileLine && (
         <div
           className="feed-file-ref"
@@ -382,90 +388,63 @@ export function ActivityFeed() {
   const agentSteps = useAuditStore((s) => s.agentSteps);
   const findings = useAuditStore((s) => s.findings);
   const riskSummary = useAuditStore((s) => s.riskSummary);
-  const riskScore = useAuditStore((s) => s.riskScore);
   const verdict = useAuditStore((s) => s.verdict);
   const proofCount = useAuditStore((s) => s.proofCount);
   const agentThinking = useAuditStore((s) => s.agentThinking);
+  const isRunning = useAuditStore((s) => s.isRunning);
+  const phase = useAuditStore((s) => s.phase);
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const userScrolledUp = useRef(false);
 
-  const isNearBottom = useCallback(() => {
+  useEffect(() => {
     const el = containerRef.current;
-    if (!el) return true;
-    return el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    if (!el) return;
+    const onScroll = () => {
+      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+      userScrolledUp.current = !nearBottom;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
   useEffect(() => {
-    if (isNearBottom()) {
+    if (!userScrolledUp.current) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [pipelineLog.length, agentSteps.length, findings.length, agentThinking, isNearBottom]);
+  }, [pipelineLog.length, agentSteps.length, findings.length, agentThinking]);
 
   const hasContent =
     pipelineLog.length > 0 || agentSteps.length > 0 || findings.length > 0 || riskSummary;
 
   // Determine if a tool call is pending (last tool_call with no following tool_result)
-  const lastToolCallIndex = (() => {
+  const lastToolCallIndex = useMemo(() => {
     for (let i = agentSteps.length - 1; i >= 0; i--) {
       if (agentSteps[i].type === "tool_call") return i;
     }
     return -1;
-  })();
-  const lastToolCallPending =
-    lastToolCallIndex >= 0 &&
-    !agentSteps
-      .slice(lastToolCallIndex + 1)
-      .some((s) => s.type === "tool_result" && s.step === agentSteps[lastToolCallIndex].step);
+  }, [agentSteps]);
 
-  const riskPillClass =
-    riskScore !== null && riskScore >= 7
-      ? "high"
-      : riskScore !== null && riskScore < 3
-        ? "low"
-        : "mid";
+  const lastToolCallPending = useMemo(
+    () =>
+      lastToolCallIndex >= 0 &&
+      !agentSteps
+        .slice(lastToolCallIndex + 1)
+        .some((s) => s.type === "tool_result" && s.step === agentSteps[lastToolCallIndex].step),
+    [agentSteps, lastToolCallIndex],
+  );
 
   return (
     <>
       {/* Header */}
       <div
-        className="flex items-center justify-between shrink-0"
+        className="section-header flex items-center justify-between shrink-0"
         style={{
           padding: "12px 20px 8px",
-          fontFamily: "var(--font-mono)",
-          fontSize: "0.65rem",
-          color: "var(--text-muted)",
-          textTransform: "uppercase",
-          letterSpacing: "0.1em",
           borderBottom: "1px solid var(--border)",
         }}
       >
         Activity
-        {riskScore !== null && (
-          <span
-            style={{
-              fontSize: "0.7rem",
-              padding: "2px 8px",
-              borderRadius: 10,
-              fontWeight: 600,
-              textTransform: "none",
-              letterSpacing: 0,
-              background:
-                riskPillClass === "high"
-                  ? "var(--danger-bg)"
-                  : riskPillClass === "low"
-                    ? "var(--safe-bg)"
-                    : "var(--suspected-bg)",
-              color:
-                riskPillClass === "high"
-                  ? "var(--danger)"
-                  : riskPillClass === "low"
-                    ? "var(--safe)"
-                    : "var(--suspected)",
-            }}
-          >
-            {riskScore}
-          </span>
-        )}
       </div>
 
       {/* Feed */}
@@ -480,7 +459,16 @@ export function ActivityFeed() {
             className="flex items-center justify-center h-full"
             style={{ color: "var(--pending)", fontSize: "0.8rem" }}
           >
-            Activity will appear here...
+            {isRunning ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span>Connecting to engine</span>
+                <span className="thinking-dot" />
+                <span className="thinking-dot" />
+                <span className="thinking-dot" />
+              </div>
+            ) : (
+              "Activity will appear here..."
+            )}
           </div>
         )}
 
@@ -512,6 +500,16 @@ export function ActivityFeed() {
         {findings.map((f, i) => (
           <FindingItem key={`f-${i}`} finding={f} />
         ))}
+
+        {isRunning && !agentThinking && !verdict && phase && PHASE_WAIT_LABELS[phase] && (
+          <div className="feed-item" style={{ opacity: 0.6 }}>
+            <div className="feed-meta">
+              <FeedTag type="phase">{phase}</FeedTag>
+              <span className="tool-spinner" />
+            </div>
+            <div className="feed-body">{PHASE_WAIT_LABELS[phase]}</div>
+          </div>
+        )}
 
         {agentThinking && <ThinkingIndicator />}
 

@@ -1,12 +1,7 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { dockerExec, type ExecResult } from "./docker.js";
 
-export interface ExecResult {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  timedOut: boolean;
-}
+export type { ExecResult };
 
 // ---------------------------------------------------------------------------
 // Output sanitization (inline — small enough to not need a separate file)
@@ -40,35 +35,6 @@ function sanitize(raw: string): { text: string; injectionDetected: boolean } {
   const injectionDetected = INJECTION_PATTERNS.some((p) => lower.includes(p));
   if (injectionDetected) return { text: REDACTED_MSG, injectionDetected: true };
   return { text, injectionDetected: false };
-}
-
-// ---------------------------------------------------------------------------
-// Docker sandbox controller
-// ---------------------------------------------------------------------------
-
-function dockerExec(args: string[], timeoutMs: number): Promise<{ stdout: string; stderr: string; exitCode: number; timedOut: boolean }> {
-  return new Promise((resolve) => {
-    const child = execFile("docker", args, {
-      maxBuffer: 10 * 1024 * 1024,
-      timeout: timeoutMs,
-      encoding: "utf-8",
-    }, (error, stdout, stderr) => {
-      const timedOut = error?.killed === true;
-
-      let exitCode: number;
-      if (timedOut) {
-        exitCode = -1;
-      } else if (!error) {
-        exitCode = 0;
-      } else if ((error as NodeJS.ErrnoException).code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
-        exitCode = -1;
-      } else {
-        exitCode = child.exitCode ?? 1;
-      }
-
-      resolve({ stdout: stdout ?? "", stderr: stderr ?? "", exitCode, timedOut });
-    });
-  });
 }
 
 export class DockerSandboxController {

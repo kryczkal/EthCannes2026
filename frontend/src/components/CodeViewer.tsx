@@ -26,46 +26,37 @@ function createHighlightExtension(ranges: Array<[number, number]>) {
   });
 }
 
-const neutralTheme = EditorView.theme({
-  "&": {
-    backgroundColor: "var(--bg-code)",
-    color: "var(--text)",
-  },
-  ".cm-gutters": {
-    backgroundColor: "var(--bg-code)",
-    color: "var(--text-muted)",
-    borderRight: "1px solid var(--border)",
-  },
-  ".cm-activeLineGutter": { backgroundColor: "transparent" },
-  ".cm-activeLine": { backgroundColor: "transparent" },
-  ".cm-cursor": { borderLeftColor: "var(--text)" },
-  ".cm-selectionBackground": {
-    backgroundColor: "var(--accent-bg) !important",
-  },
-});
+// CodeMirror theme overrides are applied via CSS custom properties in index.css
 
 export function CodeViewer({
   onToggleFiles,
   filesOpen,
+  onShowResults,
 }: {
   onToggleFiles: () => void;
   filesOpen: boolean;
+  onShowResults?: () => void;
 }) {
   const selectedFile = useAuditStore((s) => s.selectedFile);
   const content = useAuditStore((s) => s.selectedFileContent);
   const fileVerdicts = useAuditStore((s) => s.fileVerdicts);
   const verdict = useAuditStore((s) => s.verdict);
+  const isRunning = useAuditStore((s) => s.isRunning);
+  const phase = useAuditStore((s) => s.phase);
   const selectFile = useAuditStore((s) => s.selectFile);
 
   const [recentFiles, setRecentFiles] = useState<string[]>([]);
   const [showScanner, setShowScanner] = useState(false);
   const editorRef = useRef<ReactCodeMirrorRef>(null);
 
-  useEffect(() => {
-    if (selectedFile && !recentFiles.includes(selectedFile)) {
+  // Track recent files (adjust state during render)
+  const [prevSelectedFile, setPrevSelectedFile] = useState(selectedFile);
+  if (selectedFile && selectedFile !== prevSelectedFile) {
+    setPrevSelectedFile(selectedFile);
+    if (!recentFiles.includes(selectedFile)) {
       setRecentFiles((prev) => [selectedFile, ...prev].slice(0, 4));
     }
-  }, [selectedFile]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
   const fileVerdict = selectedFile ? fileVerdicts[selectedFile] : null;
 
@@ -78,47 +69,58 @@ export function CodeViewer({
     () => [
       javascript({ jsx: true, typescript: true }),
       EditorView.editable.of(false),
-      neutralTheme,
       createHighlightExtension(suspiciousRanges),
     ],
     [suspiciousRanges],
   );
 
-  // Scanner sweep on file load
+  // Trigger scanner animation when content loads (adjust state during render)
+  const scannerKey = selectedFile && content !== null ? selectedFile : null;
+  const [prevScannerKey, setPrevScannerKey] = useState(scannerKey);
+  if (scannerKey && scannerKey !== prevScannerKey) {
+    setPrevScannerKey(scannerKey);
+    setShowScanner(true);
+  }
+
+  // Timer to end scanner sweep + auto-scroll to suspicious lines
   useEffect(() => {
-    if (content !== null && selectedFile) {
-      setShowScanner(true);
-      const t = setTimeout(() => {
-        setShowScanner(false);
-        // Auto-scroll to first suspicious line after sweep
-        if (suspiciousRanges.length > 0 && editorRef.current?.view) {
-          const view = editorRef.current.view;
-          const line = suspiciousRanges[0][0];
-          if (line <= view.state.doc.lines) {
-            const lineObj = view.state.doc.line(line);
-            view.dispatch({
-              effects: EditorView.scrollIntoView(lineObj.from, { y: "center" }),
-            });
-          }
+    if (!showScanner) return;
+    const t = setTimeout(() => {
+      setShowScanner(false);
+      if (suspiciousRanges.length > 0 && editorRef.current?.view) {
+        const view = editorRef.current.view;
+        const line = suspiciousRanges[0][0];
+        if (line <= view.state.doc.lines) {
+          const lineObj = view.state.doc.line(line);
+          view.dispatch({
+            effects: EditorView.scrollIntoView(lineObj.from, { y: "center" }),
+          });
         }
-      }, 2000);
-      return () => clearTimeout(t);
-    }
-  }, [content, selectedFile]); // eslint-disable-line react-hooks/exhaustive-deps
+      }
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [showScanner, suspiciousRanges]);
+
+  const resultsBtn = onShowResults ? (
+    <button
+      onClick={onShowResults}
+      className="btn-ghost"
+      style={{
+        borderColor: "var(--danger)",
+        color: "var(--danger)",
+      }}
+    >
+      results
+    </button>
+  ) : null;
 
   const filesToggleBtn = (
     <button
       onClick={onToggleFiles}
+      className="btn-ghost"
       style={{
-        background: "none",
-        border: `1px solid ${filesOpen ? "var(--accent)" : "var(--border)"}`,
-        borderRadius: "var(--radius-sm)",
-        padding: "3px 8px",
-        cursor: "pointer",
-        fontFamily: "var(--font-mono)",
-        fontSize: "0.68rem",
-        color: filesOpen ? "var(--accent)" : "var(--text-muted)",
-        whiteSpace: "nowrap",
+        borderColor: filesOpen ? "var(--accent)" : undefined,
+        color: filesOpen ? "var(--accent)" : undefined,
       }}
     >
       files
@@ -137,6 +139,7 @@ export function CodeViewer({
           }}
         >
           <div className="flex-1" />
+          {resultsBtn}
           {filesToggleBtn}
         </div>
         <div
@@ -155,6 +158,7 @@ export function CodeViewer({
 
   // Default empty state
   if (!selectedFile) {
+    const isEarlyPhase = isRunning && (!phase || phase === "resolve" || phase === "inventory" || phase === "triage");
     return (
       <div className="h-full flex flex-col">
         <div
@@ -165,14 +169,29 @@ export function CodeViewer({
           }}
         >
           <div className="flex-1" />
+          {resultsBtn}
           {filesToggleBtn}
         </div>
         <div
           className="flex-1 flex flex-col items-center justify-center gap-2"
           style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}
         >
-          <div style={{ fontSize: "2rem", opacity: 0.3 }}>{"{ }"}</div>
-          Select a file to view
+          {isEarlyPhase ? (
+            <>
+              <div style={{ fontSize: "2rem", opacity: 0.3 }} className="animate-pulse-blue">{"{ }"}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span>Waiting for analysis</span>
+                <span className="thinking-dot" />
+                <span className="thinking-dot" />
+                <span className="thinking-dot" />
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: "2rem", opacity: 0.3 }}>{"{ }"}</div>
+              Select a file to view
+            </>
+          )}
         </div>
       </div>
     );
@@ -265,8 +284,9 @@ export function CodeViewer({
           </div>
         )}
 
-        {/* Files toggle */}
+        {/* Results + Files toggle */}
         <div
+          className="flex items-center gap-2"
           style={{
             marginLeft:
               fileVerdict && fileVerdict.capabilities.length > 0
@@ -274,6 +294,7 @@ export function CodeViewer({
                 : "auto",
           }}
         >
+          {resultsBtn}
           {filesToggleBtn}
         </div>
       </div>

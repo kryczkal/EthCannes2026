@@ -28,6 +28,7 @@ export function VerdictBanner() {
 
   return (
     <div
+      role="alert"
       className="animate-slide-down flex items-center gap-4 shrink-0"
       style={{
         padding: "12px 28px",

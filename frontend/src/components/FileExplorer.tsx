@@ -14,21 +14,16 @@ export function FileExplorer({
     <div
       className="flex flex-col shrink-0 overflow-hidden"
       style={{
-        width: open ? 220 : 0,
-        minWidth: open ? 220 : 0,
+        width: open ? "var(--explorer-width)" : 0,
+        minWidth: open ? "var(--explorer-width)" : 0,
         borderLeft: open ? "1px solid var(--border)" : "none",
         transition: "width 0.25s ease, min-width 0.25s ease",
       }}
     >
       <div
-        className="flex items-center justify-between shrink-0"
+        className="section-header flex items-center justify-between shrink-0"
         style={{
           padding: "10px 14px 8px",
-          fontFamily: "var(--font-mono)",
-          fontSize: "0.65rem",
-          color: "var(--text-muted)",
-          textTransform: "uppercase",
-          letterSpacing: "0.1em",
           borderBottom: "1px solid var(--border)",
           whiteSpace: "nowrap",
         }}

@@ -28,6 +28,11 @@
   --font-sans: "Inter", system-ui, sans-serif;
   --font-heading: "Cabinet Grotesk", system-ui, sans-serif;
   --font-mono: "Space Mono", "JetBrains Mono", ui-monospace, monospace;
+
+  /* Layout */
+  --header-height: 52px;
+  --sidebar-width: 420px;
+  --explorer-width: 220px;
 }
 
 /* ── Urushi (dark lacquer / gold) ── */
@@ -288,6 +293,36 @@ body {
 }
 .fade-in { animation: fade-in 0.4s ease-out forwards; opacity: 0; }
 
+/* ── Utility: section header (mono uppercase label) ── */
+.section-header {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* ── Utility: ghost button ── */
+.btn-ghost {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.btn-ghost:hover {
+  border-color: var(--border-strong);
+}
+
+/* ── Utility: file tree item hover ── */
+.tree-item:hover:not([aria-selected="true"]) {
+  background: var(--bg-secondary);
+}
+
 /* ── Activity feed items ── */
 .feed-item {
   padding: 10px 20px;
@@ -336,6 +371,16 @@ body {
 .feed-file-ref:hover {
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+/* ── Proof area accordion ── */
+.proof-area {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+}
+.proof-area.open {
+  max-height: 500px;
 }
 
 /* ── Landing input focus ── */

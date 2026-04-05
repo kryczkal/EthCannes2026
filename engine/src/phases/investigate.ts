@@ -4,6 +4,7 @@ import { DockerSandboxController } from "../sandbox/controller.js";
 import { runInvestigationAgent } from "../investigation/agent.js";
 import { LIFECYCLE_SCRIPTS } from "../inventory/parse-manifest.js";
 import type { EmitFn } from "../events.js";
+import type { AuditLogger } from "../audit-log.js";
 
 export interface InvestigationResult {
   capabilities: CapabilityEnum[];
@@ -19,6 +20,7 @@ export async function investigate(
   triage: TriageResult,
   fileVerdicts: FileVerdict[],
   emit?: EmitFn,
+  log?: AuditLogger,
 ): Promise<InvestigationResult> {
   if (!config.investigationEnabled) {
     console.log("[investigate] skipped — investigation disabled");
@@ -60,7 +62,7 @@ export async function investigate(
   try {
     await sandbox.start(packagePath);
 
-    const output = await runInvestigationAgent(input, sandbox, lifecycleHooks, emit);
+    const output = await runInvestigationAgent(input, sandbox, lifecycleHooks, emit, log);
 
     // Emit findings for frontend visualization
     for (const finding of output.findings) {
