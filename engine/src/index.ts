@@ -1,4 +1,5 @@
 import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { cors } from "hono/cors";
@@ -140,8 +141,8 @@ app.post("/audit/stream", async (c) => {
   // Run audit in background — don't await
   runAudit(parsed.data.packageName, emit, session.auditId)
     .then(({ report, cleanup }) => {
+      session.cleanupFn = cleanup;
       finalizeSession(session.auditId, report);
-      cleanup();
     })
     .catch((err) => {
       console.error("[api] streaming audit failed:", err);
@@ -263,6 +264,42 @@ app.get("/audit/:id/report", (c) => {
 });
 
 app.get("/health", (c) => c.json({ status: "ok" }));
+
+// ---------------------------------------------------------------------------
+// /api/* mirror — so frontend can use /api prefix in both dev and production
+// ---------------------------------------------------------------------------
+app.all("/api/*", async (c) => {
+  const newPath = c.req.path.replace(/^\/api/, "") || "/";
+  const url = new URL(c.req.url);
+  url.pathname = newPath;
+  const newReq = new Request(url.toString(), c.req.raw);
+  return app.fetch(newReq, c.env);
+});
+
+// ---------------------------------------------------------------------------
+// Static file serving — frontend dist (production)
+// ---------------------------------------------------------------------------
+const frontendDist = path.resolve(import.meta.dirname, "../../frontend/dist");
+
+if (fs.existsSync(frontendDist)) {
+  console.log(`[static] Serving frontend from ${frontendDist}`);
+
+  app.use(
+    "/*",
+    serveStatic({
+      root: path.relative(process.cwd(), frontendDist),
+    }),
+  );
+
+  // SPA fallback — serve index.html for non-API, non-file routes
+  app.get("/*", (c) => {
+    const indexPath = path.join(frontendDist, "index.html");
+    const html = fs.readFileSync(indexPath, "utf-8");
+    return c.html(html);
+  });
+} else {
+  console.log(`[static] No frontend build found at ${frontendDist} — API-only mode`);
+}
 
 console.log(`NpmGuard Engine starting on ${config.apiHost}:${config.apiPort}`);
 serve({ fetch: app.fetch, hostname: config.apiHost, port: config.apiPort });
