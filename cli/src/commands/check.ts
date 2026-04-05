@@ -14,6 +14,8 @@ function verdictLabel(verdict: string, score: number): string {
       return chalk.yellow(`WARNING (${score})`);
     case "CRITICAL":
       return chalk.red(`CRITICAL (${score})`);
+    case "DANGEROUS":
+      return chalk.red.bold(`DANGEROUS (${score})`);
     default:
       return chalk.gray("UNKNOWN");
   }
@@ -68,7 +70,10 @@ export async function checkCommand(
     const versionToCheck = dep.latest ?? dep.installed;
     let audit: AuditResult | null;
 
-    if (!dep.hasUpdate) {
+    if (dep.installed.startsWith("http")) {
+      // IPFS/URL installs: audit against the latest registry version
+      audit = await auditSource.getAudit(dep.name, versionToCheck);
+    } else if (!dep.hasUpdate) {
       audit = await auditSource.getAudit(dep.name, dep.installed);
     } else {
       audit = await auditSource.getAudit(dep.name, versionToCheck);
@@ -95,9 +100,14 @@ export async function checkCommand(
       notAuditedCount++;
     }
 
+    // Truncate long IPFS URLs so the table stays readable
+    const installedCol = dep.installed.startsWith("http")
+      ? chalk.yellow("IPFS " + shortCid(dep.installed.split("/").pop()!))
+      : dep.installed;
+
     table.push([
       dep.name,
-      dep.installed,
+      installedCol,
       dep.latest ?? dep.installed,
       verdictCol,
       capsCol,
