@@ -4,7 +4,13 @@ const PACKAGES_DIR = path.resolve(__dirname, "..", "test-fixtures");
 
 /**
  * Run a test package in an isolated module environment.
+ * Returns the module.exports directly so tests can call the package API.
  * Tests should use vi.spyOn, vi.useFakeTimers(), vi.stubEnv(), and MSW for mocking.
+ *
+ * Usage:
+ *   const pkg = await runPackage("pkg-name", "index.js");
+ *   pkg.init();          // call exported functions
+ *   pkg.someMethod();    // interact with the API
  */
 async function runPackage(packageName, entryPoint) {
   const packageDir = path.join(PACKAGES_DIR, packageName);
@@ -17,14 +23,11 @@ async function runPackage(packageName, entryPoint) {
     }
   }
 
-  let exports;
   try {
-    exports = require(entryPath);
+    return require(entryPath);
   } catch (e) {
-    exports = { __error: e };
+    return { __error: e };
   }
-
-  return { exports };
 }
 
 module.exports = { runPackage };
