@@ -388,7 +388,6 @@ export function ActivityFeed() {
   const agentSteps = useAuditStore((s) => s.agentSteps);
   const findings = useAuditStore((s) => s.findings);
   const riskSummary = useAuditStore((s) => s.riskSummary);
-  const riskScore = useAuditStore((s) => s.riskScore);
   const verdict = useAuditStore((s) => s.verdict);
   const proofCount = useAuditStore((s) => s.proofCount);
   const agentThinking = useAuditStore((s) => s.agentThinking);
@@ -435,13 +434,6 @@ export function ActivityFeed() {
     [agentSteps, lastToolCallIndex],
   );
 
-  const riskLevel =
-    riskScore !== null && riskScore >= 7
-      ? "high"
-      : riskScore !== null && riskScore < 3
-        ? "low"
-        : "mid";
-
   return (
     <>
       {/* Header */}
@@ -453,32 +445,6 @@ export function ActivityFeed() {
         }}
       >
         Activity
-        {riskScore !== null && (
-          <span
-            style={{
-              fontSize: "0.7rem",
-              padding: "2px 8px",
-              borderRadius: 10,
-              fontWeight: 600,
-              textTransform: "none",
-              letterSpacing: 0,
-              background:
-                riskLevel === "high"
-                  ? "var(--danger-bg)"
-                  : riskLevel === "low"
-                    ? "var(--safe-bg)"
-                    : "var(--suspected-bg)",
-              color:
-                riskLevel === "high"
-                  ? "var(--danger)"
-                  : riskLevel === "low"
-                    ? "var(--safe)"
-                    : "var(--suspected)",
-            }}
-          >
-            {riskScore}
-          </span>
-        )}
       </div>
 
       {/* Feed */}
