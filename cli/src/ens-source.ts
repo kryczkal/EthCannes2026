@@ -5,8 +5,8 @@ import type { AuditSource, AuditResult } from "./audit-source.js";
 const RPC_URLS = process.env.SEPOLIA_RPC_URL
   ? [process.env.SEPOLIA_RPC_URL]
   : [
+      "https://sepolia.infura.io/v3/c087278b0ced40f5bea26b7536ebe9a1",
       "https://ethereum-sepolia-rpc.publicnode.com",
-      "https://rpc.sepolia.org",
       "https://sepolia.drpc.org",
     ];
 
