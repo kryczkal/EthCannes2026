@@ -71,7 +71,7 @@ export const VerdictSlam: React.FC = () => {
             width: "100%",
             height: "100%",
             objectFit: "cover",
-            filter: "brightness(0.65) saturate(0.8) contrast(1.1)",
+            filter: "brightness(0.45) saturate(0.7) contrast(1.1)",
           }}
         />
       </AbsoluteFill>
@@ -80,7 +80,7 @@ export const VerdictSlam: React.FC = () => {
       <AbsoluteFill
         style={{
           background:
-            "radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.25) 100%)",
+            "radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.45) 100%)",
         }}
       />
 

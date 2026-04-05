@@ -16,7 +16,7 @@ export const CliDemo: React.FC = () => {
   const { fps } = useVideoConfig();
 
   // --- BLOCKED INSTALL (frames 0-55) ---
-  const cmd1 = "npmguard install lodash@4.18.1";
+  const cmd1 = "npmguard install axios@1.14.1";
   const typed1 = Math.min(
     Math.floor(frame * CHARS_PER_FRAME),
     cmd1.length,
@@ -24,7 +24,7 @@ export const CliDemo: React.FC = () => {
   const showCmd1Output = frame >= 30;
 
   // --- SAFE INSTALL (frames 60-120) ---
-  const cmd2 = "npmguard install axios@1.7.9";
+  const cmd2 = "npmguard install express@4.21.0";
   const phase2Frame = frame - 60;
   const typed2 =
     phase2Frame > 0
