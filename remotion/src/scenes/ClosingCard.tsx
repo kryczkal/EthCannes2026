@@ -19,12 +19,6 @@ const FEATURES = [
 
 const FEAT_DUR = 40; // frames per feature (~1.3s each)
 
-// Proof equations for feature 3
-const PROOF_LINES = [
-  { text: "H(pkg) = SHA256(audit_result)", delay: 0 },
-  { text: "π ← zkProve(statement, witness)", delay: 8 },
-  { text: "Verify(vk, π) → ✓ VALID", delay: 16, isResult: true },
-];
 
 export const ClosingCard: React.FC = () => {
   const frame = useCurrentFrame();
@@ -173,55 +167,6 @@ export const ClosingCard: React.FC = () => {
                 }}
               />
 
-              {/* Proof equations for feature 3 */}
-              {activeFeat === 2 && (
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 24,
-                    marginTop: 20,
-                  }}
-                >
-                  {PROOF_LINES.map((line, i) => {
-                    const localF = featLocalFrame - line.delay;
-                    const lineOp = interpolate(localF, [0, 8], [0, 1], {
-                      extrapolateLeft: "clamp",
-                      extrapolateRight: "clamp",
-                    });
-                    const lineY = interpolate(localF, [0, 8], [20, 0], {
-                      extrapolateLeft: "clamp",
-                      extrapolateRight: "clamp",
-                      easing: Easing.out(Easing.quad),
-                    });
-                    const lineBlur = interpolate(localF, [0, 6], [6, 0], {
-                      extrapolateLeft: "clamp",
-                      extrapolateRight: "clamp",
-                    });
-                    return (
-                      <div
-                        key={i}
-                        style={{
-                          fontFamily: fonts.mono,
-                          fontSize: line.isResult ? 48 : 40,
-                          fontWeight: line.isResult ? 700 : 400,
-                          color: line.isResult ? "#4ade80" : "rgba(255,255,255,0.85)",
-                          opacity: lineOp,
-                          transform: `translateY(${lineY}px)`,
-                          filter: `blur(${lineBlur}px)`,
-                          textShadow: line.isResult
-                            ? "0 0 40px rgba(74, 222, 128, 0.5), 0 2px 15px rgba(0,0,0,0.7)"
-                            : "0 2px 15px rgba(0,0,0,0.7)",
-                          letterSpacing: "0.02em",
-                        }}
-                      >
-                        {line.text}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </div>
           </AbsoluteFill>
 
@@ -268,8 +213,8 @@ export const ClosingCard: React.FC = () => {
             <Img
               src={staticFile("logo.png")}
               style={{
-                width: 90,
-                height: 90,
+                width: 120,
+                height: 120,
                 transform: `scale(${logoScale})`,
                 opacity: logoOpacity,
                 filter: "drop-shadow(0 0 25px rgba(201, 168, 76, 0.3))",
@@ -278,7 +223,7 @@ export const ClosingCard: React.FC = () => {
             <div
               style={{
                 fontFamily: fonts.heading,
-                fontSize: 72,
+                fontSize: 90,
                 fontWeight: 900,
                 opacity: titleOpacity,
                 marginTop: 20,
@@ -306,7 +251,7 @@ export const ClosingCard: React.FC = () => {
             <div
               style={{
                 fontFamily: fonts.mono,
-                fontSize: 14,
+                fontSize: 20,
                 color: "rgba(255,255,255,0.4)",
                 letterSpacing: "0.15em",
                 textTransform: "uppercase",

@@ -64,7 +64,7 @@ export const MoneyLost: React.FC = () => {
             width: "100%",
             height: "100%",
             objectFit: "cover",
-            filter: "brightness(0.5) saturate(0.8) contrast(1.1)",
+            filter: "brightness(0.7) saturate(0.85) contrast(1.1)",
           }}
         />
       </AbsoluteFill>
@@ -123,7 +123,7 @@ export const MoneyLost: React.FC = () => {
           <div
             style={{
               fontFamily: fonts.heading,
-              fontSize: 28,
+              fontSize: 38,
               fontWeight: 400,
               color: "rgba(255,255,255,0.6)",
               opacity: subtitleOpacity,

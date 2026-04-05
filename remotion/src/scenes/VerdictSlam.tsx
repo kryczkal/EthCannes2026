@@ -1,5 +1,6 @@
 import {
   AbsoluteFill,
+  Easing,
   interpolate,
   spring,
   useCurrentFrame,
@@ -15,6 +16,15 @@ const CAPABILITIES = [
   { label: "process_spawn", dot: "#fb923c" },
   { label: "env_vars", dot: "#f87171" },
 ];
+
+// Proof equations — beat 2
+const PROOF_LINES = [
+  { text: "H(pkg) = SHA256(audit_result)", delay: 0 },
+  { text: "π ← zkProve(statement, witness)", delay: 10 },
+  { text: "Verify(vk, π) → ✓ VALID", delay: 20, isResult: true },
+];
+
+const BEAT_SWITCH = 85;
 
 export const VerdictSlam: React.FC = () => {
   const frame = useCurrentFrame();
@@ -82,6 +92,23 @@ export const VerdictSlam: React.FC = () => {
     extrapolateRight: "clamp",
   });
 
+  // ── Beat transition ──
+  const inBeat1 = frame < BEAT_SWITCH;
+  const beat2Frame = frame - BEAT_SWITCH;
+
+  const beat1Opacity = interpolate(frame, [BEAT_SWITCH - 15, BEAT_SWITCH], [1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.inOut(Easing.quad),
+  });
+
+  const beat2Opacity = !inBeat1
+    ? interpolate(beat2Frame, [0, 15], [0, 1], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      })
+    : 0;
+
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
       {/* Background video */}
@@ -93,7 +120,7 @@ export const VerdictSlam: React.FC = () => {
             width: "100%",
             height: "100%",
             objectFit: "cover",
-            filter: "brightness(0.45) saturate(0.7) contrast(1.1)",
+            filter: "brightness(0.65) saturate(0.8) contrast(1.1)",
           }}
         />
       </AbsoluteFill>
@@ -102,15 +129,17 @@ export const VerdictSlam: React.FC = () => {
       <AbsoluteFill
         style={{
           background:
-            "radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.4) 100%)",
+            "radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.25) 100%)",
         }}
       />
 
+      {/* ═══ BEAT 1: CRITICAL verdict ═══ */}
       <AbsoluteFill
         style={{
           justifyContent: "center",
           alignItems: "center",
           transform: `translate(${shakeX}px, ${shakeY}px)`,
+          opacity: beat1Opacity,
         }}
       >
         <div style={{ textAlign: "center" }}>
@@ -159,7 +188,7 @@ export const VerdictSlam: React.FC = () => {
             <span
               style={{
                 fontFamily: fonts.mono,
-                fontSize: 28,
+                fontSize: 36,
                 fontWeight: 700,
                 color: "#ff4444",
               }}
@@ -210,7 +239,7 @@ export const VerdictSlam: React.FC = () => {
                     alignItems: "center",
                     gap: 8,
                     fontFamily: fonts.mono,
-                    fontSize: 15,
+                    fontSize: 20,
                     color: "rgba(255,255,255,0.7)",
                     background: "rgba(255,255,255,0.04)",
                     border: "1px solid rgba(255,255,255,0.1)",
@@ -236,6 +265,112 @@ export const VerdictSlam: React.FC = () => {
                     }}
                   />
                   {cap.label}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </AbsoluteFill>
+
+      {/* ═══ BEAT 2: Verifiable Proofs ═══ */}
+      <AbsoluteFill
+        style={{
+          justifyContent: "center",
+          alignItems: "center",
+          opacity: beat2Opacity,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 24,
+          }}
+        >
+          {/* Section title */}
+          <div
+            style={{
+              fontFamily: fonts.heading,
+              fontSize: 82,
+              fontWeight: 700,
+              color: "#ffffff",
+              letterSpacing: "-0.02em",
+              textShadow:
+                "0 2px 4px rgba(0,0,0,0.5), 0 8px 30px rgba(0,0,0,0.35)",
+              opacity: interpolate(beat2Frame, [0, 12], [0, 1], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+              }),
+              transform: `translateY(${interpolate(beat2Frame, [0, 12], [20, 0], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+                easing: Easing.out(Easing.quad),
+              })}px)`,
+            }}
+          >
+            Verifiable Proofs
+          </div>
+
+          {/* Accent line */}
+          <div
+            style={{
+              width: interpolate(beat2Frame, [8, 20], [0, 120], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+              }),
+              height: 3,
+              backgroundColor: "#4ade80",
+              borderRadius: 2,
+              boxShadow: "0 0 20px rgba(74, 222, 128, 0.3)",
+            }}
+          />
+
+          {/* Proof equations */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 28,
+              marginTop: 16,
+            }}
+          >
+            {PROOF_LINES.map((line, i) => {
+              const localF = beat2Frame - 15 - line.delay;
+              const lineOp = interpolate(localF, [0, 10], [0, 1], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+              });
+              const lineY = interpolate(localF, [0, 10], [25, 0], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+                easing: Easing.out(Easing.quad),
+              });
+              const lineBlur = interpolate(localF, [0, 8], [8, 0], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+              });
+              return (
+                <div
+                  key={i}
+                  style={{
+                    fontFamily: fonts.mono,
+                    fontSize: line.isResult ? 52 : 44,
+                    fontWeight: line.isResult ? 700 : 400,
+                    color: line.isResult
+                      ? "#4ade80"
+                      : "rgba(255,255,255,0.9)",
+                    opacity: lineOp,
+                    transform: `translateY(${lineY}px)`,
+                    filter: `blur(${lineBlur}px)`,
+                    textShadow: line.isResult
+                      ? "0 0 40px rgba(74, 222, 128, 0.5), 0 2px 15px rgba(0,0,0,0.7)"
+                      : "0 2px 15px rgba(0,0,0,0.7)",
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  {line.text}
                 </div>
               );
             })}

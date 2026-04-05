@@ -111,7 +111,7 @@ export const CliDemo: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ padding: "24px 24px", fontFamily: fonts.mono, fontSize: 22 }}>
+        <div style={{ padding: "28px 32px", fontFamily: fonts.mono, fontSize: 28 }}>
           {/* --- Command 1: Blocked --- */}
           <div>
             <div style={{ display: "flex" }}>
@@ -128,7 +128,7 @@ export const CliDemo: React.FC = () => {
                   <span
                     style={{
                       fontFamily: fonts.mono,
-                      fontSize: 18,
+                      fontSize: 24,
                       fontWeight: 700,
                       color: colors.danger,
                       opacity: interpolate(frame, [30, 35], [0, 1], {
@@ -157,7 +157,7 @@ export const CliDemo: React.FC = () => {
                 <div
                   style={{
                     color: colors.textMuted,
-                    fontSize: 14,
+                    fontSize: 18,
                     opacity: interpolate(frame, [36, 42], [0, 1], {
                       extrapolateLeft: "clamp",
                       extrapolateRight: "clamp",
@@ -170,7 +170,7 @@ export const CliDemo: React.FC = () => {
                 <div
                   style={{
                     color: colors.danger,
-                    fontSize: 18,
+                    fontSize: 24,
                     fontWeight: 700,
                     marginTop: 10,
                     opacity: interpolate(frame, [40, 48], [0, 1], {
@@ -202,7 +202,7 @@ export const CliDemo: React.FC = () => {
                     <span
                       style={{
                         fontFamily: fonts.mono,
-                        fontSize: 18,
+                        fontSize: 24,
                         fontWeight: 700,
                         color: colors.safe,
                         opacity: interpolate(frame, [90, 95], [0, 1], {
@@ -216,7 +216,7 @@ export const CliDemo: React.FC = () => {
                     <span
                       style={{
                         fontFamily: fonts.mono,
-                        fontSize: 14,
+                        fontSize: 18,
                         color: colors.textMuted,
                         opacity: interpolate(frame, [93, 98], [0, 1], {
                           extrapolateLeft: "clamp",
@@ -231,7 +231,7 @@ export const CliDemo: React.FC = () => {
                   <div
                     style={{
                       color: colors.safe,
-                      fontSize: 16,
+                      fontSize: 22,
                       opacity: interpolate(frame, [97, 103], [0, 1], {
                         extrapolateLeft: "clamp",
                         extrapolateRight: "clamp",
@@ -254,7 +254,7 @@ export const CliDemo: React.FC = () => {
                     <span
                       style={{
                         fontFamily: fonts.mono,
-                        fontSize: 16,
+                        fontSize: 22,
                         color: colors.textDim,
                         marginLeft: 8,
                       }}
