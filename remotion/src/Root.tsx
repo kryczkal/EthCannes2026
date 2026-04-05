@@ -1,17 +1,18 @@
 import "./index.css";
 import { Composition } from "remotion";
-import { MyComposition } from "./Composition";
+import { NpmGuardPromo } from "./Composition";
+import { FPS, WIDTH, HEIGHT, DURATION_FRAMES } from "./lib/theme";
 
 export const RemotionRoot: React.FC = () => {
   return (
     <>
       <Composition
-        id="MyComp"
-        component={MyComposition}
-        durationInFrames={60}
-        fps={30}
-        width={1280}
-        height={720}
+        id="NpmGuardPromo"
+        component={NpmGuardPromo}
+        durationInFrames={DURATION_FRAMES}
+        fps={FPS}
+        width={WIDTH}
+        height={HEIGHT}
       />
     </>
   );
