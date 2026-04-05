@@ -174,6 +174,25 @@ export type SSEEvent =
 
 export const PHASE_ORDER = ["resolve", "inventory", "triage", "investigation", "test-gen", "verify"] as const;
 
+export const AUDIT_PATH_RE = /^\/audit\/([0-9a-f-]{36})$/;
+
+export const PHASE_LABELS: Record<string, string> = {
+  resolve: "Resolving package",
+  inventory: "Scanning package structure",
+  triage: "Analyzing source files",
+  investigation: "Starting deep investigation",
+  "test-gen": "Generating exploit tests",
+  verify: "Running verification",
+};
+
+/** Labels shown for quiet (non-agent) phases in the activity feed */
+export const PHASE_WAIT_LABELS: Record<string, string> = {
+  resolve: "Downloading and unpacking...",
+  inventory: "Building file inventory...",
+  "test-gen": "Generating exploit tests...",
+  verify: "Running verification in sandbox...",
+};
+
 export function parseLineRanges(spec: string | null): Array<[number, number]> {
   if (!spec) return [];
   return spec.split(",").map((range) => {

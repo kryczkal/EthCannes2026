@@ -124,6 +124,7 @@ export function Landing() {
               cursor: "pointer",
               textUnderlineOffset: "2px",
             }}
+            aria-label={`Try auditing ${pkg}`}
             onClick={() => {
               setInput(pkg);
               setVersion("");

@@ -10,7 +10,7 @@ import type {
   SSEEvent,
   PipelineLogEntry,
 } from "../lib/types";
-import { PHASE_ORDER } from "../lib/types";
+import { PHASE_ORDER, PHASE_LABELS } from "../lib/types";
 
 const API_BASE = "/api";
 
@@ -91,6 +91,7 @@ const initialState = {
 };
 
 let activeEventSource: EventSource | null = null;
+let activeFileAbort: AbortController | null = null;
 
 function connectSSE(
   auditId: string,
@@ -124,7 +125,9 @@ function connectSSE(
   es.onerror = () => {
     es.close();
     activeEventSource = null;
-    if (get().isRunning) set({ isRunning: false });
+    if (get().isRunning) {
+      set({ isRunning: false, error: "Lost connection to audit engine" });
+    }
   };
 }
 
@@ -180,8 +183,11 @@ export const useAuditStore = create<AuditState>((set, get) => ({
     // Check if session exists before connecting SSE
     try {
       const res = await fetch(`${API_BASE}/audit/${auditId}/report`);
-      if (res.status === 404) {
-        set({ isRunning: false, error: "This audit session has expired or was not found." });
+      if (!res.ok) {
+        const msg = res.status === 404
+          ? "This audit session has expired or was not found."
+          : `Engine returned ${res.status}`;
+        set({ isRunning: false, error: msg });
         return;
       }
     } catch {
@@ -197,14 +203,6 @@ export const useAuditStore = create<AuditState>((set, get) => ({
 
     switch (event.type) {
       case "phase_started": {
-        const phaseLabels: Record<string, string> = {
-          resolve: "Resolving package",
-          inventory: "Scanning package structure",
-          triage: "Analyzing source files",
-          investigation: "Starting deep investigation",
-          "test-gen": "Generating exploit tests",
-          verify: "Running verification",
-        };
         set({
           phase: event.phase,
           phases: state.phases.map((p) =>
@@ -212,7 +210,7 @@ export const useAuditStore = create<AuditState>((set, get) => ({
           ),
           pipelineLog: [...state.pipelineLog, {
             kind: "phase" as const,
-            text: phaseLabels[event.phase] || event.phase,
+            text: PHASE_LABELS[event.phase] || event.phase,
             timestamp: event.timestamp,
           }],
         });
@@ -380,11 +378,18 @@ export const useAuditStore = create<AuditState>((set, get) => ({
 
     if (!auditId) return;
 
+    // Cancel any in-flight file fetch
+    activeFileAbort?.abort();
+    const controller = new AbortController();
+    activeFileAbort = controller;
+
     try {
-      const res = await fetch(`${API_BASE}/audit/${auditId}/file/${filePath}`);
+      const res = await fetch(
+        `${API_BASE}/audit/${auditId}/file/${filePath}`,
+        { signal: controller.signal },
+      );
       if (res.ok) {
         const content = await res.text();
-        // Guard against stale fetch overwriting a newer selection
         if (get().selectedFile === filePath) {
           set({ selectedFileContent: content });
         }
@@ -393,7 +398,8 @@ export const useAuditStore = create<AuditState>((set, get) => ({
           set({ selectedFileContent: `// Failed to load file (${res.status})` });
         }
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       if (get().selectedFile === filePath) {
         set({ selectedFileContent: "// Failed to load file" });
       }

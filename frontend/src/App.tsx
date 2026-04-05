@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from "react";
 import { useAuditStore } from "./stores/auditStore";
+import { AUDIT_PATH_RE } from "./lib/types";
 import { Header } from "./components/Header";
 import { Landing } from "./components/Landing";
 import { AuditView } from "./components/AuditView";
@@ -14,7 +15,7 @@ function App() {
 
   // On mount: if URL is /audit/<uuid>, reconnect to that session
   useEffect(() => {
-    const match = window.location.pathname.match(/^\/audit\/([0-9a-f-]{36})$/);
+    const match = window.location.pathname.match(AUDIT_PATH_RE);
     if (match && !auditId) {
       connectToSession(match[1]);
     }
@@ -29,7 +30,7 @@ function App() {
 
   // Handle browser back/forward
   const onPopState = useCallback(() => {
-    const match = window.location.pathname.match(/^\/audit\/([0-9a-f-]{36})$/);
+    const match = window.location.pathname.match(AUDIT_PATH_RE);
     if (match) {
       if (match[1] !== auditId) connectToSession(match[1]);
     } else {

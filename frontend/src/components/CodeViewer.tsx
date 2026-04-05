@@ -26,23 +26,7 @@ function createHighlightExtension(ranges: Array<[number, number]>) {
   });
 }
 
-const neutralTheme = EditorView.theme({
-  "&": {
-    backgroundColor: "var(--bg-code)",
-    color: "var(--text)",
-  },
-  ".cm-gutters": {
-    backgroundColor: "var(--bg-code)",
-    color: "var(--text-muted)",
-    borderRight: "1px solid var(--border)",
-  },
-  ".cm-activeLineGutter": { backgroundColor: "transparent" },
-  ".cm-activeLine": { backgroundColor: "transparent" },
-  ".cm-cursor": { borderLeftColor: "var(--text)" },
-  ".cm-selectionBackground": {
-    backgroundColor: "var(--accent-bg) !important",
-  },
-});
+// CodeMirror theme overrides are applied via CSS custom properties in index.css
 
 export function CodeViewer({
   onToggleFiles,
@@ -85,7 +69,6 @@ export function CodeViewer({
     () => [
       javascript({ jsx: true, typescript: true }),
       EditorView.editable.of(false),
-      neutralTheme,
       createHighlightExtension(suspiciousRanges),
     ],
     [suspiciousRanges],

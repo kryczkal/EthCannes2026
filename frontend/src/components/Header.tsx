@@ -29,6 +29,7 @@ export function Header() {
     >
       <button
         onClick={goHome}
+        aria-label="Go to home page"
         style={{
           fontFamily: "var(--font-heading)",
           fontWeight: 700,

@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { useAuditStore } from "../stores/auditStore";
 import { useTypewriter } from "../hooks/useTypewriter";
 import { useCountUp } from "../hooks/useCountUp";
+import { PHASE_WAIT_LABELS } from "../lib/types";
 import type { AgentStep, Finding, PipelineLogEntry } from "../lib/types";
 
 // ── Sub-components ──
@@ -418,17 +419,21 @@ export function ActivityFeed() {
     pipelineLog.length > 0 || agentSteps.length > 0 || findings.length > 0 || riskSummary;
 
   // Determine if a tool call is pending (last tool_call with no following tool_result)
-  const lastToolCallIndex = (() => {
+  const lastToolCallIndex = useMemo(() => {
     for (let i = agentSteps.length - 1; i >= 0; i--) {
       if (agentSteps[i].type === "tool_call") return i;
     }
     return -1;
-  })();
-  const lastToolCallPending =
-    lastToolCallIndex >= 0 &&
-    !agentSteps
-      .slice(lastToolCallIndex + 1)
-      .some((s) => s.type === "tool_result" && s.step === agentSteps[lastToolCallIndex].step);
+  }, [agentSteps]);
+
+  const lastToolCallPending = useMemo(
+    () =>
+      lastToolCallIndex >= 0 &&
+      !agentSteps
+        .slice(lastToolCallIndex + 1)
+        .some((s) => s.type === "tool_result" && s.step === agentSteps[lastToolCallIndex].step),
+    [agentSteps, lastToolCallIndex],
+  );
 
   const riskLevel =
     riskScore !== null && riskScore >= 7
@@ -530,25 +535,15 @@ export function ActivityFeed() {
           <FindingItem key={`f-${i}`} finding={f} />
         ))}
 
-        {isRunning && !agentThinking && !verdict && (() => {
-          const labels: Record<string, string> = {
-            resolve: "Downloading and unpacking...",
-            inventory: "Building file inventory...",
-            "test-gen": "Generating exploit tests...",
-            verify: "Running verification in sandbox...",
-          };
-          const label = phase ? labels[phase] : null;
-          if (!label) return null;
-          return (
-            <div className="feed-item" style={{ opacity: 0.6 }}>
-              <div className="feed-meta">
-                <FeedTag type="phase">{phase}</FeedTag>
-                <span className="tool-spinner" />
-              </div>
-              <div className="feed-body">{label}</div>
+        {isRunning && !agentThinking && !verdict && phase && PHASE_WAIT_LABELS[phase] && (
+          <div className="feed-item" style={{ opacity: 0.6 }}>
+            <div className="feed-meta">
+              <FeedTag type="phase">{phase}</FeedTag>
+              <span className="tool-spinner" />
             </div>
-          );
-        })()}
+            <div className="feed-body">{PHASE_WAIT_LABELS[phase]}</div>
+          </div>
+        )}
 
         {agentThinking && <ThinkingIndicator />}
 
