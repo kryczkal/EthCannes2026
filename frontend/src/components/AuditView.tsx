@@ -7,7 +7,7 @@ import { FileExplorer } from "./FileExplorer";
 import { ResultsPanel } from "./ResultsPanel";
 
 export function AuditView() {
-  const [fileExplorerOpen, setFileExplorerOpen] = useState(false);
+  const [fileExplorerOpen, setFileExplorerOpen] = useState(true);
   const [showResults, setShowResults] = useState(false);
   const verdict = useAuditStore((s) => s.verdict);
 
