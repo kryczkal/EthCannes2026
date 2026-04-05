@@ -194,7 +194,7 @@ function FindingItem({ finding }: { finding: Finding }) {
             fontWeight: 400,
           }}
         >
-          {finding.confidence}
+          {finding.confidence === "CONFIRMED" ? "CAPABILITY CONFIRMED" : finding.confidence}
         </span>
       </div>
       <div className="feed-body">{finding.problem}</div>
