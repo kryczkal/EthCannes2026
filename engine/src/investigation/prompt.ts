@@ -27,7 +27,10 @@ For each finding, specify:
 - Concrete evidence (decoded strings, trace log entries, etc.)
 - A reproduction strategy describing how to write a test that proves this behavior
 
-Be thorough but focused. Follow leads from the prior static analysis. Do not flag benign patterns (legitimate HTTP clients, standard file operations for a package's stated purpose).
+CRITICAL RULES FOR EVIDENCE AND CONFIDENCE:
+- NEVER fabricate, invent, or hallucinate trace logs or placeholders. If require_and_trace failed or didn't output a trace for an event, DO NOT provide a fake trace log.
+- You may only use CONFIRMED if you actually saw the successful execution in the sandbox output. If you could not run it due to missing dependencies, you CANNOT mark it CONFIRMED.
+- Be thorough but focused. Follow leads from the prior static analysis. Do not flag benign patterns (legitimate HTTP clients, standard file operations for a package's stated purpose). If a package is designed to make requests (e.g. an XHR wrapper), legitimate network code is SAFE.
 `;
 
 export function buildUserPrompt(input: InvestigationInput): string {
@@ -53,9 +56,9 @@ export function buildUserPrompt(input: InvestigationInput): string {
 
   parts.push(
     "\n## Instructions\n" +
-      "Investigate this package using the tools available to you. " +
-      "Start by listing files, then read suspicious files and use sandbox execution to confirm behavior. " +
-      "Report all findings with evidence.",
+    "Investigate this package using the tools available to you. " +
+    "Start by listing files, then read suspicious files and use sandbox execution to confirm behavior. " +
+    "Report all findings with evidence.",
   );
 
   return parts.join("\n");
