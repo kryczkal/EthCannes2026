@@ -237,11 +237,11 @@ export async function runAudit(packageName: string, emit?: EmitFn, auditId?: str
     );
     trace.push(testGenLog);
 
-    // Phase 2: Proof verification
+    // Phase 2: Proof verification (with retry loop — up to 3 attempts per failed test)
     const { result: verifiedProofs, log: verifyLog } = await timedPhase(
       "verify",
-      () => verifyProofs(proofs, resolved.path, emit),
-      5 * 60_000 * timeoutScale,
+      () => verifyProofs(proofs, resolved.path, emit, investigationResult.findings),
+      8 * 60_000 * timeoutScale,
       { proofCount: proofs.length, withTests: proofs.filter((x) => x.testFile).length },
       (p) => ({
         verifiedCount: p.length,
