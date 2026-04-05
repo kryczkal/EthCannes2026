@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuditStore } from "../stores/auditStore";
 import type { AgentStep, Finding, PipelineLogEntry } from "../lib/types";
 
@@ -388,18 +388,24 @@ export function ActivityFeed() {
   const agentThinking = useAuditStore((s) => s.agentThinking);
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const userScrolledUp = useRef(false);
 
-  const isNearBottom = useCallback(() => {
+  useEffect(() => {
     const el = containerRef.current;
-    if (!el) return true;
-    return el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    if (!el) return;
+    const onScroll = () => {
+      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+      userScrolledUp.current = !nearBottom;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
   useEffect(() => {
-    if (isNearBottom()) {
+    if (!userScrolledUp.current) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [pipelineLog.length, agentSteps.length, findings.length, agentThinking, isNearBottom]);
+  }, [pipelineLog.length, agentSteps.length, findings.length, agentThinking]);
 
   const hasContent =
     pipelineLog.length > 0 || agentSteps.length > 0 || findings.length > 0 || riskSummary;

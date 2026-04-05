@@ -47,9 +47,11 @@ const neutralTheme = EditorView.theme({
 export function CodeViewer({
   onToggleFiles,
   filesOpen,
+  onShowResults,
 }: {
   onToggleFiles: () => void;
   filesOpen: boolean;
+  onShowResults?: () => void;
 }) {
   const selectedFile = useAuditStore((s) => s.selectedFile);
   const content = useAuditStore((s) => s.selectedFileContent);
@@ -106,6 +108,25 @@ export function CodeViewer({
     }
   }, [content, selectedFile]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const resultsBtn = onShowResults ? (
+    <button
+      onClick={onShowResults}
+      style={{
+        background: "none",
+        border: "1px solid var(--danger)",
+        borderRadius: "var(--radius-sm)",
+        padding: "3px 8px",
+        cursor: "pointer",
+        fontFamily: "var(--font-mono)",
+        fontSize: "0.68rem",
+        color: "var(--danger)",
+        whiteSpace: "nowrap",
+      }}
+    >
+      results
+    </button>
+  ) : null;
+
   const filesToggleBtn = (
     <button
       onClick={onToggleFiles}
@@ -137,6 +158,7 @@ export function CodeViewer({
           }}
         >
           <div className="flex-1" />
+          {resultsBtn}
           {filesToggleBtn}
         </div>
         <div
@@ -165,6 +187,7 @@ export function CodeViewer({
           }}
         >
           <div className="flex-1" />
+          {resultsBtn}
           {filesToggleBtn}
         </div>
         <div
@@ -265,8 +288,9 @@ export function CodeViewer({
           </div>
         )}
 
-        {/* Files toggle */}
+        {/* Results + Files toggle */}
         <div
+          className="flex items-center gap-2"
           style={{
             marginLeft:
               fileVerdict && fileVerdict.capabilities.length > 0
@@ -274,6 +298,7 @@ export function CodeViewer({
                 : "auto",
           }}
         >
+          {resultsBtn}
           {filesToggleBtn}
         </div>
       </div>

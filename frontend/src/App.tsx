@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuditStore } from "./stores/auditStore";
 import { PhaseProgress } from "./components/PhaseProgress";
 import { ActivityFeed } from "./components/ActivityFeed";
 import { CodeViewer } from "./components/CodeViewer";
 import { VerdictBanner } from "./components/VerdictBanner";
 import { FileExplorer } from "./components/FileExplorer";
+import { ResultsPanel } from "./components/ResultsPanel";
 
 function Landing() {
   const [input, setInput] = useState("");
@@ -220,12 +221,23 @@ function Header() {
 
 function AuditView() {
   const [fileExplorerOpen, setFileExplorerOpen] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const verdict = useAuditStore((s) => s.verdict);
+
+  // Auto-switch to results when verdict arrives
+  const prevVerdict = useRef(verdict);
+  useEffect(() => {
+    if (verdict && !prevVerdict.current) {
+      setShowResults(true);
+    }
+    prevVerdict.current = verdict;
+  }, [verdict]);
 
   return (
     <>
       <VerdictBanner />
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Activity Feed — left, primary */}
+        {/* Activity Feed — left */}
         <div
           className="flex flex-col shrink-0 overflow-hidden"
           style={{
@@ -237,19 +249,28 @@ function AuditView() {
           <ActivityFeed />
         </div>
 
-        {/* Code Viewer — center */}
+        {/* Right panel — results or code viewer */}
         <div className="flex-1 flex flex-col min-w-0">
-          <CodeViewer
-            onToggleFiles={() => setFileExplorerOpen((o) => !o)}
-            filesOpen={fileExplorerOpen}
-          />
+          {showResults && verdict ? (
+            <ResultsPanel
+              onShowCode={() => setShowResults(false)}
+            />
+          ) : (
+            <CodeViewer
+              onToggleFiles={() => setFileExplorerOpen((o) => !o)}
+              filesOpen={fileExplorerOpen}
+              onShowResults={verdict ? () => setShowResults(true) : undefined}
+            />
+          )}
         </div>
 
         {/* File Explorer — right, collapsible */}
-        <FileExplorer
-          open={fileExplorerOpen}
-          onClose={() => setFileExplorerOpen(false)}
-        />
+        {!showResults && (
+          <FileExplorer
+            open={fileExplorerOpen}
+            onClose={() => setFileExplorerOpen(false)}
+          />
+        )}
       </div>
     </>
   );
