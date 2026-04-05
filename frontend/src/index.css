@@ -338,6 +338,16 @@ body {
   text-underline-offset: 2px;
 }
 
+/* ── Proof area accordion ── */
+.proof-area {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+}
+.proof-area.open {
+  max-height: 500px;
+}
+
 /* ── Landing input focus ── */
 input:focus {
   border-color: var(--accent) !important;
