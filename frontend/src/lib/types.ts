@@ -33,6 +33,20 @@ export interface Finding {
   reproductionStrategy: string;
 }
 
+export interface Proof {
+  capability: string | null;
+  attackPathway: string;
+  confidence: "SUSPECTED" | "LIKELY" | "CONFIRMED";
+  fileLine: string;
+  problem: string;
+  evidence: string;
+  kind: "STRUCTURAL" | "AI_STATIC" | "AI_DYNAMIC" | "TEST_CONFIRMED" | "TEST_UNCONFIRMED";
+  reproducible: boolean;
+  reproductionCmd: string | null;
+  testFile: string | null;
+  reasoningHash: string | null;
+}
+
 export type FileStatus = "pending" | "analyzing" | "safe" | "suspicious" | "dangerous";
 
 export type PhaseStatus = "pending" | "active" | "done";

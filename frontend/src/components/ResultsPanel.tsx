@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useAuditStore } from "../stores/auditStore";
-import type { Finding } from "../lib/types";
+import type { Finding, Proof } from "../lib/types";
 
 function FindingCard({
   finding,
+  proof,
   isExpanded,
   onToggle,
   onShowCode,
 }: {
   finding: Finding;
+  proof?: Proof;
   isExpanded: boolean;
   onToggle: () => void;
   onShowCode: () => void;
@@ -91,6 +93,45 @@ function FindingCard({
         >
           {finding.confidence}
         </span>
+        {proof && (
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "0.55rem",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              padding: "1px 6px",
+              borderRadius: 3,
+              flexShrink: 0,
+              background:
+                proof.kind === "TEST_CONFIRMED"
+                  ? "var(--safe-bg)"
+                  : "var(--accent-bg)",
+              color:
+                proof.kind === "TEST_CONFIRMED"
+                  ? "var(--safe)"
+                  : "var(--accent-light)",
+            }}
+          >
+            {proof.kind === "TEST_CONFIRMED" ? "✓ " : ""}{proof.kind.replace("_", " ")}
+          </span>
+        )}
+        {proof?.reproducible && (
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "0.55rem",
+              padding: "1px 6px",
+              borderRadius: 3,
+              flexShrink: 0,
+              background: "var(--bg-tertiary)",
+              color: "var(--text-dim)",
+            }}
+          >
+            ⟳ reproducible
+          </span>
+        )}
       </div>
 
       {/* Always visible: description + file link */}
@@ -144,6 +185,19 @@ function FindingCard({
             borderRadius: "var(--radius-sm)",
           }}
         >
+          {proof?.attackPathway && (
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.6rem",
+                color: "var(--text-muted)",
+                marginBottom: 8,
+                letterSpacing: "0.05em",
+              }}
+            >
+              ATTACK PATHWAY · {proof.attackPathway.replace(/_/g, " ")}
+            </div>
+          )}
           {finding.evidence && (
             <>
               <div
@@ -209,7 +263,11 @@ export function ResultsPanel({
   onShowCode: () => void;
 }) {
   const findings = useAuditStore((s) => s.findings);
+  const proofs = useAuditStore((s) => s.proofs);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+
+  // Match each finding to a proof by fileLine (natural join key)
+  const proofByFileLine = Object.fromEntries(proofs.map((p) => [p.fileLine, p]));
 
   return (
     <div className="h-full flex flex-col">
@@ -251,6 +309,7 @@ export function ResultsPanel({
           <FindingCard
             key={i}
             finding={f}
+            proof={proofByFileLine[f.fileLine]}
             isExpanded={expandedIndex === i}
             onToggle={() =>
               setExpandedIndex(expandedIndex === i ? null : i)

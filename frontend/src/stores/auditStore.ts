@@ -7,6 +7,7 @@ import type {
   AgentStep,
   Finding,
   FocusArea,
+  Proof,
   SSEEvent,
   PipelineLogEntry,
 } from "../lib/types";
@@ -45,6 +46,7 @@ interface AuditState {
   verdict: "SAFE" | "DANGEROUS" | null;
   capabilities: string[];
   proofCount: number;
+  proofs: Proof[];
 
   // UI state
   selectedFile: string | null;
@@ -82,6 +84,7 @@ const initialState = {
   verdict: null,
   capabilities: [],
   proofCount: 0,
+  proofs: [],
   selectedFile: null,
   selectedFileContent: null,
   autoFollow: true,
@@ -267,15 +270,15 @@ export const useAuditStore = create<AuditState>((set, get) => ({
         const { verdict } = event;
         const status: FileStatus =
           verdict.riskContribution >= 5 ? "dangerous" :
-          verdict.riskContribution >= 3 ? "suspicious" : "safe";
+            verdict.riskContribution >= 3 ? "suspicious" : "safe";
         const pipelineLog = verdict.riskContribution >= 3
           ? [...state.pipelineLog, {
-              kind: "file-flag" as const,
-              text: verdict.summary || `Risk ${verdict.riskContribution}/10`,
-              file: verdict.file,
-              risk: verdict.riskContribution,
-              timestamp: event.timestamp,
-            }]
+            kind: "file-flag" as const,
+            text: verdict.summary || `Risk ${verdict.riskContribution}/10`,
+            file: verdict.file,
+            risk: verdict.riskContribution,
+            timestamp: event.timestamp,
+          }]
           : state.pipelineLog;
         set({
           fileStatuses: { ...state.fileStatuses, [verdict.file]: status },
@@ -362,6 +365,16 @@ export const useAuditStore = create<AuditState>((set, get) => ({
           isRunning: false,
           agentThinking: false,
         });
+        // Fetch full report to hydrate proof details (non-blocking)
+        const { auditId } = get();
+        if (auditId) {
+          fetch(`${API_BASE}/audit/${auditId}/report`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((report) => {
+              if (report?.proofs) set({ proofs: report.proofs });
+            })
+            .catch(() => { });
+        }
         break;
       }
 
