@@ -374,6 +374,8 @@ export async function installCommand(
 
       // Trigger audit engine
       const auditApiUrl = process.env.NPMGUARD_AUDIT_API_URL ?? DEFAULT_AUDIT_API_URL;
+      console.log(chalk.gray(`  Live dashboard: http://209.38.42.28:3000`));
+      console.log();
       const auditSpinner = ora("  Running security audit...").start();
 
       try {

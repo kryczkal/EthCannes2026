@@ -1,5 +1,5 @@
 {
-  "packages": ["code-formatter", "axios", "lodash", "express", "chalk"],
+  "packages": ["code-formatter", "axios", "express", "chalk", "minimist"],
   "auditApiUrl": "http://209.38.42.28:8000/audit",
   "creApiKey": "npmguard",
   "schedule": "0 */5 * * * *"
