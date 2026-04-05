@@ -2,9 +2,11 @@ import {
   AbsoluteFill,
   interpolate,
   spring,
+  staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { Video } from "@remotion/media";
 import { colors, fonts, springs } from "../lib/theme";
 
 const CHARS_PER_FRAME = 0.8;
@@ -52,14 +54,38 @@ export const CliDemo: React.FC = () => {
       ? "rgba(248, 113, 113, 0.06)"
       : `rgba(74, 222, 128, ${interpolate(frame, [90, 105], [0, 0.06], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })})`;
 
+  const bgZoom = interpolate(frame, [0, 135], [1.05, 1.12], {
+    extrapolateRight: "clamp",
+  });
+
   return (
-    <AbsoluteFill
-      style={{
-        background: `radial-gradient(ellipse at 50% 50%, rgba(30, 25, 20, 1) 0%, ${colors.bg} 50%, #000 100%)`,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
+    <AbsoluteFill style={{ backgroundColor: "#000" }}>
+      {/* Background video */}
+      <AbsoluteFill style={{ transform: `scale(${bgZoom})` }}>
+        <Video
+          src={staticFile("feat-ipfs.mp4")}
+          muted
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            filter: "brightness(0.5) saturate(0.7) contrast(1.1)",
+          }}
+        />
+      </AbsoluteFill>
+
+      <AbsoluteFill
+        style={{
+          background: "radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.3) 100%)",
+        }}
+      />
+
+      <AbsoluteFill
+        style={{
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
       {/* Reactive glow behind terminal */}
       <div
         style={{
@@ -268,6 +294,7 @@ export const CliDemo: React.FC = () => {
           )}
         </div>
       </div>
+      </AbsoluteFill>
     </AbsoluteFill>
   );
 };

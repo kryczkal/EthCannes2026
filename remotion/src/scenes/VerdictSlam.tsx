@@ -65,7 +65,7 @@ export const VerdictSlam: React.FC = () => {
       {/* Background video */}
       <AbsoluteFill style={{ transform: `scale(${zoom})` }}>
         <Video
-          src={staticFile("bg-verdict.mp4")}
+          src={staticFile("feat-chain.mp4")}
           muted
           style={{
             width: "100%",

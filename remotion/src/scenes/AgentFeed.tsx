@@ -120,7 +120,7 @@ export const AgentFeed: React.FC = () => {
       {/* Background video */}
       <AbsoluteFill style={{ transform: `scale(${bgZoom})` }}>
         <Video
-          src={staticFile("bg-terminal.mp4")}
+          src={staticFile("feat-ai.mp4")}
           muted
           style={{ width: "100%", height: "100%", objectFit: "cover", filter: `brightness(${inBeat1 ? 0.5 : 0.4}) saturate(0.7) contrast(1.1)` }}
         />
