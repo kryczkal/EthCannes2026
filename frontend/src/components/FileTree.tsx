@@ -184,6 +184,7 @@ function TreeNodeComponent({ node, depth }: { node: TreeNode; depth: number }) {
 
 export function FileTree() {
   const files = useAuditStore((s) => s.files);
+  const isRunning = useAuditStore((s) => s.isRunning);
   const tree = useMemo(() => buildTree(files), [files]);
 
   if (files.length === 0) {
@@ -192,7 +193,16 @@ export function FileTree() {
         className="h-full flex items-center justify-center"
         style={{ color: "var(--pending)", fontSize: "0.75rem" }}
       >
-        Waiting for package...
+        {isRunning ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span>Scanning package</span>
+            <span className="thinking-dot" />
+            <span className="thinking-dot" />
+            <span className="thinking-dot" />
+          </div>
+        ) : (
+          "No files"
+        )}
       </div>
     );
   }

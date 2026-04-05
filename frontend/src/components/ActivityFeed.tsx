@@ -419,6 +419,8 @@ export function ActivityFeed() {
   const verdict = useAuditStore((s) => s.verdict);
   const proofCount = useAuditStore((s) => s.proofCount);
   const agentThinking = useAuditStore((s) => s.agentThinking);
+  const isRunning = useAuditStore((s) => s.isRunning);
+  const phase = useAuditStore((s) => s.phase);
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
@@ -519,7 +521,16 @@ export function ActivityFeed() {
             className="flex items-center justify-center h-full"
             style={{ color: "var(--pending)", fontSize: "0.8rem" }}
           >
-            Activity will appear here...
+            {isRunning ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span>Connecting to engine</span>
+                <span className="thinking-dot" />
+                <span className="thinking-dot" />
+                <span className="thinking-dot" />
+              </div>
+            ) : (
+              "Activity will appear here..."
+            )}
           </div>
         )}
 
@@ -551,6 +562,26 @@ export function ActivityFeed() {
         {findings.map((f, i) => (
           <FindingItem key={`f-${i}`} finding={f} />
         ))}
+
+        {isRunning && !agentThinking && !verdict && (() => {
+          const labels: Record<string, string> = {
+            resolve: "Downloading and unpacking...",
+            inventory: "Building file inventory...",
+            "test-gen": "Generating exploit tests...",
+            verify: "Running verification in sandbox...",
+          };
+          const label = phase ? labels[phase] : null;
+          if (!label) return null;
+          return (
+            <div className="feed-item" style={{ opacity: 0.6 }}>
+              <div className="feed-meta">
+                <FeedTag type="phase">{phase}</FeedTag>
+                <span className="tool-spinner" />
+              </div>
+              <div className="feed-body">{label}</div>
+            </div>
+          );
+        })()}
 
         {agentThinking && <ThinkingIndicator />}
 

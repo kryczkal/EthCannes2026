@@ -57,6 +57,8 @@ export function CodeViewer({
   const content = useAuditStore((s) => s.selectedFileContent);
   const fileVerdicts = useAuditStore((s) => s.fileVerdicts);
   const verdict = useAuditStore((s) => s.verdict);
+  const isRunning = useAuditStore((s) => s.isRunning);
+  const phase = useAuditStore((s) => s.phase);
   const selectFile = useAuditStore((s) => s.selectFile);
 
   const [recentFiles, setRecentFiles] = useState<string[]>([]);
@@ -177,6 +179,7 @@ export function CodeViewer({
 
   // Default empty state
   if (!selectedFile) {
+    const isEarlyPhase = isRunning && (!phase || phase === "resolve" || phase === "inventory" || phase === "triage");
     return (
       <div className="h-full flex flex-col">
         <div
@@ -194,8 +197,22 @@ export function CodeViewer({
           className="flex-1 flex flex-col items-center justify-center gap-2"
           style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}
         >
-          <div style={{ fontSize: "2rem", opacity: 0.3 }}>{"{ }"}</div>
-          Select a file to view
+          {isEarlyPhase ? (
+            <>
+              <div style={{ fontSize: "2rem", opacity: 0.3 }} className="animate-pulse-blue">{"{ }"}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span>Waiting for analysis</span>
+                <span className="thinking-dot" />
+                <span className="thinking-dot" />
+                <span className="thinking-dot" />
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: "2rem", opacity: 0.3 }}>{"{ }"}</div>
+              Select a file to view
+            </>
+          )}
         </div>
       </div>
     );
