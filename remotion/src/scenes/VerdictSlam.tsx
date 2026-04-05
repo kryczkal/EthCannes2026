@@ -5,9 +5,20 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { colors, fonts, springs } from "../lib/theme";
+import { colors, fonts, springs, gradients } from "../lib/theme";
+import {
+  GlassCard,
+  GridBackground,
+  GradientText,
+  AnimatedBorder,
+} from "../lib/visuals";
 
-const CAPABILITIES = ["network", "filesystem", "process_spawn", "env_vars"];
+const CAPABILITIES = [
+  { label: "network", dot: "#f87171" },
+  { label: "filesystem", dot: "#fbbf24" },
+  { label: "process_spawn", dot: "#fb923c" },
+  { label: "env_vars", dot: "#f87171" },
+];
 
 export const VerdictSlam: React.FC = () => {
   const frame = useCurrentFrame();
@@ -33,18 +44,31 @@ export const VerdictSlam: React.FC = () => {
   const glowIntensity = interpolate(
     Math.sin(frame * 0.12),
     [-1, 1],
-    [0.2, 0.5],
+    [0.15, 0.4],
   );
 
-  // Score reveals
+  // Score count-up
+  const scoreValue = Math.floor(
+    interpolate(frame, [15, 30], [0, 92], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    }),
+  );
+
   const scoreOpacity = interpolate(frame, [15, 25], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  // Progress bar fill
+  const progressFill = interpolate(frame, [15, 30], [0, 92], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
   // Capability tags pop in with stagger
   const getTagProgress = (index: number) => {
-    const delay = 20 + index * 6;
+    const delay = 25 + index * 6;
     return spring({
       frame: frame - delay,
       fps,
@@ -52,134 +76,218 @@ export const VerdictSlam: React.FC = () => {
     });
   };
 
-  // Screen shake on slam
+  // Screen shake on slam (extended, with Y axis)
   const shakeX =
-    frame < 8
+    frame < 12
       ? Math.sin(frame * 5) *
-        interpolate(frame, [0, 8], [6, 0], { extrapolateRight: "clamp" })
+        interpolate(frame, [0, 12], [8, 0], { extrapolateRight: "clamp" })
+      : 0;
+  const shakeY =
+    frame < 12
+      ? Math.cos(frame * 4) *
+        interpolate(frame, [0, 12], [4, 0], { extrapolateRight: "clamp" })
       : 0;
 
-  // Border top line extending
-  const borderWidth = spring({
-    frame: frame - 3,
+  // Animated border rotation
+  const borderRotation = interpolate(frame, [0, 195], [0, 2], {
+    extrapolateRight: "clamp",
+  });
+
+  // Card entrance
+  const cardScale = spring({
+    frame: frame - 2,
     fps,
-    config: springs.smooth,
+    config: { damping: 20, stiffness: 150 },
   });
 
   return (
-    <AbsoluteFill style={{ backgroundColor: colors.bg }}>
-      {/* Red glow */}
-      <div
-        style={{
-          position: "absolute",
-          top: "30%",
-          left: "50%",
-          width: 800,
-          height: 400,
-          transform: "translate(-50%, -50%)",
-          borderRadius: "50%",
-          background: `radial-gradient(ellipse, rgba(248, 113, 113, ${glowIntensity}), transparent 70%)`,
-          filter: "blur(80px)",
-        }}
-      />
+    <AbsoluteFill
+      style={{
+        background: `radial-gradient(ellipse at 50% 30%, rgba(248, 113, 113, 0.08) 0%, ${colors.bg} 60%, #000 100%)`,
+      }}
+    >
+      <GridBackground opacity={0.03} />
 
       <AbsoluteFill
         style={{
           justifyContent: "center",
           alignItems: "center",
-          transform: `translateX(${shakeX}px)`,
+          transform: `translate(${shakeX}px, ${shakeY}px)`,
         }}
       >
-        {/* Verdict card */}
-        <div
-          style={{
-            textAlign: "center",
-            padding: "60px 100px",
-            position: "relative",
-          }}
-        >
-          {/* Top border line */}
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: "50%",
-              height: 3,
-              width: interpolate(borderWidth, [0, 1], [0, 600]),
-              transform: "translateX(-50%)",
-              backgroundColor: colors.danger,
-              borderRadius: 2,
-            }}
-          />
-
-          {/* CRITICAL text */}
-          <div
-            style={{
-              fontFamily: fonts.mono,
-              fontSize: 140,
-              fontWeight: 700,
-              color: colors.danger,
-              transform: `scale(${textScale})`,
-              opacity: textOpacity,
-              filter: `blur(${textBlur}px)`,
-              letterSpacing: "0.05em",
-              textShadow: `0 0 60px rgba(248, 113, 113, 0.4)`,
-              lineHeight: 1,
-            }}
+        <div style={{ transform: `scale(${cardScale})` }}>
+          <AnimatedBorder
+            width={800}
+            borderWidth={1.5}
+            borderRadius={20}
+            colors={[colors.danger, "#ef4444", "transparent", colors.danger]}
+            rotationProgress={borderRotation}
           >
-            CRITICAL
-          </div>
-
-          {/* Score */}
-          <div
-            style={{
-              fontFamily: fonts.mono,
-              fontSize: 28,
-              color: colors.textDim,
-              opacity: scoreOpacity,
-              marginTop: 20,
-            }}
-          >
-            Risk Score:{" "}
-            <span style={{ color: colors.danger, fontWeight: 700 }}>
-              92/100
-            </span>
-          </div>
-
-          {/* Capability tags */}
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              justifyContent: "center",
-              marginTop: 28,
-              flexWrap: "wrap",
-            }}
-          >
-            {CAPABILITIES.map((cap, i) => {
-              const progress = getTagProgress(i);
-              return (
+            <GlassCard
+              padding="70px 100px"
+              glowColor={`rgba(248, 113, 113, ${glowIntensity})`}
+              borderOpacity={0}
+              borderRadius={20}
+            >
+              <div style={{ textAlign: "center", position: "relative" }}>
+                {/* Ghost echo behind CRITICAL */}
                 <div
-                  key={cap}
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    top: 0,
+                    transform: "translateX(-50%) scale(1.15)",
+                    fontFamily: fonts.mono,
+                    fontSize: 140,
+                    fontWeight: 700,
+                    color: colors.danger,
+                    opacity: 0.05,
+                    filter: "blur(10px)",
+                    letterSpacing: "0.05em",
+                    lineHeight: 1,
+                    pointerEvents: "none",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  CRITICAL
+                </div>
+
+                {/* CRITICAL text */}
+                <div
                   style={{
                     fontFamily: fonts.mono,
-                    fontSize: 14,
-                    color: colors.danger,
-                    border: `1px solid ${colors.danger}`,
-                    backgroundColor: colors.dangerBg,
-                    padding: "6px 16px",
-                    borderRadius: 20,
-                    transform: `scale(${progress})`,
-                    opacity: interpolate(progress, [0, 0.5, 1], [0, 0.5, 1]),
-                    textTransform: "uppercase",
+                    fontSize: 140,
+                    fontWeight: 700,
+                    lineHeight: 1,
+                    transform: `scale(${textScale})`,
+                    opacity: textOpacity,
+                    filter: `blur(${textBlur}px)`,
                     letterSpacing: "0.05em",
                   }}
                 >
-                  {cap}
+                  <GradientText
+                    gradient={gradients.dangerText}
+                    style={{
+                      filter:
+                        "drop-shadow(0 0 80px rgba(248, 113, 113, 0.6)) drop-shadow(0 0 160px rgba(248, 113, 113, 0.2))",
+                    }}
+                  >
+                    CRITICAL
+                  </GradientText>
                 </div>
-              );
-            })}
-          </div>
+
+                {/* Score pill */}
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 12,
+                    marginTop: 24,
+                    padding: "8px 20px",
+                    borderRadius: 8,
+                    background: "rgba(248, 113, 113, 0.08)",
+                    border: "1px solid rgba(248, 113, 113, 0.2)",
+                    opacity: scoreOpacity,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: fonts.mono,
+                      fontSize: 22,
+                      color: colors.textDim,
+                    }}
+                  >
+                    Risk Score
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: fonts.mono,
+                      fontSize: 28,
+                      fontWeight: 700,
+                      color: colors.danger,
+                    }}
+                  >
+                    {scoreValue}/100
+                  </span>
+                </div>
+
+                {/* Progress bar */}
+                <div
+                  style={{
+                    width: 200,
+                    height: 3,
+                    borderRadius: 2,
+                    background: "rgba(255,255,255,0.1)",
+                    margin: "12px auto 0",
+                    opacity: scoreOpacity,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${progressFill}%`,
+                      height: "100%",
+                      borderRadius: 2,
+                      backgroundColor: colors.danger,
+                      boxShadow: `0 0 8px ${colors.danger}`,
+                    }}
+                  />
+                </div>
+
+                {/* Capability tags */}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    justifyContent: "center",
+                    marginTop: 28,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {CAPABILITIES.map((cap, i) => {
+                    const progress = getTagProgress(i);
+                    return (
+                      <div
+                        key={cap.label}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          fontFamily: fonts.mono,
+                          fontSize: 16,
+                          color: colors.danger,
+                          background: "rgba(248, 113, 113, 0.06)",
+                          backdropFilter: "blur(20px)",
+                          border: "1px solid rgba(248, 113, 113, 0.15)",
+                          padding: "8px 20px",
+                          borderRadius: 20,
+                          transform: `scale(${progress})`,
+                          opacity: interpolate(
+                            progress,
+                            [0, 0.5, 1],
+                            [0, 0.5, 1],
+                          ),
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                          boxShadow: "0 0 20px rgba(248, 113, 113, 0.08)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            backgroundColor: cap.dot,
+                            boxShadow: `0 0 6px ${cap.dot}`,
+                          }}
+                        />
+                        {cap.label}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </GlassCard>
+          </AnimatedBorder>
         </div>
       </AbsoluteFill>
     </AbsoluteFill>

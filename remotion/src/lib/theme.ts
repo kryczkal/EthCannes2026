@@ -40,6 +40,21 @@ export const colors = {
 
   white: "#ffffff",
   black: "#000000",
+
+  // Glass / glow tokens
+  glassWhite: "rgba(255, 255, 255, 0.04)",
+  glassBorder: "rgba(255, 255, 255, 0.08)",
+  glassHighBorder: "rgba(255, 255, 255, 0.15)",
+  dangerGlow: "rgba(248, 113, 113, 0.4)",
+  accentGlow: "rgba(201, 168, 76, 0.15)",
+} as const;
+
+export const gradients = {
+  dangerText:
+    "linear-gradient(180deg, #ff8a8a 0%, #f87171 50%, #dc2626 100%)",
+  accentText: "linear-gradient(180deg, #dfc060 0%, #c9a84c 100%)",
+  bgRadial:
+    "radial-gradient(ellipse at 50% 40%, #1f1b15 0%, #0d0b09 50%, #000 100%)",
 } as const;
 
 // Spring configs

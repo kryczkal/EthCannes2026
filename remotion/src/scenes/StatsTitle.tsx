@@ -4,9 +4,9 @@ import {
   spring,
   useCurrentFrame,
   useVideoConfig,
-  Easing,
 } from "remotion";
-import { colors, fonts, springs } from "../lib/theme";
+import { colors, fonts, springs, gradients } from "../lib/theme";
+import { GlassCard, GridBackground, GradientText } from "../lib/visuals";
 
 export const StatsTitle: React.FC = () => {
   const frame = useCurrentFrame();
@@ -39,41 +39,72 @@ export const StatsTitle: React.FC = () => {
     extrapolateRight: "clamp",
   });
 
-  // "with a simple post-install script check" — the kicker
-  const kickerOpacity = interpolate(frame, [55, 70], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  // Accent line
-  const lineWidth = spring({
-    frame: frame - 5,
+  // Underline for "were preventable"
+  const underlineWidth = spring({
+    frame: frame - 35,
     fps,
     config: springs.smooth,
   });
 
-  // Slow zoom
-  const zoom = interpolate(frame, [0, 140], [1, 1.03], {
+  // Kicker line
+  const kickerOpacity = interpolate(frame, [55, 70], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const kickerY = interpolate(frame, [55, 70], [10, 0], {
+    extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // Vignette
-  const vignetteOpacity = interpolate(frame, [0, 30], [0, 0.6], {
+  // Card entrance
+  const cardScale = spring({
+    frame,
+    fps,
+    config: { damping: 30, stiffness: 120 },
+  });
+  const cardOpacity = interpolate(frame, [0, 8], [0, 1], {
+    extrapolateRight: "clamp",
+  });
+
+  // Slow zoom
+  const zoom = interpolate(frame, [0, 140], [1, 1.02], {
+    extrapolateRight: "clamp",
+  });
+
+  // Circle ring behind the "8"
+  const ringOpacity = interpolate(frame, [3, 15], [0, 0.15], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const ringScale = spring({
+    frame: frame - 2,
+    fps,
+    config: { damping: 25, stiffness: 100 },
+  });
+
+  // Corner accent marks
+  const cornerProgress = spring({
+    frame: frame - 10,
+    fps,
+    config: springs.smooth,
+  });
+  const cornerOpacity = interpolate(cornerProgress, [0, 1], [0, 0.4]);
+  const cornerSize = interpolate(cornerProgress, [0, 1], [0, 20]);
+
+  // Grid parallax drift
+  const gridOffset = interpolate(frame, [0, 140], [0, -20], {
     extrapolateRight: "clamp",
   });
 
   return (
-    <AbsoluteFill style={{ backgroundColor: colors.black }}>
-      {/* Radial vignette */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.7) 100%)",
-          opacity: vignetteOpacity,
-        }}
-      />
+    <AbsoluteFill
+      style={{
+        background: gradients.bgRadial,
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <GridBackground opacity={0.04} offsetY={gridOffset} />
 
       <AbsoluteFill
         style={{
@@ -82,85 +113,177 @@ export const StatsTitle: React.FC = () => {
           transform: `scale(${zoom})`,
         }}
       >
-        {/* Top accent line */}
         <div
           style={{
-            width: interpolate(lineWidth, [0, 1], [0, 80]),
-            height: 1,
-            backgroundColor: colors.accent,
-            opacity: 0.6,
-            marginBottom: 30,
-          }}
-        />
-
-        {/* "8 out of 10" */}
-        <div style={{ display: "flex", alignItems: "baseline", gap: 16 }}>
-          <span
-            style={{
-              fontFamily: fonts.mono,
-              fontSize: 220,
-              fontWeight: 700,
-              color: colors.danger,
-              transform: `scale(${numberScale})`,
-              opacity: numberOpacity,
-              lineHeight: 1,
-              textShadow: "0 0 80px rgba(248, 113, 113, 0.4)",
-            }}
-          >
-            8
-          </span>
-          <span
-            style={{
-              fontFamily: fonts.mono,
-              fontSize: 48,
-              color: colors.textDim,
-              opacity: outOfOpacity,
-              lineHeight: 1,
-            }}
-          >
-            out of 10
-          </span>
-        </div>
-
-        {/* "were preventable" */}
-        <div
-          style={{
-            fontFamily: fonts.mono,
-            fontSize: 36,
-            color: colors.text,
-            opacity: preventableOpacity,
-            transform: `translateY(${preventableY}px)`,
-            marginTop: 16,
-            letterSpacing: "0.04em",
-            textTransform: "uppercase",
+            transform: `scale(${cardScale})`,
+            opacity: cardOpacity,
+            position: "relative",
           }}
         >
-          were preventable
-        </div>
+          {/* Corner accent marks */}
+          {[
+            { top: 0, left: 0, bT: "top", bL: "left" },
+            { top: 0, right: 0, bT: "top", bL: "right" },
+            { bottom: 0, left: 0, bT: "bottom", bL: "left" },
+            { bottom: 0, right: 0, bT: "bottom", bL: "right" },
+          ].map((pos, i) => (
+            <div
+              key={i}
+              style={{
+                position: "absolute",
+                top: "top" in pos && pos.top === 0 ? 0 : undefined,
+                bottom:
+                  "bottom" in pos && pos.bottom === 0 ? 0 : undefined,
+                left: "left" in pos && pos.left === 0 ? 0 : undefined,
+                right: "right" in pos && pos.right === 0 ? 0 : undefined,
+                width: cornerSize,
+                height: cornerSize,
+                opacity: cornerOpacity,
+                borderTop:
+                  pos.bT === "top"
+                    ? `1px solid ${colors.accent}`
+                    : "none",
+                borderBottom:
+                  pos.bT === "bottom"
+                    ? `1px solid ${colors.accent}`
+                    : "none",
+                borderLeft:
+                  pos.bL === "left"
+                    ? `1px solid ${colors.accent}`
+                    : "none",
+                borderRight:
+                  pos.bL === "right"
+                    ? `1px solid ${colors.accent}`
+                    : "none",
+                pointerEvents: "none",
+              }}
+            />
+          ))}
 
-        {/* Bottom accent line */}
-        <div
-          style={{
-            width: interpolate(lineWidth, [0, 1], [0, 80]),
-            height: 1,
-            backgroundColor: colors.accent,
-            opacity: 0.6,
-            marginTop: 28,
-            marginBottom: 20,
-          }}
-        />
+          <GlassCard
+            width={900}
+            padding="50px 80px"
+            glowColor="rgba(248, 113, 113, 0.15)"
+            borderOpacity={0.08}
+          >
+            <div
+              style={{
+                textAlign: "center",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+              }}
+            >
+              {/* "8 out of 10" row */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  gap: 16,
+                  position: "relative",
+                  justifyContent: "center",
+                }}
+              >
+                {/* Circle ring behind the 8 */}
+                <div
+                  style={{
+                    position: "absolute",
+                    width: 200,
+                    height: 200,
+                    borderRadius: "50%",
+                    border: `3px solid rgba(248, 113, 113, ${ringOpacity})`,
+                    left: "50%",
+                    top: "50%",
+                    transform: `translate(-80%, -50%) scale(${ringScale})`,
+                    pointerEvents: "none",
+                  }}
+                />
 
-        {/* The kicker */}
-        <div
-          style={{
-            fontFamily: fonts.mono,
-            fontSize: 22,
-            color: colors.accent,
-            opacity: kickerOpacity,
-            letterSpacing: "0.06em",
-          }}
-        >
-          with a simple post-install script check
+                <div
+                  style={{
+                    fontFamily: fonts.mono,
+                    fontSize: 220,
+                    fontWeight: 700,
+                    lineHeight: 1,
+                    transform: `scale(${numberScale})`,
+                    opacity: numberOpacity,
+                  }}
+                >
+                  <GradientText
+                    gradient={gradients.dangerText}
+                    style={{
+                      filter:
+                        "drop-shadow(0 0 80px rgba(248, 113, 113, 0.4))",
+                    }}
+                  >
+                    8
+                  </GradientText>
+                </div>
+                <span
+                  style={{
+                    fontFamily: fonts.mono,
+                    fontSize: 56,
+                    color: colors.text,
+                    opacity: outOfOpacity,
+                    lineHeight: 1,
+                  }}
+                >
+                  out of 10
+                </span>
+              </div>
+
+              {/* "were preventable" */}
+              <div
+                style={{
+                  fontFamily: fonts.heading,
+                  fontSize: 42,
+                  fontWeight: 700,
+                  color: colors.text,
+                  opacity: preventableOpacity,
+                  transform: `translateY(${preventableY}px)`,
+                  marginTop: 16,
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                were preventable
+              </div>
+
+              {/* Underline */}
+              <div
+                style={{
+                  width: interpolate(underlineWidth, [0, 1], [0, 260]),
+                  height: 2,
+                  backgroundColor: colors.accent,
+                  opacity: 0.5,
+                  marginTop: 8,
+                }}
+              />
+
+              {/* Kicker in glass chip */}
+              <div
+                style={{
+                  marginTop: 24,
+                  opacity: kickerOpacity,
+                  transform: `translateY(${kickerY}px)`,
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: fonts.mono,
+                    fontSize: 20,
+                    color: colors.accent,
+                    padding: "12px 24px",
+                    borderRadius: 8,
+                    background: "rgba(201, 168, 76, 0.06)",
+                    border: "1px solid rgba(201, 168, 76, 0.2)",
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  with a simple post-install script check
+                </div>
+              </div>
+            </div>
+          </GlassCard>
         </div>
       </AbsoluteFill>
     </AbsoluteFill>
