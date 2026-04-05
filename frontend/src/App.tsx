@@ -137,12 +137,18 @@ function Header() {
   const isRunning = useAuditStore((s) => s.isRunning);
   const packageName = useAuditStore((s) => s.packageName);
   const verdict = useAuditStore((s) => s.verdict);
+  const reset = useAuditStore((s) => s.reset);
 
   const statusColor = verdict
     ? verdict === "DANGEROUS"
       ? "var(--danger)"
       : "var(--safe)"
     : "var(--investigating)";
+
+  const goHome = () => {
+    reset();
+    history.pushState(null, "", "/");
+  };
 
   return (
     <header
@@ -154,11 +160,13 @@ function Header() {
       }}
     >
       <div
+        onClick={goHome}
         style={{
           fontFamily: "var(--font-heading)",
           fontWeight: 700,
           fontSize: "1rem",
           letterSpacing: "-0.02em",
+          cursor: "pointer",
         }}
       >
         npm<span style={{ color: "var(--accent)" }}>guard</span>
@@ -279,7 +287,39 @@ function AuditView() {
 function App() {
   const isRunning = useAuditStore((s) => s.isRunning);
   const verdict = useAuditStore((s) => s.verdict);
+  const auditId = useAuditStore((s) => s.auditId);
+  const connectToSession = useAuditStore((s) => s.connectToSession);
+  const reset = useAuditStore((s) => s.reset);
   const hasAudit = isRunning || verdict;
+
+  // On mount: if URL is /audit/<uuid>, reconnect to that session
+  useEffect(() => {
+    const match = window.location.pathname.match(/^\/audit\/([0-9a-f-]{36})$/);
+    if (match && !auditId) {
+      connectToSession(match[1]);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Update URL when an audit starts from the landing page
+  useEffect(() => {
+    if (auditId && !window.location.pathname.includes(auditId)) {
+      history.pushState(null, "", `/audit/${auditId}`);
+    }
+  }, [auditId]);
+
+  // Handle browser back/forward
+  useEffect(() => {
+    const onPopState = () => {
+      const match = window.location.pathname.match(/^\/audit\/([0-9a-f-]{36})$/);
+      if (match) {
+        if (match[1] !== auditId) connectToSession(match[1]);
+      } else {
+        reset();
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [auditId, connectToSession, reset]);
 
   return (
     <div

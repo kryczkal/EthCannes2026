@@ -58,6 +58,7 @@ interface AuditState {
 
   // Actions
   startAudit: (packageName: string, version?: string) => Promise<void>;
+  connectToSession: (auditId: string) => Promise<void>;
   handleEvent: (event: SSEEvent) => void;
   selectFile: (path: string) => Promise<void>;
   reset: () => void;
@@ -90,6 +91,42 @@ const initialState = {
 };
 
 let activeEventSource: EventSource | null = null;
+
+function connectSSE(
+  auditId: string,
+  set: (partial: Partial<AuditState>) => void,
+  get: () => AuditState,
+) {
+  const es = new EventSource(`${API_BASE}/audit/${auditId}/events`);
+  activeEventSource = es;
+
+  const handler = (e: MessageEvent) => {
+    try {
+      const event = JSON.parse(e.data) as SSEEvent;
+      get().handleEvent(event);
+    } catch {
+      // Malformed SSE data — skip this event
+    }
+  };
+
+  const eventTypes = [
+    "audit_started", "phase_started", "phase_completed",
+    "file_list", "file_analyzing", "file_verdict",
+    "triage_complete", "triage_progress",
+    "agent_thinking", "agent_tool_call", "agent_tool_result",
+    "agent_reasoning", "finding_discovered", "verdict_reached",
+    "audit_error",
+  ] as const;
+  for (const type of eventTypes) {
+    es.addEventListener(type, handler);
+  }
+
+  es.onerror = () => {
+    es.close();
+    activeEventSource = null;
+    if (get().isRunning) set({ isRunning: false });
+  };
+}
 
 export const useAuditStore = create<AuditState>((set, get) => ({
   ...initialState,
@@ -133,37 +170,26 @@ export const useAuditStore = create<AuditState>((set, get) => ({
     }
     set({ auditId });
 
-    // Connect SSE
-    const es = new EventSource(`${API_BASE}/audit/${auditId}/events`);
-    activeEventSource = es;
+    connectSSE(auditId, set, get);
+  },
 
-    const handler = (e: MessageEvent) => {
-      try {
-        const event = JSON.parse(e.data) as SSEEvent;
-        get().handleEvent(event);
-      } catch {
-        // Malformed SSE data — skip this event
+  connectToSession: async (auditId: string) => {
+    get().reset();
+    set({ auditId, isRunning: true });
+
+    // Check if session exists before connecting SSE
+    try {
+      const res = await fetch(`${API_BASE}/audit/${auditId}/report`);
+      if (res.status === 404) {
+        set({ isRunning: false, error: "This audit session has expired or was not found." });
+        return;
       }
-    };
-
-    // Listen for all event types
-    const eventTypes = [
-      "audit_started", "phase_started", "phase_completed",
-      "file_list", "file_analyzing", "file_verdict",
-      "triage_complete", "triage_progress",
-      "agent_thinking", "agent_tool_call", "agent_tool_result",
-      "agent_reasoning", "finding_discovered", "verdict_reached",
-      "audit_error",
-    ] as const;
-    for (const type of eventTypes) {
-      es.addEventListener(type, handler);
+    } catch {
+      set({ isRunning: false, error: "Failed to connect to audit engine" });
+      return;
     }
 
-    es.onerror = () => {
-      es.close();
-      activeEventSource = null;
-      set({ isRunning: false });
-    };
+    connectSSE(auditId, set, get);
   },
 
   handleEvent: (event: SSEEvent) => {

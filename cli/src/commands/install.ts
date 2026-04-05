@@ -30,7 +30,7 @@ const ogGalileo = defineChain({
 
 const IPFS_GATEWAY = "https://gateway.pinata.cloud/ipfs";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-const DEFAULT_AUDIT_API_URL = "http://209.38.42.28:8000/audit";
+const DEFAULT_ENGINE_URL = "http://209.38.42.28:8000";
 const WALLETCONNECT_PROJECT_ID = process.env.WALLETCONNECT_PROJECT_ID ?? "d5eb170c427570e15ac00ae53acc93ba";
 const OG_RPC = "https://evmrpc-testnet.0g.ai";
 const BLOCK_EXPLORER = "https://chainscan-galileo.0g.ai";
@@ -372,21 +372,50 @@ export async function installCommand(
         }
       }
 
-      // Trigger audit engine
-      const auditApiUrl = process.env.NPMGUARD_AUDIT_API_URL ?? DEFAULT_AUDIT_API_URL;
+      // Trigger audit engine (streaming endpoint)
+      const rawApiUrl = process.env.NPMGUARD_AUDIT_API_URL ?? DEFAULT_ENGINE_URL;
+      const engineBaseUrl = rawApiUrl.replace(/\/audit\/?$/, "");
+      const frontendUrl = process.env.NPMGUARD_FRONTEND_URL ?? engineBaseUrl;
       const auditSpinner = ora("  Running security audit...").start();
 
       try {
-        const resp = await fetch(auditApiUrl, {
+        const streamResp = await fetch(`${engineBaseUrl}/audit/stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ packageName, version: requestedVersion }),
         });
 
-        if (!resp.ok) throw new Error(`Audit engine returned ${resp.status}`);
+        if (!streamResp.ok) throw new Error(`Audit engine returned ${streamResp.status}`);
 
-        const result = await resp.json();
+        const { auditId } = await streamResp.json();
+
+        auditSpinner.text = "  Running security audit...";
+        console.log();
+        console.log(chalk.cyan(`  Live audit: ${frontendUrl}/audit/${auditId}`));
+        console.log();
+
+        // Poll for completion
+        let result: any;
+        const POLL_INTERVAL = 2000;
+        const POLL_TIMEOUT = 5 * 60_000;
+        const start = Date.now();
+
+        while (Date.now() - start < POLL_TIMEOUT) {
+          const reportResp = await fetch(`${engineBaseUrl}/audit/${auditId}/report`);
+          if (reportResp.status === 202) {
+            await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+            continue;
+          }
+          if (!reportResp.ok) throw new Error(`Audit engine returned ${reportResp.status}`);
+          result = await reportResp.json();
+          break;
+        }
+
         auditSpinner.stop();
+
+        if (!result) {
+          throw new Error("Audit timed out");
+        }
 
         console.log();
         const verdict = (result.verdict ?? "UNKNOWN").toUpperCase();
