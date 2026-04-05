@@ -1,36 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useAuditStore } from "../stores/auditStore";
+import { useTypewriter } from "../hooks/useTypewriter";
+import { useCountUp } from "../hooks/useCountUp";
 import type { AgentStep, Finding, PipelineLogEntry } from "../lib/types";
-
-// ── Hooks ──
-
-function useTypewriter(text: string, speed = 10): { displayed: string; done: boolean } {
-  const [index, setIndex] = useState(0);
-  useEffect(() => { setIndex(0); }, [text]);
-  useEffect(() => {
-    if (index >= text.length) return;
-    const t = setTimeout(() => setIndex((i) => i + 1), speed);
-    return () => clearTimeout(t);
-  }, [index, text, speed]);
-  return { displayed: text.slice(0, index), done: index >= text.length };
-}
-
-function useCountUp(target: number, durationMs = 1000): number {
-  const [val, setVal] = useState(0);
-  useEffect(() => {
-    if (target === 0) { setVal(0); return; }
-    const steps = 20;
-    const interval = durationMs / steps;
-    let i = 0;
-    const timer = setInterval(() => {
-      i++;
-      setVal(+(target * (i / steps)).toFixed(1));
-      if (i >= steps) clearInterval(timer);
-    }, interval);
-    return () => clearInterval(timer);
-  }, [target, durationMs]);
-  return val;
-}
 
 // ── Sub-components ──
 
@@ -458,7 +430,7 @@ export function ActivityFeed() {
       .slice(lastToolCallIndex + 1)
       .some((s) => s.type === "tool_result" && s.step === agentSteps[lastToolCallIndex].step);
 
-  const riskPillClass =
+  const riskLevel =
     riskScore !== null && riskScore >= 7
       ? "high"
       : riskScore !== null && riskScore < 3
@@ -469,14 +441,9 @@ export function ActivityFeed() {
     <>
       {/* Header */}
       <div
-        className="flex items-center justify-between shrink-0"
+        className="section-header flex items-center justify-between shrink-0"
         style={{
           padding: "12px 20px 8px",
-          fontFamily: "var(--font-mono)",
-          fontSize: "0.65rem",
-          color: "var(--text-muted)",
-          textTransform: "uppercase",
-          letterSpacing: "0.1em",
           borderBottom: "1px solid var(--border)",
         }}
       >
@@ -491,15 +458,15 @@ export function ActivityFeed() {
               textTransform: "none",
               letterSpacing: 0,
               background:
-                riskPillClass === "high"
+                riskLevel === "high"
                   ? "var(--danger-bg)"
-                  : riskPillClass === "low"
+                  : riskLevel === "low"
                     ? "var(--safe-bg)"
                     : "var(--suspected-bg)",
               color:
-                riskPillClass === "high"
+                riskLevel === "high"
                   ? "var(--danger)"
-                  : riskPillClass === "low"
+                  : riskLevel === "low"
                     ? "var(--safe)"
                     : "var(--suspected)",
             }}

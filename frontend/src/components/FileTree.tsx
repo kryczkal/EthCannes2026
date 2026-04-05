@@ -89,8 +89,9 @@ function TreeNodeComponent({ node, depth }: { node: TreeNode; depth: number }) {
         role="treeitem"
         aria-expanded={node.isDir ? expanded : undefined}
         aria-selected={isSelected}
+        aria-level={depth + 1}
         tabIndex={0}
-        className={effectiveStatus === "analyzing" ? "animate-pulse-blue" : ""}
+        className={`tree-item${effectiveStatus === "analyzing" ? " animate-pulse-blue" : ""}`}
         style={{
           display: "flex",
           alignItems: "center",
@@ -104,15 +105,6 @@ function TreeNodeComponent({ node, depth }: { node: TreeNode; depth: number }) {
           background: isSelected ? "var(--bg-tertiary)" : "transparent",
           whiteSpace: "nowrap",
           transition: "background 0.12s",
-        }}
-        onMouseEnter={(e) => {
-          if (!isSelected)
-            (e.currentTarget as HTMLElement).style.background =
-              "var(--bg-secondary)";
-        }}
-        onMouseLeave={(e) => {
-          if (!isSelected)
-            (e.currentTarget as HTMLElement).style.background = "transparent";
         }}
         onClick={() => {
           if (node.isDir) setExpanded(!expanded);

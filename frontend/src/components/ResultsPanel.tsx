@@ -221,15 +221,7 @@ export function ResultsPanel({
           borderBottom: "1px solid var(--border)",
         }}
       >
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "0.65rem",
-            color: "var(--text-muted)",
-            textTransform: "uppercase",
-            letterSpacing: "0.1em",
-          }}
-        >
+        <span className="section-header">
           Findings
         </span>
         {findings.length > 0 && (
@@ -246,17 +238,8 @@ export function ResultsPanel({
         )}
         <button
           onClick={onShowCode}
-          style={{
-            marginLeft: "auto",
-            background: "none",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-sm)",
-            padding: "4px 10px",
-            cursor: "pointer",
-            fontFamily: "var(--font-mono)",
-            fontSize: "0.68rem",
-            color: "var(--text-muted)",
-          }}
+          className="btn-ghost"
+          style={{ marginLeft: "auto", padding: "4px 10px" }}
         >
           view source
         </button>

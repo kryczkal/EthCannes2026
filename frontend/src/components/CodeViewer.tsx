@@ -65,11 +65,14 @@ export function CodeViewer({
   const [showScanner, setShowScanner] = useState(false);
   const editorRef = useRef<ReactCodeMirrorRef>(null);
 
-  useEffect(() => {
-    if (selectedFile && !recentFiles.includes(selectedFile)) {
+  // Track recent files (adjust state during render)
+  const [prevSelectedFile, setPrevSelectedFile] = useState(selectedFile);
+  if (selectedFile && selectedFile !== prevSelectedFile) {
+    setPrevSelectedFile(selectedFile);
+    if (!recentFiles.includes(selectedFile)) {
       setRecentFiles((prev) => [selectedFile, ...prev].slice(0, 4));
     }
-  }, [selectedFile]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
   const fileVerdict = selectedFile ? fileVerdicts[selectedFile] : null;
 
@@ -88,41 +91,40 @@ export function CodeViewer({
     [suspiciousRanges],
   );
 
-  // Scanner sweep on file load
+  // Trigger scanner animation when content loads (adjust state during render)
+  const scannerKey = selectedFile && content !== null ? selectedFile : null;
+  const [prevScannerKey, setPrevScannerKey] = useState(scannerKey);
+  if (scannerKey && scannerKey !== prevScannerKey) {
+    setPrevScannerKey(scannerKey);
+    setShowScanner(true);
+  }
+
+  // Timer to end scanner sweep + auto-scroll to suspicious lines
   useEffect(() => {
-    if (content !== null && selectedFile) {
-      setShowScanner(true);
-      const t = setTimeout(() => {
-        setShowScanner(false);
-        // Auto-scroll to first suspicious line after sweep
-        if (suspiciousRanges.length > 0 && editorRef.current?.view) {
-          const view = editorRef.current.view;
-          const line = suspiciousRanges[0][0];
-          if (line <= view.state.doc.lines) {
-            const lineObj = view.state.doc.line(line);
-            view.dispatch({
-              effects: EditorView.scrollIntoView(lineObj.from, { y: "center" }),
-            });
-          }
+    if (!showScanner) return;
+    const t = setTimeout(() => {
+      setShowScanner(false);
+      if (suspiciousRanges.length > 0 && editorRef.current?.view) {
+        const view = editorRef.current.view;
+        const line = suspiciousRanges[0][0];
+        if (line <= view.state.doc.lines) {
+          const lineObj = view.state.doc.line(line);
+          view.dispatch({
+            effects: EditorView.scrollIntoView(lineObj.from, { y: "center" }),
+          });
         }
-      }, 2000);
-      return () => clearTimeout(t);
-    }
-  }, [content, selectedFile]); // eslint-disable-line react-hooks/exhaustive-deps
+      }
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [showScanner, suspiciousRanges]);
 
   const resultsBtn = onShowResults ? (
     <button
       onClick={onShowResults}
+      className="btn-ghost"
       style={{
-        background: "none",
-        border: "1px solid var(--danger)",
-        borderRadius: "var(--radius-sm)",
-        padding: "3px 8px",
-        cursor: "pointer",
-        fontFamily: "var(--font-mono)",
-        fontSize: "0.68rem",
+        borderColor: "var(--danger)",
         color: "var(--danger)",
-        whiteSpace: "nowrap",
       }}
     >
       results
@@ -132,16 +134,10 @@ export function CodeViewer({
   const filesToggleBtn = (
     <button
       onClick={onToggleFiles}
+      className="btn-ghost"
       style={{
-        background: "none",
-        border: `1px solid ${filesOpen ? "var(--accent)" : "var(--border)"}`,
-        borderRadius: "var(--radius-sm)",
-        padding: "3px 8px",
-        cursor: "pointer",
-        fontFamily: "var(--font-mono)",
-        fontSize: "0.68rem",
-        color: filesOpen ? "var(--accent)" : "var(--text-muted)",
-        whiteSpace: "nowrap",
+        borderColor: filesOpen ? "var(--accent)" : undefined,
+        color: filesOpen ? "var(--accent)" : undefined,
       }}
     >
       files

@@ -104,8 +104,8 @@ function connectSSE(
     try {
       const event = JSON.parse(e.data) as SSEEvent;
       get().handleEvent(event);
-    } catch {
-      // Malformed SSE data — skip this event
+    } catch (err) {
+      console.warn("Malformed SSE event, skipping:", err);
     }
   };
 
