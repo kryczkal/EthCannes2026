@@ -375,7 +375,7 @@ export async function installCommand(
       // Trigger audit engine (streaming endpoint)
       const rawApiUrl = process.env.NPMGUARD_AUDIT_API_URL ?? DEFAULT_ENGINE_URL;
       const engineBaseUrl = rawApiUrl.replace(/\/audit\/?$/, "");
-      const frontendUrl = process.env.NPMGUARD_FRONTEND_URL ?? engineBaseUrl;
+      const frontendUrl = process.env.NPMGUARD_FRONTEND_URL ?? engineBaseUrl.replace(":8000", ":3000");
       const auditSpinner = ora("  Running security audit...").start();
 
       try {
