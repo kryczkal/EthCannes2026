@@ -184,10 +184,10 @@ export const AgentFeed: React.FC = () => {
                 <span style={{ fontFamily: fonts.mono, fontSize: 16, fontWeight: 700, color: colors.accent }}>
                   npmguard
                 </span>
-                <span style={{ fontFamily: fonts.mono, fontSize: 13, color: "rgba(255,255,255,0.3)" }}>
+                <span style={{ fontFamily: fonts.mono, fontSize: 16, color: "rgba(255,255,255,0.3)" }}>
                   auditing
                 </span>
-                <span style={{ fontFamily: fonts.mono, fontSize: 13, color: "rgba(255,255,255,0.6)" }}>
+                <span style={{ fontFamily: fonts.mono, fontSize: 16, color: "rgba(255,255,255,0.6)" }}>
                   axios@1.8.0
                 </span>
               </div>
@@ -226,9 +226,9 @@ export const AgentFeed: React.FC = () => {
             <div
               style={{
                 fontFamily: fonts.mono,
-                fontSize: 11,
+                fontSize: 14,
                 color: "rgba(255,255,255,0.2)",
-                padding: "10px 24px 6px 70px",
+                padding: "12px 24px 8px 80px",
                 letterSpacing: "0.05em",
               }}
             >
@@ -331,7 +331,7 @@ export const AgentFeed: React.FC = () => {
               boxShadow: `0 0 8px ${currentEvent.color}`,
             }}
           />
-          <span style={{ fontFamily: fonts.mono, fontSize: 13, color: currentEvent.color }}>
+          <span style={{ fontFamily: fonts.mono, fontSize: 16, color: currentEvent.color }}>
             {currentEvent.text}
           </span>
         </div>
