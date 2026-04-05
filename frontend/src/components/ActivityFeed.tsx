@@ -147,9 +147,9 @@ const CONFIDENCE_STYLE: Record<
   { color: string; bg: string; border: string }
 > = {
   CONFIRMED: {
-    color: "var(--danger)",
-    bg: "var(--danger-bg)",
-    border: "var(--danger)",
+    color: "var(--suspected)",
+    bg: "var(--suspected-bg)",
+    border: "var(--suspected)",
   },
   LIKELY: {
     color: "var(--suspected)",
@@ -304,6 +304,38 @@ function PipelineLogItem({ entry }: { entry: PipelineLogEntry }) {
         </div>
       );
 
+    case "scripts": {
+      const LIFECYCLE = ["preinstall", "install", "postinstall", "prepare", "prepack"];
+      const scripts = entry.scripts ?? {};
+      const lifecycleEntries = Object.entries(scripts).filter(([k]) => LIFECYCLE.includes(k));
+      if (lifecycleEntries.length === 0) return null;
+      return (
+        <div
+          className="feed-item"
+          style={{ borderLeft: "3px solid var(--danger)" }}
+        >
+          <div className="feed-meta">
+            <FeedTag type="finding">lifecycle</FeedTag>
+          </div>
+          <div className="feed-body">
+            {lifecycleEntries.map(([name, cmd]) => (
+              <div key={name} style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.72rem",
+                display: "flex",
+                gap: 6,
+              }}>
+                <span style={{ color: "var(--danger)", fontWeight: 600, flexShrink: 0 }}>{name}</span>
+                <span style={{ color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {cmd.length > 60 ? cmd.slice(0, 60) + "..." : cmd}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
     case "file-flag":
       return (
         <div
@@ -338,30 +370,73 @@ function PipelineLogItem({ entry }: { entry: PipelineLogEntry }) {
   }
 }
 
-function CompletionItem({ verdict, proofCount }: { verdict: "SAFE" | "DANGEROUS"; proofCount: number }) {
-  const isSafe = verdict === "SAFE";
+function CompletionItem({ verdict }: { verdict: "SAFE" | "DANGEROUS" }) {
+  const proofs = useAuditStore((s) => s.proofs);
+  const findings = useAuditStore((s) => s.findings);
+  const dealbreaker = proofs.find(
+    (p) => p.kind === "STRUCTURAL" && p.evidence?.startsWith("Dealbreaker:")
+  );
+
+  const proofByFileLine = Object.fromEntries(proofs.map(p => [p.fileLine, p]));
+  const verified = findings.filter(f => proofByFileLine[f.fileLine]?.kind === "TEST_CONFIRMED").length;
+  const observed = findings.filter(f => proofByFileLine[f.fileLine]?.kind === "AI_DYNAMIC").length;
+
+  let summary: string;
+  let color: string;
+  let bg: string;
+  let icon: string;
+
+  if (verdict === "SAFE") {
+    summary = "No malicious behavior detected. Package appears safe to install.";
+    color = "var(--safe)";
+    bg = "var(--safe-bg)";
+    icon = "\u2713";
+  } else if (dealbreaker) {
+    summary = `Dealbreaker detected — ${dealbreaker.problem}. Skipped to DANGEROUS.`;
+    color = "var(--danger)";
+    bg = "var(--danger-bg)";
+    icon = "\u2717";
+  } else if (verified > 0) {
+    const rest = findings.length - verified;
+    summary = `${verified} finding${verified !== 1 ? "s" : ""} verified by exploit tests.${rest > 0 ? ` ${rest} additional flagged.` : ""}`;
+    color = "var(--danger)";
+    bg = "var(--danger-bg)";
+    icon = "\u2717";
+  } else if (observed > 0) {
+    summary = `${observed} finding${observed !== 1 ? "s" : ""} observed at runtime but not verified by tests. Review recommended.`;
+    color = "var(--suspected)";
+    bg = "var(--suspected-bg)";
+    icon = "?";
+  } else if (findings.length > 0) {
+    summary = `${findings.length} finding${findings.length !== 1 ? "s" : ""} flagged by static analysis but none verified. Manual review recommended.`;
+    color = "var(--text-muted)";
+    bg = "var(--bg-secondary)";
+    icon = "?";
+  } else {
+    summary = "Analysis complete. No findings.";
+    color = "var(--safe)";
+    bg = "var(--safe-bg)";
+    icon = "\u2713";
+  }
+
   return (
     <div
       className="feed-item"
       style={{
-        borderLeft: `3px solid ${isSafe ? "var(--safe)" : "var(--danger)"}`,
-        background: isSafe ? "var(--safe-bg)" : "var(--danger-bg)",
+        borderLeft: `3px solid ${color}`,
+        background: bg,
         marginTop: 8,
       }}
     >
       <div style={{
         fontWeight: 700,
         fontSize: "0.85rem",
-        color: isSafe ? "var(--safe)" : "var(--danger)",
+        color,
         marginBottom: 2,
       }}>
-        {isSafe ? "\u2713" : "\u2717"} Audit complete
+        {icon} Audit complete
       </div>
-      <div className="feed-body">
-        {isSafe
-          ? "No malicious behavior detected. Package is safe to install."
-          : `${proofCount} proof${proofCount !== 1 ? "s" : ""} of malicious behavior confirmed.`}
-      </div>
+      <div className="feed-body">{summary}</div>
     </div>
   );
 }
@@ -389,7 +464,6 @@ export function ActivityFeed() {
   const findings = useAuditStore((s) => s.findings);
   const riskSummary = useAuditStore((s) => s.riskSummary);
   const verdict = useAuditStore((s) => s.verdict);
-  const proofCount = useAuditStore((s) => s.proofCount);
   const agentThinking = useAuditStore((s) => s.agentThinking);
   const isRunning = useAuditStore((s) => s.isRunning);
   const phase = useAuditStore((s) => s.phase);
@@ -513,7 +587,7 @@ export function ActivityFeed() {
 
         {agentThinking && <ThinkingIndicator />}
 
-        {verdict && <CompletionItem verdict={verdict} proofCount={proofCount} />}
+        {verdict && <CompletionItem verdict={verdict} />}
 
         <div ref={bottomRef} />
       </div>

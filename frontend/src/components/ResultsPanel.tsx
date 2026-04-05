@@ -1,6 +1,20 @@
 import { useState } from "react";
+import CodeMirror from "@uiw/react-codemirror";
+import { javascript } from "@codemirror/lang-javascript";
+import { EditorView } from "@codemirror/view";
 import { useAuditStore } from "../stores/auditStore";
 import type { Finding, Proof } from "../lib/types";
+
+function verificationStatus(proof?: Proof) {
+  if (!proof) return { label: "FLAGGED", color: "var(--text-muted)", bg: "var(--bg-tertiary)", border: "var(--text-muted)", rank: 5 };
+  switch (proof.kind) {
+    case "TEST_CONFIRMED": return { label: "VERIFIED", color: "var(--danger)", bg: "var(--danger-bg)", border: "var(--danger)", rank: 0 };
+    case "AI_DYNAMIC": return { label: "OBSERVED", color: "var(--suspected)", bg: "var(--suspected-bg)", border: "var(--suspected)", rank: 1 };
+    case "TEST_UNCONFIRMED": return { label: "UNVERIFIED", color: "var(--suspected)", bg: "var(--suspected-bg)", border: "var(--suspected)", rank: 2 };
+    case "AI_STATIC": return { label: "STATIC ANALYSIS", color: "var(--text-muted)", bg: "var(--bg-tertiary)", border: "var(--text-muted)", rank: 3 };
+    case "STRUCTURAL": return { label: "STRUCTURAL", color: "var(--text-dim)", bg: "var(--bg-secondary)", border: "var(--text-dim)", rank: 4 };
+  }
+}
 
 function FindingCard({
   finding,
@@ -22,19 +36,20 @@ function FindingCard({
     .map((c) => c.trim())
     .filter(Boolean);
 
-  const isConfirmed = finding.confidence === "CONFIRMED";
+  const status = verificationStatus(proof);
 
   return (
     <div
       onClick={onToggle}
       style={{
         borderBottom: "1px solid var(--border)",
+        borderLeft: `3px solid ${status.border}`,
         cursor: "pointer",
         background: isExpanded ? "var(--bg-secondary)" : undefined,
         transition: "background 0.15s",
       }}
     >
-      {/* Always visible: cap tag + name + confidence */}
+      {/* Header: problem title + verification badge */}
       <div
         style={{
           display: "flex",
@@ -43,27 +58,6 @@ function FindingCard({
           padding: "14px 20px 0",
         }}
       >
-        {caps.map((cap) => (
-          <span
-            key={cap}
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: "0.6rem",
-              fontWeight: 700,
-              padding: "2px 7px",
-              borderRadius: 3,
-              letterSpacing: "0.03em",
-              flexShrink: 0,
-              background: isConfirmed
-                ? "var(--danger-bg)"
-                : "var(--suspected-bg)",
-              color: isConfirmed ? "var(--danger)" : "var(--suspected)",
-              border: `1px solid ${isConfirmed ? "rgba(220,38,38,0.12)" : "rgba(202,138,4,0.12)"}`,
-            }}
-          >
-            {cap}
-          </span>
-        ))}
         <span
           style={{
             fontSize: "0.84rem",
@@ -85,56 +79,37 @@ function FindingCard({
             padding: "1px 6px",
             borderRadius: 3,
             flexShrink: 0,
-            background: isConfirmed
-              ? "var(--danger-bg)"
-              : "var(--suspected-bg)",
-            color: isConfirmed ? "var(--danger)" : "var(--suspected)",
+            background: status.bg,
+            color: status.color,
           }}
         >
-          {finding.confidence}
+          {status.label === "VERIFIED" ? "✓ " : ""}{status.label}
         </span>
-        {proof && (
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: "0.55rem",
-              fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              padding: "1px 6px",
-              borderRadius: 3,
-              flexShrink: 0,
-              background:
-                proof.kind === "TEST_CONFIRMED"
-                  ? "var(--safe-bg)"
-                  : "var(--accent-bg)",
-              color:
-                proof.kind === "TEST_CONFIRMED"
-                  ? "var(--safe)"
-                  : "var(--accent-light)",
-            }}
-          >
-            {proof.kind === "TEST_CONFIRMED" ? "✓ " : ""}{proof.kind.replace("_", " ")}
-          </span>
-        )}
-        {proof?.reproducible && (
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: "0.55rem",
-              padding: "1px 6px",
-              borderRadius: 3,
-              flexShrink: 0,
-              background: "var(--bg-tertiary)",
-              color: "var(--text-dim)",
-            }}
-          >
-            ⟳ reproducible
-          </span>
-        )}
       </div>
 
-      {/* Always visible: description + file link */}
+      {/* Capability tags — neutral, not severity indicators */}
+      <div style={{ padding: "4px 20px 0", display: "flex", gap: 6 }}>
+        {caps.map((cap) => (
+          <span
+            key={cap}
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "0.6rem",
+              fontWeight: 600,
+              padding: "1px 6px",
+              borderRadius: 3,
+              letterSpacing: "0.03em",
+              background: "var(--bg-tertiary)",
+              color: "var(--text-dim)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            {cap}
+          </span>
+        ))}
+      </div>
+
+      {/* Evidence + file link */}
       <div
         style={{
           padding: "6px 20px 0",
@@ -252,6 +227,99 @@ function FindingCard({
             </>
           )}
         </div>
+
+        {/* Generated exploit test code */}
+        {proof?.testCode && (
+          <div
+            style={{
+              margin: "0 20px 14px",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "6px 12px",
+                background: "var(--bg-tertiary)",
+                borderBottom: "1px solid var(--border)",
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.6rem",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  color: "var(--text-dim)",
+                }}
+              >
+                Exploit Test
+              </span>
+              {proof.kind === "TEST_CONFIRMED" && (
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "0.55rem",
+                    fontWeight: 700,
+                    padding: "1px 6px",
+                    borderRadius: 3,
+                    background: "var(--danger-bg)",
+                    color: "var(--danger)",
+                  }}
+                >
+                  ✓ VERIFIED
+                </span>
+              )}
+              {proof.kind === "TEST_UNCONFIRMED" && (
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "0.55rem",
+                    fontWeight: 700,
+                    padding: "1px 6px",
+                    borderRadius: 3,
+                    background: "var(--suspected-bg)",
+                    color: "var(--suspected)",
+                  }}
+                >
+                  UNCONFIRMED
+                </span>
+              )}
+              {proof.testHash && (
+                <span
+                  style={{
+                    marginLeft: "auto",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "0.55rem",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  #{proof.testHash.slice(0, 8)}
+                </span>
+              )}
+            </div>
+            <div style={{ maxHeight: 300, overflow: "auto" }}>
+              <CodeMirror
+                value={proof.testCode}
+                extensions={[
+                  javascript({ jsx: false, typescript: false }),
+                  EditorView.editable.of(false),
+                ]}
+                basicSetup={{
+                  lineNumbers: false,
+                  foldGutter: false,
+                  highlightActiveLine: false,
+                }}
+                style={{ fontSize: "0.72rem" }}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -268,6 +336,11 @@ export function ResultsPanel({
 
   // Match each finding to a proof by fileLine (natural join key)
   const proofByFileLine = Object.fromEntries(proofs.map((p) => [p.fileLine, p]));
+
+  // Sort findings: verified threats first, then observed, unverified, static, flagged
+  const sortedFindings = [...findings]
+    .map((f, i) => ({ finding: f, originalIndex: i, rank: verificationStatus(proofByFileLine[f.fileLine]).rank }))
+    .sort((a, b) => a.rank - b.rank);
 
   return (
     <div className="h-full flex flex-col">
@@ -303,16 +376,16 @@ export function ResultsPanel({
         </button>
       </div>
 
-      {/* Findings list */}
+      {/* Findings list — sorted by verification status */}
       <div className="flex-1 overflow-y-auto">
-        {findings.map((f, i) => (
+        {sortedFindings.map(({ finding: f, originalIndex }) => (
           <FindingCard
-            key={i}
+            key={originalIndex}
             finding={f}
             proof={proofByFileLine[f.fileLine]}
-            isExpanded={expandedIndex === i}
+            isExpanded={expandedIndex === originalIndex}
             onToggle={() =>
-              setExpandedIndex(expandedIndex === i ? null : i)
+              setExpandedIndex(expandedIndex === originalIndex ? null : originalIndex)
             }
             onShowCode={onShowCode}
           />

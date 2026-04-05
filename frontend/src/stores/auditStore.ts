@@ -10,6 +10,7 @@ import type {
   Proof,
   SSEEvent,
   PipelineLogEntry,
+  InventoryMeta,
 } from "../lib/types";
 import { PHASE_ORDER, PHASE_LABELS } from "../lib/types";
 
@@ -48,6 +49,9 @@ interface AuditState {
   proofCount: number;
   proofs: Proof[];
 
+  // Inventory metadata
+  inventoryMeta: InventoryMeta | null;
+
   // UI state
   selectedFile: string | null;
   selectedFileContent: string | null;
@@ -85,6 +89,7 @@ const initialState = {
   capabilities: [],
   proofCount: 0,
   proofs: [],
+  inventoryMeta: null,
   selectedFile: null,
   selectedFileContent: null,
   autoFollow: true,
@@ -116,7 +121,7 @@ function connectSSE(
   const eventTypes = [
     "audit_started", "phase_started", "phase_completed",
     "file_list", "file_analyzing", "file_verdict",
-    "triage_complete", "triage_progress",
+    "triage_complete", "triage_progress", "inventory_meta",
     "agent_thinking", "agent_tool_call", "agent_tool_result",
     "agent_reasoning", "finding_discovered", "verdict_reached",
     "audit_error",
@@ -290,6 +295,43 @@ export const useAuditStore = create<AuditState>((set, get) => ({
 
       case "triage_progress": {
         set({ triageProgress: { current: event.current, total: event.total } });
+        break;
+      }
+
+      case "inventory_meta": {
+        const meta: InventoryMeta = {
+          scripts: event.scripts,
+          dependencies: event.dependencies,
+          entryPoints: event.entryPoints,
+          metadata: event.metadata,
+        };
+        const LIFECYCLE_SCRIPTS = ["preinstall", "install", "postinstall", "prepare", "prepack"];
+        const lifecycle = Object.entries(event.scripts)
+          .filter(([k]) => LIFECYCLE_SCRIPTS.includes(k));
+        const newEntries: typeof state.pipelineLog = [];
+        if (lifecycle.length > 0) {
+          newEntries.push({
+            kind: "scripts" as const,
+            text: lifecycle.map(([k, v]) => `${k}: ${v}`).join("\n"),
+            scripts: event.scripts,
+            timestamp: event.timestamp,
+          });
+        }
+        const depCounts = Object.entries(event.dependencies)
+          .filter(([, deps]) => Object.keys(deps).length > 0)
+          .map(([kind, deps]) => `${Object.keys(deps).length} ${kind}`)
+          .join(" · ");
+        if (depCounts) {
+          newEntries.push({
+            kind: "info" as const,
+            text: depCounts + " dependencies",
+            timestamp: event.timestamp,
+          });
+        }
+        set({
+          inventoryMeta: meta,
+          pipelineLog: [...state.pipelineLog, ...newEntries],
+        });
         break;
       }
 

@@ -180,6 +180,7 @@ export async function generateTests(
       ...proof,
       testFile: testPath,
       testHash: hash,
+      testCode: result.testCode,
     };
   });
 

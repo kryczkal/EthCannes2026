@@ -328,6 +328,62 @@ export function CodeViewer({
         )}
       </div>
 
+      {/* Suspicious patterns */}
+      {fileVerdict && fileVerdict.suspiciousPatterns.length > 0 && (
+        <div
+          className="shrink-0"
+          style={{
+            borderTop: "1px solid var(--border)",
+            background: "var(--bg-secondary)",
+            maxHeight: 120,
+            overflowY: "auto",
+          }}
+        >
+          {fileVerdict.suspiciousPatterns.map((pattern, i) => {
+            const lineMatch = pattern.match(/L(\d+)/);
+            const lineNum = lineMatch ? parseInt(lineMatch[1], 10) : null;
+            return (
+              <div
+                key={i}
+                onClick={() => {
+                  if (lineNum && editorRef.current?.view) {
+                    const view = editorRef.current.view;
+                    if (lineNum <= view.state.doc.lines) {
+                      const lineObj = view.state.doc.line(lineNum);
+                      view.dispatch({
+                        effects: EditorView.scrollIntoView(lineObj.from, { y: "center" }),
+                      });
+                    }
+                  }
+                }}
+                style={{
+                  padding: "4px 16px",
+                  fontSize: "0.72rem",
+                  fontFamily: "var(--font-mono)",
+                  color: "var(--text-dim)",
+                  cursor: lineNum ? "pointer" : "default",
+                  borderBottom: i < fileVerdict.suspiciousPatterns.length - 1
+                    ? "1px solid var(--border)"
+                    : undefined,
+                  display: "flex",
+                  gap: 8,
+                }}
+              >
+                <span style={{ color: "var(--suspected)", flexShrink: 0 }}>&gt;</span>
+                <span>
+                  {pattern.replace(/^L[\d,\s\-]+:?\s*/, "")}
+                </span>
+                {lineMatch && (
+                  <span style={{ color: "var(--accent-light)", flexShrink: 0, marginLeft: "auto" }}>
+                    {lineMatch[0]}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Verdict summary footer */}
       {fileVerdict && fileVerdict.summary && (
         <div

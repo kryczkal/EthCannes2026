@@ -27,6 +27,13 @@ export interface FindingDiscovered extends AuditEvent { type: "finding_discovere
 export interface VerdictReached extends AuditEvent { type: "verdict_reached"; verdict: string; capabilities: string[]; proofCount: number }
 export interface AgentThinking extends AuditEvent { type: "agent_thinking"; step: number }
 export interface TriageProgress extends AuditEvent { type: "triage_progress"; current: number; total: number; file: string }
+export interface InventoryMeta extends AuditEvent {
+  type: "inventory_meta";
+  scripts: Record<string, string>;
+  dependencies: Record<string, Record<string, string>>;
+  entryPoints: { install: string[]; runtime: string[]; bin: string[] };
+  metadata: { name: string | null; version: string | null; description: string | null; license: string | null };
+}
 export interface AuditError extends AuditEvent { type: "audit_error"; error: string }
 
 // ---------------------------------------------------------------------------

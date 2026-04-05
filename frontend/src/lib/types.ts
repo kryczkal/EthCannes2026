@@ -44,6 +44,8 @@ export interface Proof {
   reproducible: boolean;
   reproductionCmd: string | null;
   testFile: string | null;
+  testHash: string | null;
+  testCode: string | null;
   reasoningHash: string | null;
 }
 
@@ -69,11 +71,19 @@ export interface AgentStep {
 }
 
 export interface PipelineLogEntry {
-  kind: "phase" | "info" | "file-scan" | "file-flag";
+  kind: "phase" | "info" | "file-scan" | "file-flag" | "scripts";
   text: string;
   file?: string;
   risk?: number;
   timestamp: string;
+  scripts?: Record<string, string>;
+}
+
+export interface InventoryMeta {
+  scripts: Record<string, string>;
+  dependencies: Record<string, Record<string, string>>;
+  entryPoints: { install: string[]; runtime: string[]; bin: string[] };
+  metadata: { name: string | null; version: string | null; description: string | null; license: string | null };
 }
 
 // SSE event payloads — discriminated union for type safety
@@ -164,6 +174,14 @@ export interface TriageProgressEvent extends BaseEvent {
   file: string;
 }
 
+export interface InventoryMetaEvent extends BaseEvent {
+  type: "inventory_meta";
+  scripts: Record<string, string>;
+  dependencies: Record<string, Record<string, string>>;
+  entryPoints: { install: string[]; runtime: string[]; bin: string[] };
+  metadata: { name: string | null; version: string | null; description: string | null; license: string | null };
+}
+
 export interface AuditErrorEvent extends BaseEvent {
   type: "audit_error";
   error?: string;
@@ -184,6 +202,7 @@ export type SSEEvent =
   | VerdictReachedEvent
   | AgentThinkingEvent
   | TriageProgressEvent
+  | InventoryMetaEvent
   | AuditErrorEvent;
 
 export const PHASE_ORDER = ["resolve", "inventory", "triage", "investigation", "test-gen", "verify"] as const;

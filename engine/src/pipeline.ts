@@ -101,6 +101,14 @@ export async function runAudit(packageName: string, emit?: EmitFn, auditId?: str
     // Emit file list for frontend visualization
     emit?.("file_list", { files: inventory.files });
 
+    // Emit inventory metadata (scripts, deps, entry points) for frontend
+    emit?.("inventory_meta", {
+      scripts: inventory.scripts,
+      dependencies: inventory.dependencies,
+      entryPoints: inventory.entryPoints,
+      metadata: inventory.metadata,
+    });
+
     // Scale phase timeouts by file count: base timeout for ≤20 files,
     // +50% per 20 extra files, clamped at 4× base.
     const sourceFileCount = inventory.files.filter(

@@ -63,10 +63,18 @@ function TreeNodeComponent({ node, depth }: { node: TreeNode; depth: number }) {
   const fileStatuses = useAuditStore((s) => s.fileStatuses);
   const fileVerdicts = useAuditStore((s) => s.fileVerdicts);
   const selectFile = useAuditStore((s) => s.selectFile);
+  const entryPoints = useAuditStore((s) => s.inventoryMeta?.entryPoints);
 
   const status = fileStatuses[node.path] as FileStatus | undefined;
   const verdict = fileVerdicts[node.path];
   const isSelected = selectedFile === node.path;
+
+  const entryKind = !node.isDir && entryPoints
+    ? entryPoints.install.includes(node.path) ? "HOOK"
+    : entryPoints.bin.includes(node.path) ? "BIN"
+    : entryPoints.runtime.includes(node.path) ? "ENTRY"
+    : null
+    : null;
 
   const dirStatus = useMemo(() => {
     if (!node.isDir) return null;
@@ -144,6 +152,53 @@ function TreeNodeComponent({ node, depth }: { node: TreeNode; depth: number }) {
           />
         )}
         <span>{node.isDir ? `${node.name}/` : node.name}</span>
+        {!node.isDir && node.file?.isBinary && (
+          <span
+            style={{
+              fontSize: "0.55rem",
+              fontWeight: 700,
+              padding: "0 4px",
+              borderRadius: 2,
+              fontFamily: "var(--font-mono)",
+              background: "var(--danger-bg)",
+              color: "var(--danger)",
+              letterSpacing: "0.03em",
+            }}
+          >
+            {node.file.binaryType || "BIN"}
+          </span>
+        )}
+        {!node.isDir && node.file && !node.file.isBinary && node.file.permissions.startsWith("7") && (
+          <span
+            style={{
+              fontSize: "0.55rem",
+              fontWeight: 700,
+              padding: "0 3px",
+              borderRadius: 2,
+              fontFamily: "var(--font-mono)",
+              color: "var(--suspected)",
+              opacity: 0.8,
+            }}
+          >
+            x
+          </span>
+        )}
+        {entryKind && (
+          <span
+            style={{
+              fontSize: "0.5rem",
+              fontWeight: 700,
+              padding: "0 4px",
+              borderRadius: 2,
+              fontFamily: "var(--font-mono)",
+              letterSpacing: "0.03em",
+              background: entryKind === "HOOK" ? "var(--danger-bg)" : entryKind === "BIN" ? "var(--suspected-bg)" : "var(--accent-bg)",
+              color: entryKind === "HOOK" ? "var(--danger)" : entryKind === "BIN" ? "var(--suspected)" : "var(--accent-light)",
+            }}
+          >
+            {entryKind}
+          </span>
+        )}
         {verdict && verdict.riskContribution >= 3 && (
           <span
             style={{

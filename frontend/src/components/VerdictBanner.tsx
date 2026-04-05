@@ -4,8 +4,12 @@ import { useAuditStore } from "../stores/auditStore";
 export function VerdictBanner() {
   const verdict = useAuditStore((s) => s.verdict);
   const capabilities = useAuditStore((s) => s.capabilities);
-  const proofCount = useAuditStore((s) => s.proofCount);
   const findings = useAuditStore((s) => s.findings);
+  const proofs = useAuditStore((s) => s.proofs);
+
+  const dealbreaker = proofs.find(
+    (p) => p.kind === "STRUCTURAL" && p.evidence?.startsWith("Dealbreaker:")
+  );
 
   // Staged reveal: 0=hidden, 1=verdict word, 2=stats, 3=caps
   const [stage, setStage] = useState(0);
@@ -24,7 +28,44 @@ export function VerdictBanner() {
 
   if (!verdict) return null;
 
-  const isDangerous = verdict === "DANGEROUS";
+  // Compute verification-aware presentation
+  const proofByFileLine = Object.fromEntries(proofs.map(p => [p.fileLine, p]));
+  const verified = findings.filter(f => proofByFileLine[f.fileLine]?.kind === "TEST_CONFIRMED").length;
+  const observed = findings.filter(f => proofByFileLine[f.fileLine]?.kind === "AI_DYNAMIC").length;
+  const rest = findings.length - verified - observed;
+
+  // Derive display label + color from what was actually proven
+  let displayLabel: string;
+  let displayColor: string;
+  if (verdict === "SAFE") {
+    displayLabel = "SAFE";
+    displayColor = "var(--safe)";
+  } else if (dealbreaker) {
+    displayLabel = "DANGEROUS";
+    displayColor = "var(--danger)";
+  } else if (verified > 0) {
+    displayLabel = "DANGEROUS";
+    displayColor = "var(--danger)";
+  } else if (observed > 0) {
+    displayLabel = "SUSPICIOUS";
+    displayColor = "var(--suspected)";
+  } else {
+    displayLabel = "REVIEW";
+    displayColor = "var(--text-muted)";
+  }
+
+  let statsText: string;
+  if (dealbreaker) {
+    statsText = `DEALBREAKER: ${dealbreaker.problem}`;
+  } else if (verified > 0) {
+    statsText = `${verified} verified${rest > 0 ? ` · ${rest} flagged` : ""}`;
+  } else if (observed > 0) {
+    statsText = `${observed} observed · ${rest} unverified`;
+  } else if (findings.length > 0) {
+    statsText = `${findings.length} flagged · none verified`;
+  } else {
+    statsText = verdict === "SAFE" ? "No issues found" : "Analysis complete";
+  }
 
   return (
     <div
@@ -32,7 +73,7 @@ export function VerdictBanner() {
       className="animate-slide-down flex items-center gap-4 shrink-0"
       style={{
         padding: "12px 28px",
-        borderTop: `2px solid ${isDangerous ? "var(--danger)" : "var(--safe)"}`,
+        borderTop: `2px solid ${displayColor}`,
         background: "var(--bg)",
       }}
     >
@@ -45,10 +86,10 @@ export function VerdictBanner() {
             fontWeight: 800,
             fontSize: "1.1rem",
             letterSpacing: "0.04em",
-            color: isDangerous ? "var(--danger)" : "var(--safe)",
+            color: displayColor,
           }}
         >
-          {verdict}
+          {displayLabel}
         </span>
       )}
 
@@ -59,15 +100,15 @@ export function VerdictBanner() {
           style={{
             fontFamily: "var(--font-mono)",
             fontSize: "0.72rem",
-            color: "var(--text-dim)",
+            color: dealbreaker ? "var(--danger)" : "var(--text-dim)",
+            fontWeight: dealbreaker ? 700 : 400,
           }}
         >
-          {proofCount} proof{proofCount !== 1 ? "s" : ""} · {findings.length}{" "}
-          finding{findings.length !== 1 ? "s" : ""}
+          {statsText}
         </span>
       )}
 
-      {/* Capability tags */}
+      {/* Capability tags — neutral, not severity indicators */}
       {stage >= 3 && capabilities.length > 0 && (
         <div className="ml-auto flex gap-1">
           {capabilities.map((cap, i) => (
@@ -79,8 +120,8 @@ export function VerdictBanner() {
                 fontSize: "0.6rem",
                 padding: "1px 6px",
                 borderRadius: "var(--radius-sm)",
-                border: `1px solid ${isDangerous ? "var(--danger)" : "var(--safe)"}`,
-                color: isDangerous ? "var(--danger)" : "var(--safe)",
+                border: "1px solid var(--border)",
+                color: "var(--text-dim)",
                 opacity: 0,
                 animationDelay: `${i * 150}ms`,
                 animationFillMode: "forwards",
