@@ -2,8 +2,8 @@ import { generateText, generateObject, tool } from "ai";
 import { z } from "zod";
 import { config } from "../config.js";
 import { getModel } from "../llm.js";
-import { InvestigationOutput, type InvestigationAgentOutput, type ToolCallRecord } from "../models.js";
-import { writeLog } from "../audit-log.js";
+import { InvestigationOutput, type InvestigationAgentOutput, type InvestigationInput, type ToolCallRecord } from "../models.js";
+import type { AuditLogger } from "../audit-log.js";
 import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt.js";
 import { readFileImpl, listFilesImpl, searchFilesImpl } from "./tools-read.js";
 import { evalJsImpl, requireAndTraceImpl, runLifecycleHookImpl, fastForwardTimersImpl } from "./tools-execute.js";
@@ -15,6 +15,7 @@ export async function runInvestigationAgent(
   sandbox: DockerSandboxController,
   lifecycleHooks: Record<string, string>,
   emit?: EmitFn,
+  log?: AuditLogger,
 ): Promise<InvestigationAgentOutput> {
   const model = getModel(config.investigationModel);
   const packagePath = input.packagePath;
@@ -79,7 +80,7 @@ export async function runInvestigationAgent(
   let stepIndex = 0;
 
   console.log(`[agent] starting investigation of ${input.packageName || "unknown"}`);
-  writeLog("agent_prompt.md", `# System Prompt\n\n${SYSTEM_PROMPT}\n\n# User Prompt\n\n${buildUserPrompt(input)}`);
+  log?.writeLog("agent_prompt.md", `# System Prompt\n\n${SYSTEM_PROMPT}\n\n# User Prompt\n\n${buildUserPrompt(input)}`);
 
   emit?.("agent_thinking", { step: 0 });
 
@@ -154,7 +155,7 @@ export async function runInvestigationAgent(
   console.log(`[agent] investigation complete — ${result.steps.length} steps, ${toolCallRecords.length} tool calls`);
 
   // Save full untruncated agent conversation to file
-  writeLog("agent_steps.json", fullToolResults);
+  log?.writeLog("agent_steps.json", fullToolResults);
 
   // Log the agent's final text response
   if (result.text) {
@@ -168,7 +169,7 @@ export async function runInvestigationAgent(
     }
   }
 
-  writeLog("agent_response.md", result.text);
+  log?.writeLog("agent_response.md", result.text);
 
   // Build concise tool context for the extraction LLM
   const toolCallLog: string[] = [];
@@ -186,7 +187,7 @@ export async function runInvestigationAgent(
     `Investigation result:\n${result.text}${toolContext}`;
   console.log(`[agent] extraction prompt: ${extractionPrompt.length} chars (${toolCallLog.length} tool calls included)`);
 
-  writeLog("extraction_prompt.md", extractionPrompt);
+  log?.writeLog("extraction_prompt.md", extractionPrompt);
 
   const extraction = await generateObject({
     model,
@@ -199,7 +200,7 @@ export async function runInvestigationAgent(
     console.log(`[agent]   [${f.confidence}] ${f.capability} @ ${f.fileLine}: ${f.problem.slice(0, 120)}`);
   }
 
-  writeLog("extraction_result.json", extraction.object);
+  log?.writeLog("extraction_result.json", extraction.object);
 
   return {
     ...extraction.object,
@@ -207,6 +208,3 @@ export async function runInvestigationAgent(
     agentText: result.text,
   };
 }
-
-// Re-export for type inference
-import type { InvestigationInput } from "../models.js";
