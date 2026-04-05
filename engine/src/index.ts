@@ -84,8 +84,16 @@ async function processQueue() {
   try {
     const { report, packagePath, cleanup } = await runAudit(item.packageName);
 
-    if (item.version && process.env.PINATA_JWT) {
-      publishAuditResults(item.packageName, item.version, report, packagePath)
+    // Publish to IPFS + ENS for all verdicts
+    if (process.env.PINATA_JWT) {
+      // Try to read version from the audited package.json
+      let resolvedVersion = item.version || "latest";
+      try {
+        const pkgJson = JSON.parse(fs.readFileSync(path.join(packagePath, "package.json"), "utf-8"));
+        if (pkgJson.version) resolvedVersion = pkgJson.version;
+      } catch { /* use fallback */ }
+
+      publishAuditResults(item.packageName, resolvedVersion, report, packagePath)
         .then((pub) => console.log(`[publish] done: report=${pub.reportCid} source=${pub.sourceCid} ens=${pub.ensName ?? "skipped"}`))
         .catch((err) => console.error("[publish] failed:", err instanceof Error ? err.message : err))
         .finally(cleanup);
@@ -190,9 +198,30 @@ app.post("/audit/stream", async (c) => {
 
   // Run audit in background — don't await
   runAudit(parsed.data.packageName, emit, session.auditId)
-    .then(({ report, cleanup }) => {
-      session.cleanupFn = cleanup;
+    .then(({ report, packagePath, cleanup }) => {
       finalizeSession(session.auditId, report);
+
+      // Publish to IPFS + ENS for all verdicts
+      if (process.env.PINATA_JWT) {
+        let resolvedVersion = parsed.data.version || "latest";
+        try {
+          const pkgJson = JSON.parse(fs.readFileSync(path.join(packagePath, "package.json"), "utf-8"));
+          if (pkgJson.version) resolvedVersion = pkgJson.version;
+        } catch { /* use fallback */ }
+
+        publishAuditResults(parsed.data.packageName, resolvedVersion, report, packagePath)
+          .then((pub) => {
+            console.log(`[publish] done: report=${pub.reportCid} source=${pub.sourceCid} ens=${pub.ensName ?? "skipped"}`);
+            emit("publish_complete", { reportCid: pub.reportCid, sourceCid: pub.sourceCid, ensName: pub.ensName });
+          })
+          .catch((err) => {
+            console.error("[publish] failed:", err instanceof Error ? err.message : err);
+            emit("publish_failed", { error: err instanceof Error ? err.message : "unknown" });
+          })
+          .finally(cleanup);
+      } else {
+        cleanup();
+      }
     })
     .catch((err) => {
       console.error("[api] streaming audit failed:", err);
